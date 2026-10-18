@@ -27,5 +27,8 @@ jobs:
           toolchain: stable
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
+      # Vulnerabilities always fail it; so do unsound and yanked crates. A crate being "unmaintained" is shown
+      # but does not fail: the three that are (zbus_names, zvariant, zvariant_derive, reported 2026-10-16) come
+      # in through the Linux screen-reader support (accesskit_unix) and are not ours to replace.
       - name: Audit
-        run: cargo audit --deny warnings
+        run: cargo audit --deny unsound --deny yanked

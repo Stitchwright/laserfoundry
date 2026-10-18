@@ -38,7 +38,12 @@ Result: no critical issue, nothing that leaves the laser on or injects G-code, n
 
 ## Still open
 
-1. **A hostile project file** can still hold up to 100,000 shapes (the importer's cap); the limits above keep
+1. **Three "unmaintained" crates** (`zbus_names`, `zvariant`, `zvariant_derive`, RUSTSEC-2026-0370 to -0372,
+   reported 2026-10-16) arrive through the Linux screen-reader support (`accesskit_unix`, from egui's
+   `accesskit` feature). They are not vulnerabilities; the weekly audit shows them without failing. Watch for
+   an `accesskit` release that moves to a maintained replacement.
+
+2. **A hostile project file** can still hold up to 100,000 shapes (the importer's cap); the limits above keep
    copies and history bounded, but very large documents are slow. Not a safety issue.
-2. **Not covered by this audit**: a test on real hardware, a third-party review, a dependency licence review,
+3. **Not covered by this audit**: a test on real hardware, a third-party review, a dependency licence review,
    and the Windows owner-only permission on the data folder (it relies on the profile folder's access list).

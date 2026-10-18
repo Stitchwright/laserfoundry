@@ -78,6 +78,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "ai_reply"
+path = "fuzz_targets/ai_reply.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "font_index"
 path = "fuzz_targets/font_index.rs"
 test = false

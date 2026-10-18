@@ -1820,6 +1820,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightfoundry-ai"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "lightfoundry-cli"
 version = "0.1.0"
 dependencies = [
@@ -1907,6 +1915,7 @@ dependencies = [
 name = "lightfoundry-fuzzkit"
 version = "0.1.0"
 dependencies = [
+ "lightfoundry-ai",
  "lightfoundry-device",
  "lightfoundry-dxf",
  "lightfoundry-engine",

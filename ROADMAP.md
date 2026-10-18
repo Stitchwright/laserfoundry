@@ -572,3 +572,12 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   buffers and the (test-sized) queue fill, while another agent keeps working; it fails if the drop is removed.
   Closes the audit's last test gap. Left in `docs/security-audit.md`: very large hostile documents are slow, and
   hardware, outside review and a licence review were out of scope.
+- **2026-10-18 — AI and accounts, the core (`crates/ai`).** A new layer-0 crate, written for laser work and
+  checked for the browser build (no network code): requests and reply parsers for Design from Prompt and Redraw
+  Image (millimetre SVG whose colours say cut, score or engrave), Ask About Lasering (document as labelled
+  context, bounded conversation), Check My Cut (photos in; setting suggestions read from one JSON object and kept
+  only when in range) and the account service (sign up/in/out, account, checkout, requests paid in credits, with
+  a key never sent to the service and a session token never to Anthropic). Same service as StitchFoundry's, so
+  one account and balance; the code is new, not copied. 19 tests plus a fuzz entry (`ai_reply`, stable
+  mutation test and a `fuzz/` target). Not done: the account window and dialogs, the hosts' network clients,
+  token storage. See `docs/ai.md`.

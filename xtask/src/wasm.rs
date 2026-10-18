@@ -13,7 +13,7 @@ const PREFIX: &str = "lightfoundry-";
 
 /// Package names (without the `lightfoundry-` prefix) the browser build contains.
 pub const WASM: &[&str] =
-    &["geom", "doc", "pathops", "toolpath", "text", "svg", "dxf", "gcode", "format", "device", "i18n", "engine", "ui-egui", "web"];
+    &["geom", "doc", "pathops", "toolpath", "text", "svg", "dxf", "gcode", "format", "device", "i18n", "ai", "engine", "ui-egui", "web"];
 
 /// Packages that never run in the browser, and why.
 pub const NATIVE_ONLY: &[&str] = &[

@@ -1,0 +1,14 @@
+[package]
+name = "lightfoundry-ai"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Requests for the AI features and the account service: pure builders and parsers, no network code"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+thiserror = { workspace = true }

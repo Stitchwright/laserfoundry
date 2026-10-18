@@ -16,6 +16,7 @@ repository = "https://github.com/Stitchwright/lightfoundry"
 lightfoundry-geom = { path = "crates/geom" }
 lightfoundry-i18n = { path = "crates/i18n" }
 lightfoundry-fontlib = { path = "crates/fontlib" }
+lightfoundry-ai = { path = "crates/ai" }
 lightfoundry-doc = { path = "crates/doc" }
 lightfoundry-toolpath = { path = "crates/toolpath" }
 lightfoundry-text = { path = "crates/text" }

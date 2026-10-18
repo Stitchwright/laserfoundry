@@ -5,7 +5,7 @@ nightly toolchain):
 
 ```sh
 cargo install cargo-fuzz
-cargo +nightly fuzz run svg          # or: dxf project controller_line gcode_program mcp_message text_layout glyph_font inkstitch_font font_index font_listing command
+cargo +nightly fuzz run svg          # or: dxf project controller_line gcode_program mcp_message text_layout glyph_font inkstitch_font font_index font_listing ai_reply command
 ```
 
 Every target calls a function in `crates/fuzzkit`, which are also driven by deterministic mutation

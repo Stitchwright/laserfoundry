@@ -1,7 +1,30 @@
+A picture is too large to send: crop it, or use a smaller copy.
+Accounts aren't open yet: set the server address in the account window.
+Add a photo of the cut first.
+An account with that email already exists: sign in instead.
+Anthropic refused the API key: {0}
+Couldn't reach the service: {0}
 DXF is larger than {1} MB
+Describe the design first.
+Enter your Anthropic API key first.
 I/O error talking to the machine: {0}
 I/O error: {0}
+Not enough credits: buy more in the account window.
 SVG is larger than {1} MB
+Sign in to your account first (Help › Account…).
+That is too long: keep it under 2,000 characters.
+The AI declined to draw this: try another description.
+The AI service failed (error {0}): try again later.
+The AI service is busy: try again in a minute.
+The AI won't copy someone else's logo or character: {0}
+The API key isn't valid: paste it again from the Anthropic Console.
+The account can't pay for this: {0}
+The reply grew too long to finish: ask for something simpler.
+The reply had no answer: try again, or ask something narrower.
+The reply had no artwork: try again.
+The request failed (error {0}): {1}
+The service can't do this yet: try again later.
+Type a question first.
 a batch may hold at most {MAX_BATCH} commands
 a boolean needs at least two shapes
 a coordinate is not a finite number

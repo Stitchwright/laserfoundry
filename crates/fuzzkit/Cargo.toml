@@ -17,5 +17,6 @@ lightfoundry-device = { workspace = true }
 lightfoundry-mcp = { workspace = true }
 lightfoundry-text = { workspace = true }
 lightfoundry-fontlib = { workspace = true }
+lightfoundry-ai = { workspace = true }
 lightfoundry-web = { path = "../../apps/lightfoundry-web" }
 serde_json = { workspace = true }

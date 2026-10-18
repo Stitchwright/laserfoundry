@@ -115,6 +115,27 @@ pub fn font_listing(data: &[u8]) {
     let _ = lightfoundry_fontlib::safe_path(&text);
 }
 
+/// Replies from the AI service and the account service, in every parser: the first byte picks the HTTP
+/// status and whether the request went through the account service, the rest is the body.
+pub fn ai_reply(data: &[u8]) {
+    let Some((first, rest)) = data.split_first() else { return };
+    let text = String::from_utf8_lossy(rest);
+    let status = [200u16, 200, 200, 401, 402, 429, 500, 503, 529, 404][usize::from(*first >> 1) % 10];
+    let session = first & 1 == 1;
+    let _ = lightfoundry_ai::art::parse_reply(status, &text, session);
+    let _ = lightfoundry_ai::ask::parse_reply(status, &text, session);
+    let _ = lightfoundry_ai::check::parse_reply(status, &text, session);
+    let _ = lightfoundry_ai::check::read_check(&text);
+    let _ = lightfoundry_ai::art::extract_svg(&text);
+    let _ = lightfoundry_ai::cloud::clean_server(&text);
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+        let _ = lightfoundry_ai::cloud::session(&v);
+        let _ = lightfoundry_ai::cloud::read_account(&v);
+        let _ = lightfoundry_ai::cloud::checkout_url(&v);
+    }
+    let _ = lightfoundry_ai::cloud::parse(status, &text);
+}
+
 /// A command and its parameters: the first byte picks the command, the rest is JSON.
 pub fn command(data: &[u8]) {
     let Some((first, rest)) = data.split_first() else { return };
@@ -286,6 +307,20 @@ mod tests {
         drive(r#"["foundry-block","foundry-sans","../x"]"#, font_index, 1500);
         let tree = r#"{"tree":[{"path":"fonts/a/font.json","type":"blob","size":10},{"path":"fonts/a/preview.png","type":"blob","size":9},{"path":"inkstitch/b/ltr.svg","type":"blob","size":99},{"path":"fonts","type":"tree"}],"truncated":false}"#;
         drive(tree, font_listing, 3000);
+    }
+
+    #[test]
+    fn ai_replies_survive_mutation() {
+        let message = r##"{"model":"m","stop_reason":"end_turn","content":[{"type":"text","text":"{\"summary\":\"ok\",\"suggestions\":[{\"layer\":1,\"speed\":900,\"passes\":2}]} <svg viewBox=\"0 0 1 1\"></svg>"}]}"##;
+        let account =
+            r#"{"token":"sfs_x","email":"a@b.c","credits":5,"payments":true,"url":"https://x.y/z","packs":[{"id":"s","credits":1,"cents":2}]}"#;
+        for (first, seed) in [(0u8, message), (1, message), (7, message), (2, account), (9, account)] {
+            let mut rng = Rng(0xa1_0000 + u64::from(first));
+            for mut input in mutations(seed.as_bytes(), &mut rng, 1500) {
+                input.insert(0, first);
+                ai_reply(&input);
+            }
+        }
     }
 
     #[test]

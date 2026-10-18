@@ -34,12 +34,20 @@ jobs:
         run: |
           version=$(awk '/^name = "wasm-bindgen"$/ {getline; gsub(/[^0-9.]/, "", $0); print; exit}' Cargo.lock)
           cargo install wasm-bindgen-cli --version "$version" --locked
+      # The AI and account service the page may talk to is a repository variable (Settings > Variables >
+      # LF_CLOUD_URL, an https address). Without it the page is built without the AI menu.
       - name: Build the browser version
+        env:
+          LF_CLOUD_URL: ${{ vars.LF_CLOUD_URL }}
         run: sh apps/lightfoundry-web/build.sh
       - name: Assemble site
+        env:
+          LF_CLOUD_URL: ${{ vars.LF_CLOUD_URL }}
         run: |
           mkdir site
-          cp apps/lightfoundry-web/index.html site/
+          # the page's content security policy names the service's origin, or nothing
+          origin=$(printf '%s' "$LF_CLOUD_URL" | sed -n 's|^\(https://[^/?# ]*\).*|\1|p')
+          sed "s|__CLOUD_ORIGIN__|$origin|" apps/lightfoundry-web/index.html > site/index.html
           cp -r apps/lightfoundry-web/pkg site/pkg
           cargo run --locked -q -p xtask -- site-fonts stitchfoundry-fonts site
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1

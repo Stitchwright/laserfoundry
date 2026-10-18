@@ -23,5 +23,6 @@ eframe = { workspace = true, features = ["default_fonts", "glow"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "Element", "Node", "File", "FileList", "FileReader", "Blob", "BlobPropertyBag", "Url", "Event", "EventTarget", "ProgressEvent", "Storage", "Response"] }
+web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "Element", "Node", "File", "FileList", "FileReader", "Blob", "BlobPropertyBag", "Url", "Event", "EventTarget", "ProgressEvent", "Storage", "Response", "Request", "RequestInit", "RequestRedirect", "Headers", "AbortController", "AbortSignal"] }
 log = { workspace = true }
+lightfoundry-ai = { workspace = true }

@@ -596,3 +596,11 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   Cancel; cancelling sends nothing and remembers nothing. Found by its own test: confirming sent the request
   back through the same question; fixed by handing it straight to the host. Checked by a frame test and the full
   gate.
+- **2026-10-18 — AI in the browser.** The hosted page can now use the service it was built for: a `fetch` client
+  (no redirects, time limit, answers capped), the content security policy gets the service's origin when the
+  Pages build has the `LF_CLOUD_URL` variable (nothing otherwise, and then the AI menu is hidden), and requests
+  to any other address are refused with a reason. Pictures need a file chooser the browser does not have yet, so
+  there the menu offers Design from Prompt, Ask About Lasering and the account. Checked end to end in Chromium
+  against a local fake service with CORS: sign in, credits read, Design from Prompt asks first, sends, and the
+  artwork lands sized at 100 mm with the black layer made a fill layer; 2 native tests for the origin rules and
+  the full gate. Not done: Redraw Image and Check My Cut in the browser; a run against the real service.

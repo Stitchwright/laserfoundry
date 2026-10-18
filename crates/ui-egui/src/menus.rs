@@ -132,13 +132,15 @@ pub fn menu_bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 /// AI: the four features and the account. Each opens its own window.
 fn ai_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     use crate::ai_ui::Window;
-    for (label, window) in [
-        ("Design from Prompt…", Window::Design),
-        ("Redraw Image…", Window::Redraw),
-        ("Ask About Lasering…", Window::Ask),
-        ("Check My Cut…", Window::Check),
+    // Pictures are chosen through a file dialog; a browser host has none yet, so it offers the text features.
+    let pictures = !app.platform.browser_files();
+    for (label, window, needs_picture) in [
+        ("Design from Prompt…", Window::Design, false),
+        ("Redraw Image…", Window::Redraw, true),
+        ("Ask About Lasering…", Window::Ask, false),
+        ("Check My Cut…", Window::Check, true),
     ] {
-        if item(ui, label, "") {
+        if (pictures || !needs_picture) && item(ui, label, "") {
             app.open_ai(window);
         }
     }

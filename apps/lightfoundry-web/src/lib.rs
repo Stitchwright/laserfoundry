@@ -7,6 +7,7 @@
 #![allow(unsafe_code)]
 
 pub mod fontindex;
+pub mod service;
 
 #[cfg(target_arch = "wasm32")]
 mod web {
@@ -45,6 +46,7 @@ mod web {
                                 serial: Rc::new(RefCell::new(None)),
                                 font_job: Rc::new(RefCell::new(FontJob::default())),
                                 leave_warning,
+                                http_job: Rc::new(RefCell::new(HttpJob::default())),
                             }),
                         ),
                     }))
@@ -80,6 +82,8 @@ mod web {
         font_job: Rc<RefCell<FontJob>>,
         /// Whether closing the page would lose work or stop a job halfway (read by the `beforeunload` handler).
         leave_warning: Rc<Cell<bool>>,
+        /// The AI or account request in flight (or its answer, not yet taken).
+        http_job: Rc<RefCell<HttpJob>>,
     }
 
     impl Platform for WebPlatform {
@@ -114,6 +118,37 @@ mod web {
         fn storage_get(&self, key: &str) -> Option<String> {
             // Storage can be missing or throw (private windows, blocked site data): then nothing is remembered.
             web_sys::window()?.local_storage().ok()??.get_item(key).ok()?
+        }
+
+        fn http_available(&self) -> bool {
+            BUILT_IN_SERVICE.is_some_and(|s| crate::service::origin(s).is_some())
+        }
+
+        fn start_http(&self, request: lightfoundry_ai::HttpRequest) -> bool {
+            {
+                let mut job = self.http_job.borrow_mut();
+                if job.running {
+                    return false;
+                }
+                job.running = true;
+                job.result = None;
+            }
+            let job = Rc::clone(&self.http_job);
+            spawn_local(async move {
+                let result = if crate::service::allowed(&request.url, BUILT_IN_SERVICE) {
+                    post(&request).await
+                } else {
+                    Err("this page can only talk to the service it was built for".to_string())
+                };
+                let mut job = job.borrow_mut();
+                job.running = false;
+                job.result = Some(result);
+            });
+            true
+        }
+
+        fn take_http(&self) -> Option<Result<(u16, String), String>> {
+            self.http_job.borrow_mut().result.take()
         }
 
         fn set_leave_warning(&self, on: bool) {
@@ -401,6 +436,55 @@ mod web {
     struct FontJob {
         running: bool,
         result: Option<Result<String, String>>,
+    }
+
+    /// The AI or account request in flight (or its answer, not yet taken).
+    #[derive(Default)]
+    struct HttpJob {
+        running: bool,
+        result: Option<Result<(u16, String), String>>,
+    }
+
+    /// The service this page was built for (`LF_CLOUD_URL` when the site was built), if any.
+    const BUILT_IN_SERVICE: Option<&str> = option_env!("LF_CLOUD_URL");
+    /// How long a request may take, and the most of an answer read.
+    const HTTP_TIMEOUT_MS: i32 = 240_000;
+    const MAX_ANSWER: usize = 16 * 1024 * 1024;
+
+    /// Sends `request` with `fetch` (no redirects, a time limit) and returns the status and body.
+    async fn post(request: &lightfoundry_ai::HttpRequest) -> Result<(u16, String), String> {
+        let window = web_sys::window().ok_or("no window")?;
+        let headers = web_sys::Headers::new().map_err(describe)?;
+        for (name, value) in &request.headers {
+            headers.set(name, value).map_err(describe)?;
+        }
+        let controller = web_sys::AbortController::new().map_err(describe)?;
+        let init = web_sys::RequestInit::new();
+        init.set_method("POST");
+        init.set_headers(&headers);
+        init.set_body(&JsValue::from_str(&request.body));
+        init.set_redirect(web_sys::RequestRedirect::Error);
+        init.set_signal(Some(&controller.signal()));
+        let abort = Closure::once_into_js(move || controller.abort());
+        let timer = window.set_timeout_with_callback_and_timeout_and_arguments_0(abort.unchecked_ref(), HTTP_TIMEOUT_MS).ok();
+        let answer = async {
+            let response: web_sys::Response = JsFuture::from(window.fetch_with_str_and_init(&request.url, &init))
+                .await
+                .map_err(describe)?
+                .dyn_into()
+                .map_err(|_| "the browser gave no response".to_string())?;
+            let status = response.status();
+            let text = JsFuture::from(response.text().map_err(describe)?).await.map_err(describe)?.as_string().ok_or("the answer is not text")?;
+            if text.len() > MAX_ANSWER {
+                return Err("the answer was larger than expected".to_string());
+            }
+            Ok((status, text))
+        }
+        .await;
+        if let Some(timer) = timer {
+            window.clear_timeout_with_handle(timer);
+        }
+        answer
     }
 
     fn local_storage() -> Option<web_sys::Storage> {

@@ -2038,6 +2038,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "js-sys",
+ "lightfoundry-ai",
  "lightfoundry-device",
  "lightfoundry-engine",
  "lightfoundry-ui-egui",

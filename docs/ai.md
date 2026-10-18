@@ -61,16 +61,21 @@ The service's own documentation is the reference for what it keeps and how it is
 | The AI menu and its windows                  | `crates/ui-egui/src/ai_ui.rs` (the menu appears only where the host can send requests)          |
 | Sending, and keeping the session token       | `apps/lightfoundry/src/net.rs` (no redirects, 240 s timeout, answers capped at 16 MB; the token and key live in `secrets.json` in the app's private data folder, readable by its owner only) |
 
-The service's address is typed in the account window, or set at build time with `LF_CLOUD_URL`.
+The service's address is typed in the account window, or set at build time with `LF_CLOUD_URL` (the browser
+build takes only the built-in address).
 
 ## What is not done yet
 
 - **A real try.** Everything is tested against scripted answers and a local one-shot server, never a real
   account service or Anthropic key. The first real run may need prompt tuning (the artwork's colours, sizes and
   the line widths the importer reads).
-- **The hosted browser build.** It cannot send the requests: its content security policy allows only its own
-  origin, and the service's address is not fixed. It needs a build-time address added to the policy and a
-  `fetch` client in `apps/lightfoundry-web`; until then the AI menu is hidden there.
+- **The hosted browser build** has a `fetch` client (`apps/lightfoundry-web`, no redirects, 240 s limit) and the
+  AI menu, but only for the service address it was built for: set the repository variable `LF_CLOUD_URL` (an
+  https address; Settings › Secrets and variables › Actions › Variables) and the Pages build puts that origin
+  in the page's content security policy and into the app. Without it the AI menu is hidden. The browser offers
+  Design from Prompt, Ask About Lasering and the account; the two features that take pictures wait for a
+  browser file chooser. The session token is kept in the browser's local storage (the policy keeps scripts
+  from elsewhere out). The service must answer cross-origin requests (the StitchFoundry service does).
 - **Privacy and terms.** Before the first AI request the app asks (Send / Send and do not ask again / Cancel),
   naming where it goes and what: the description or question, any picture, and a plain-text summary of the
   machine and layers in use, never the artwork. A privacy note and terms of service for the service are its

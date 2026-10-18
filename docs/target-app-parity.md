@@ -18,6 +18,7 @@
 | Files & workflow      |  65% | native JSON project, atomic save, undo/redo (200), autosave with three generations and read-back checks, crash recovery, unsaved-changes prompts, recent files, project templates, print-and-cut two-mark alignment, MCP server and JSON scripting, browser build with file open/save | scripting UI |
 | UI                    |  45% | menus, tool bar, canvas pan/zoom/grid, rulers, guides, snapping (grid, edges/centres, vertices, guides), Shift constraints, layer palette, inspector, groups, undo, light/dark/system themes, web build | keyboard map editor, i18n, accessibility, layer list reorder by drag |
 | Robustness            |  75% | no-panic lints, rollback on failure, hostile-input tests, mutation fuzz tests plus cargo-fuzz targets (found two real bugs), real-time-byte refusal in G-code, safe streaming | soak tests on real hardware, running the coverage-guided fuzzers |
+| AI & accounts         |  35% | Design from Prompt and Redraw Image (SVG whose colours mean cut, score, engrave), Ask About Lasering (document as context), Check My Cut (photo to setting suggestions, applied on request); an account with credits on the shared service or your own API key; first-use consent; desktop and browser | any run against the real service and key (estimated: prompts need tuning), terms of service, saved conversations |
 
 **Not yet verified on real hardware.** Everything on the machine side has been exercised against the
 built-in simulator and unit tests only. Treat the first run on a real machine as a test: use Frame,

@@ -610,3 +610,5 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   (a PNG chosen, sent as a JPEG with the session token, artwork placed) and by a frame test (chooser request,
   arrival, junk refused). A stale note from one AI window no longer shows in the next. Not done: a run against
   the real service.
+- **2026-10-18 — docs in step.** README and the parity table now describe the AI features and accounts (a new
+  "AI & accounts" row, self-assessed at 35%, estimated: nothing has run against the real service).

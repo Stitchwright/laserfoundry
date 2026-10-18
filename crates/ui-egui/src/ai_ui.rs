@@ -54,6 +54,10 @@ pub(crate) struct AiState {
     token: Option<String>,
     account: Option<Account>,
     pending: Option<Pending>,
+    /// The person agreed to what is sent (kept with the account settings).
+    consented: bool,
+    /// A request waiting for the person's agreement before it is sent the first time.
+    awaiting_consent: Option<(Pending, HttpRequest)>,
     /// A line under the window's buttons: what happened, and whether it is an error.
     note: Option<(String, bool)>,
     // Design from Prompt and Redraw Image
@@ -112,11 +116,11 @@ impl LightFoundryApp {
         self.ai.key = text("key").unwrap_or_default();
         self.ai.use_key = kept.as_ref().and_then(|v| v.get("use_key")).and_then(Value::as_bool).unwrap_or(false);
         self.ai.token = text("token").filter(|t| t.starts_with(cloud::TOKEN_PREFIX));
+        self.ai.consented = kept.as_ref().and_then(|v| v.get("consented")).and_then(Value::as_bool).unwrap_or(false);
     }
 
     fn save_ai(&self) {
-        let value =
-            json!({ "server": self.ai.server, "email": self.ai.email, "key": self.ai.key, "use_key": self.ai.use_key, "token": self.ai.token });
+        let value = json!({ "server": self.ai.server, "email": self.ai.email, "key": self.ai.key, "use_key": self.ai.use_key, "token": self.ai.token, "consented": self.ai.consented });
         self.platform.secret_set(SECRET_KEY, &value.to_string());
     }
 
@@ -134,16 +138,23 @@ impl LightFoundryApp {
     fn send_ai(&mut self, what: Pending, request: Result<HttpRequest, AiError>) {
         match request {
             Err(e) => self.ai_error(&e),
-            Ok(request) => {
-                if self.platform.start_http(request) {
-                    self.ai.pending = Some(what);
-                    if what != Pending::Account {
-                        self.ai.note = None; // a background refresh of the credits keeps what the window just said
-                    }
-                } else {
-                    self.ai.note = Some((tr("Another request is still running: wait for it to finish."), true));
-                }
+            Ok(request) if !self.ai.consented && matches!(what, Pending::Art | Pending::Ask | Pending::Check) => {
+                // The first time, say what is sent and where before sending it.
+                self.ai.awaiting_consent = Some((what, request));
             }
+            Ok(request) => self.dispatch(what, request),
+        }
+    }
+
+    /// Hands `request` to the host.
+    fn dispatch(&mut self, what: Pending, request: HttpRequest) {
+        if self.platform.start_http(request) {
+            self.ai.pending = Some(what);
+            if what != Pending::Account {
+                self.ai.note = None; // a background refresh of the credits keeps what the window just said
+            }
+        } else {
+            self.ai.note = Some((tr("Another request is still running: wait for it to finish."), true));
         }
     }
 
@@ -318,8 +329,49 @@ impl LightFoundryApp {
         }
     }
 
+    /// The person's answer to the first-use question: send the waiting request, or drop it.
+    fn answer_consent(&mut self, agree: bool, always: bool) {
+        let waiting = self.ai.awaiting_consent.take();
+        if agree && always {
+            self.ai.consented = true;
+            self.save_ai();
+        }
+        if let (true, Some((what, request))) = (agree, waiting) {
+            self.dispatch(what, request);
+        }
+    }
+
+    /// Asks, once, whether the request may go to the AI service.
+    fn consent_dialog(&mut self, ctx: &egui::Context) {
+        let Some((_, request)) = &self.ai.awaiting_consent else { return };
+        let destination = if self.ai.use_key { tr("Anthropic, with your API key") } else { request.url.clone() };
+        let mut choice = None;
+        egui::Modal::new(egui::Id::new("ai_consent")).show(ctx, |ui| {
+            ui.heading(tr("Send this to the AI service?"));
+            ui.label(trf!("It goes to: {destination}", destination = destination));
+            ui.label(tr("What is sent: your description or question, any picture you chose, and a plain-text summary of your machine and the layers in use (never your artwork). The AI service and the model provider see it."));
+            ui.label(tr("Do not send anything private."));
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button(tr("Send")).clicked() {
+                    choice = Some((true, false));
+                }
+                if ui.button(tr("Send, and do not ask again")).clicked() {
+                    choice = Some((true, true));
+                }
+                if ui.button(tr("Cancel")).clicked() {
+                    choice = Some((false, false));
+                }
+            });
+        });
+        if let Some((agree, always)) = choice {
+            self.answer_consent(agree, always);
+        }
+    }
+
     /// Draws whichever AI window is open.
     pub(crate) fn ai_windows(&mut self, ctx: &egui::Context) {
+        self.consent_dialog(ctx);
         let Some(window) = self.ai.window else { return };
         let mut open = true;
         let title = match window {
@@ -643,8 +695,10 @@ mod tests {
         }
     }
 
+    /// An app whose person has already agreed to what is sent (the first-use question has its own test).
     fn app() -> (LightFoundryApp, Rc<RefCell<Shared>>) {
         let shared = Rc::new(RefCell::new(Shared::default()));
+        shared.borrow_mut().secrets.insert(SECRET_KEY.into(), json!({ "consented": true }).to_string());
         (LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared)))), shared)
     }
 
@@ -728,6 +782,46 @@ mod tests {
         app.start_design(false);
         answer(&mut app, &shared, 200, &model_reply("<svg><nonsense"));
         assert_eq!(app.session.doc.shapes.len(), 1);
+    }
+
+    #[test]
+    fn the_first_request_waits_for_the_persons_agreement_and_says_where_it_goes() {
+        let shared = Rc::new(RefCell::new(Shared::default()));
+        let mut app = LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared))));
+        app.open_ai(Window::Ask);
+        app.ai.use_key = true;
+        app.ai.key = "sk-ant-x".into();
+        app.ai.question = "hello".into();
+        app.start_ask();
+        assert!(app.ai.awaiting_consent.is_some() && shared.borrow().sent.is_empty(), "nothing is sent before the person agrees");
+        let ctx = egui::Context::default();
+        ctx.run_ui(egui::RawInput::default(), |ui| app.ai_windows(ui.ctx())).drop_without_applying_deltas();
+        // cancel: nothing is sent, and it is not remembered
+        app.answer_consent(false, true);
+        assert!(shared.borrow().sent.is_empty() && !app.ai.consented && app.ai.awaiting_consent.is_none());
+        // send once: it goes, and the question is asked again next time
+        app.ai.question = "hello".into();
+        app.start_ask();
+        app.answer_consent(true, false);
+        assert_eq!(shared.borrow().sent.len(), 1);
+        assert!(!app.ai.consented);
+        answer(&mut app, &shared, 200, &model_reply("hi"));
+        app.ai.question = "again".into();
+        app.start_ask();
+        assert!(app.ai.awaiting_consent.is_some(), "asked again");
+        // send and do not ask again: kept with the settings
+        app.answer_consent(true, true);
+        assert!(app.ai.consented && shared.borrow().secrets[SECRET_KEY].contains("\"consented\":true"));
+        answer(&mut app, &shared, 200, &model_reply("hi"));
+        app.ai.question = "third".into();
+        app.start_ask();
+        assert!(app.ai.awaiting_consent.is_none() && shared.borrow().sent.len() == 3);
+        // signing in is not an AI request and never asks
+        let mut app2 = LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared))));
+        app2.ai.consented = false;
+        let request = cloud::sign_in("https://c.example", "a@b.c", "pw pw pw pw");
+        app2.send_ai(Pending::SignIn, request);
+        assert!(app2.ai.awaiting_consent.is_none());
     }
 
     #[test]

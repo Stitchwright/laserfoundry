@@ -591,3 +591,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   host, 5 engine tests (placing, sizing, hostile artwork, context, pictures), 3 host tests (a local server,
   redirects, the private file) and the full gate. Not done: any run against a real service or key, the browser
   build, a privacy/consent screen. See `docs/ai.md`.
+- **2026-10-18 — AI first-use consent.** The first AI request (not signing in) now waits behind a question naming
+  where it goes and what it carries, with Send, Send and do not ask again (kept with the account settings) and
+  Cancel; cancelling sends nothing and remembers nothing. Found by its own test: confirming sent the request
+  back through the same question; fixed by handing it straight to the host. Checked by a frame test and the full
+  gate.

@@ -71,8 +71,10 @@ The service's address is typed in the account window, or set at build time with 
 - **The hosted browser build.** It cannot send the requests: its content security policy allows only its own
   origin, and the service's address is not fixed. It needs a build-time address added to the policy and a
   `fetch` client in `apps/lightfoundry-web`; until then the AI menu is hidden there.
-- **Privacy and terms.** The windows say what is sent. A privacy note and terms of service for the service are
-  its owner's to write; a first-use consent screen is not built.
+- **Privacy and terms.** Before the first AI request the app asks (Send / Send and do not ask again / Cancel),
+  naming where it goes and what: the description or question, any picture, and a plain-text summary of the
+  machine and layers in use, never the artwork. A privacy note and terms of service for the service are its
+  owner's to write.
 - **Command line and agents.** `ai.context`, `ai.place_art` and `ai.prepare_picture` are commands any agent can
   call, but the requests themselves are made only from the windows.
 - **Saved conversations and checks**, pictures from the browser's file chooser, and sharing checks to improve

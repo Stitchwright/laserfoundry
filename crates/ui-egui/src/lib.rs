@@ -239,6 +239,8 @@ pub(crate) enum UploadKind {
     Dxf,
     Image,
     Translation,
+    /// A picture for the AI features (see `ai_ui`).
+    AiPicture,
 }
 
 impl UploadKind {
@@ -249,6 +251,7 @@ impl UploadKind {
             UploadKind::Dxf => &["dxf"],
             UploadKind::Image => &["png", "jpg", "jpeg", "bmp", "gif", "webp"],
             UploadKind::Translation => &["json"],
+            UploadKind::AiPicture => &["png", "jpg", "jpeg", "webp", "gif", "bmp"],
         }
     }
 }
@@ -699,6 +702,7 @@ impl LightFoundryApp {
             UploadKind::Dxf => self.run("file.import_dxf", serde_json::json!({ "data": String::from_utf8_lossy(&upload.bytes) })).is_some(),
             UploadKind::Image => self.run("file.import_image", serde_json::json!({ "data_base64": data, "name": name })).is_some(),
             UploadKind::Translation => self.use_uploaded_translation(&upload.bytes),
+            UploadKind::AiPicture => self.ai_picture_arrived(&name, &data),
         };
         if ok {
             self.say(trf!("Opened {name}", name = name));

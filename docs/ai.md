@@ -72,9 +72,8 @@ build takes only the built-in address).
 - **The hosted browser build** has a `fetch` client (`apps/lightfoundry-web`, no redirects, 240 s limit) and the
   AI menu, but only for the service address it was built for: set the repository variable `LF_CLOUD_URL` (an
   https address; Settings › Secrets and variables › Actions › Variables) and the Pages build puts that origin
-  in the page's content security policy and into the app. Without it the AI menu is hidden. The browser offers
-  Design from Prompt, Ask About Lasering and the account; the two features that take pictures wait for a
-  browser file chooser. The session token is kept in the browser's local storage (the policy keeps scripts
+  in the page's content security policy and into the app. Without it the AI menu is hidden. Pictures come through the browser's
+  file chooser, so all four features and the account work there. The session token is kept in the browser's local storage (the policy keeps scripts
   from elsewhere out). The service must answer cross-origin requests (the StitchFoundry service does).
 - **Privacy and terms.** Before the first AI request the app asks (Send / Send and do not ask again / Cancel),
   naming where it goes and what: the description or question, any picture, and a plain-text summary of the

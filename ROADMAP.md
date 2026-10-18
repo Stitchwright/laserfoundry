@@ -604,3 +604,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   against a local fake service with CORS: sign in, credits read, Design from Prompt asks first, sends, and the
   artwork lands sized at 100 mm with the black layer made a fill layer; 2 native tests for the origin rules and
   the full gate. Not done: Redraw Image and Check My Cut in the browser; a run against the real service.
+- **2026-10-18 — AI pictures in the browser.** Redraw Image and Check My Cut now work in the hosted page: a
+  picture comes through the browser's file chooser (the existing upload path, a new kind), is prepared by
+  `ai.prepare_picture` and kept for the window that asked. Checked in Chromium against the local fake service
+  (a PNG chosen, sent as a JPEG with the session token, artwork placed) and by a frame test (chooser request,
+  arrival, junk refused). A stale note from one AI window no longer shows in the next. Not done: a run against
+  the real service.

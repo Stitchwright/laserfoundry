@@ -27,6 +27,13 @@ pub(crate) enum Window {
     Check,
 }
 
+/// Which window a picture being chosen is for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PictureFor {
+    Redraw,
+    Check,
+}
+
 /// What the request in flight is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Pending {
@@ -65,6 +72,8 @@ pub(crate) struct AiState {
     size_mm: f64,
     use_for: Use,
     picture: Option<(String, Picture)>,
+    /// Which window the picture being chosen (in a browser, not yet arrived) is for.
+    picture_for: Option<PictureFor>,
     // Ask About Lasering
     question: String,
     turns: Vec<Turn>,
@@ -101,6 +110,9 @@ impl LightFoundryApp {
         self.load_ai();
         if self.ai.size_mm <= 0.0 {
             self.ai.size_mm = 100.0;
+        }
+        if self.ai.window != Some(window) {
+            self.ai.note = None; // what the last window said is not about this one
         }
         self.ai.window = Some(window);
     }
@@ -261,13 +273,41 @@ impl LightFoundryApp {
         self.run("ai.context", Value::Null).and_then(|v| v["text"].as_str().map(str::to_string)).unwrap_or_default()
     }
 
-    /// Chooses a picture file and prepares it for the model.
-    fn choose_picture(&mut self) -> Option<(String, Picture)> {
-        let path = self.pick_open("Choose a picture", &["png", "jpg", "jpeg", "webp", "gif", "bmp"])?;
+    /// Asks for a picture: a file dialog where there is one, else the browser's file chooser (the picture
+    /// arrives later, in [`ai_picture_arrived`](Self::ai_picture_arrived)).
+    fn ask_for_picture(&mut self, target: PictureFor) {
+        if self.platform.browser_files() {
+            self.ai.picture_for = Some(target);
+            self.begin_upload(crate::UploadKind::AiPicture);
+            return;
+        }
+        let Some(path) = self.pick_open("Choose a picture", &["png", "jpg", "jpeg", "webp", "gif", "bmp"]) else { return };
         let name = path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-        let v = self.run("ai.prepare_picture", json!({ "path": path }))?;
-        let data = v["data_base64"].as_str()?.to_string();
-        Some((name, Picture { media_type: "image/jpeg", data_base64: data }))
+        if let Some(v) = self.run("ai.prepare_picture", json!({ "path": path })) {
+            self.accept_picture(target, name, &v);
+        }
+    }
+
+    /// A picture the browser's file chooser returned (as base64): prepared and kept for the window that asked.
+    /// Returns whether it was used.
+    pub(crate) fn ai_picture_arrived(&mut self, name: &str, data_base64: &str) -> bool {
+        let Some(target) = self.ai.picture_for.take() else { return false };
+        match self.run("ai.prepare_picture", json!({ "data_base64": data_base64 })) {
+            Some(v) => {
+                self.accept_picture(target, name.chars().take(80).collect(), &v);
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn accept_picture(&mut self, target: PictureFor, name: String, prepared: &Value) {
+        let Some(data) = prepared["data_base64"].as_str() else { return };
+        let picture = Picture { media_type: "image/jpeg", data_base64: data.to_string() };
+        match target {
+            PictureFor::Redraw => self.ai.picture = Some((name, picture)),
+            PictureFor::Check => self.ai.photos.push((name, picture)),
+        }
     }
 
     fn start_design(&mut self, redraw: bool) {
@@ -502,10 +542,8 @@ impl LightFoundryApp {
         let busy = self.ai.busy();
         if redraw {
             ui.horizontal(|ui| {
-                if ui.button(tr("Choose picture…")).clicked()
-                    && let Some(p) = self.choose_picture()
-                {
-                    self.ai.picture = Some(p);
+                if ui.button(tr("Choose picture…")).clicked() {
+                    self.ask_for_picture(PictureFor::Redraw);
                 }
                 match &self.ai.picture {
                     Some((name, _)) => ui.label(name),
@@ -566,10 +604,8 @@ impl LightFoundryApp {
     fn check_window(&mut self, ui: &mut egui::Ui) {
         let busy = self.ai.busy();
         ui.horizontal(|ui| {
-            if ui.add_enabled(self.ai.photos.len() < lightfoundry_ai::MAX_IMAGES, egui::Button::new(tr("Add photo…"))).clicked()
-                && let Some(p) = self.choose_picture()
-            {
-                self.ai.photos.push(p);
+            if ui.add_enabled(self.ai.photos.len() < lightfoundry_ai::MAX_IMAGES, egui::Button::new(tr("Add photo…"))).clicked() {
+                self.ask_for_picture(PictureFor::Check);
             }
             if !self.ai.photos.is_empty() && ui.button(tr("Remove photos")).clicked() {
                 self.ai.photos.clear();
@@ -644,6 +680,10 @@ mod tests {
         in_flight: bool,
         secrets: HashMap<String, String>,
         picture: Option<PathBuf>,
+        /// Acts like a browser host: files arrive as uploads.
+        browser: bool,
+        upload: Option<crate::Upload>,
+        requested: Vec<Vec<String>>,
     }
 
     struct Fake(Rc<RefCell<Shared>>);
@@ -667,6 +707,18 @@ mod tests {
 
         fn http_available(&self) -> bool {
             true
+        }
+
+        fn browser_files(&self) -> bool {
+            self.0.borrow().browser
+        }
+
+        fn request_upload(&self, extensions: &[&str]) {
+            self.0.borrow_mut().requested.push(extensions.iter().map(|e| (*e).to_string()).collect());
+        }
+
+        fn take_upload(&self) -> Option<crate::Upload> {
+            self.0.borrow_mut().upload.take()
         }
 
         fn start_http(&self, request: HttpRequest) -> bool {
@@ -896,9 +948,9 @@ mod tests {
         let file = dir.join("cut.png");
         image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(40, 30, image::Rgb([120, 80, 40]))).save(&file).unwrap();
         shared.borrow_mut().picture = Some(file);
-        let photo = app.choose_picture().unwrap();
-        assert_eq!(photo.0, "cut.png");
-        app.ai.photos.push(photo);
+        app.ask_for_picture(PictureFor::Check);
+        assert_eq!(app.ai.photos.len(), 1);
+        assert_eq!(app.ai.photos[0].0, "cut.png");
         app.ai.check_notes = "3 mm birch, charred".into();
         app.start_check();
         let body: Value = serde_json::from_str(&shared.borrow().sent.last().unwrap().body).unwrap();
@@ -916,6 +968,30 @@ mod tests {
         assert_eq!(app.session.doc.layer(0).unwrap().speed, before.speed, "one undo step");
         app.apply_suggestion(7); // no such suggestion: nothing happens
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_browser_gets_its_pictures_through_the_file_chooser() {
+        let (mut app, shared) = app();
+        shared.borrow_mut().browser = true;
+        app.open_ai(Window::Redraw);
+        app.ask_for_picture(PictureFor::Redraw);
+        assert_eq!(shared.borrow().requested.last().unwrap(), &["png", "jpg", "jpeg", "webp", "gif", "bmp"]);
+        assert!(app.ai.picture.is_none(), "nothing until the file arrives");
+        let mut png = Vec::new();
+        image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(20, 10, image::Rgb([9, 9, 9])))
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        shared.borrow_mut().upload = Some(crate::Upload { name: "logo.png".into(), bytes: png });
+        let ctx = egui::Context::default();
+        ctx.run_ui(egui::RawInput::default(), |ui| app.ui(ui)).drop_without_applying_deltas();
+        assert_eq!(app.ai.picture.as_ref().map(|p| p.0.as_str()), Some("logo.png"));
+        // a photo for Check My Cut goes to the photos, and junk is refused
+        app.ask_for_picture(PictureFor::Check);
+        shared.borrow_mut().upload = Some(crate::Upload { name: "bad.png".into(), bytes: b"not a picture".to_vec() });
+        ctx.run_ui(egui::RawInput::default(), |ui| app.ui(ui)).drop_without_applying_deltas();
+        assert!(app.ai.photos.is_empty());
+        assert!(app.ai.picture_for.is_none(), "the question is answered either way");
     }
 
     #[test]

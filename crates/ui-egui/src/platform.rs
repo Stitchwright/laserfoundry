@@ -80,6 +80,12 @@ pub trait Platform {
         self.storage_set(key, value);
     }
 
+    /// Where a log of every AI request and answer is kept, so the person can see exactly what was sent. `None`
+    /// where the host has nowhere to keep one (the browser).
+    fn ai_log_file(&self) -> Option<PathBuf> {
+        None
+    }
+
     /// Called every frame: whether leaving now would lose work or interrupt a running job. A browser host
     /// asks the person to confirm before the page is closed or reloaded; other hosts ignore it.
     fn set_leave_warning(&self, _on: bool) {}

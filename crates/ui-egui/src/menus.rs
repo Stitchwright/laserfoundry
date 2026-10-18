@@ -138,8 +138,9 @@ fn ai_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
         ("Ask About Lasering…", Window::Ask),
         ("Check My Cut…", Window::Check),
     ] {
-        if item(ui, label, "") {
+        if ui.add_enabled(app.ai_feature_on(window), egui::Button::new(tr(label))).clicked() {
             app.open_ai(window);
+            ui.close();
         }
     }
     ui.separator();

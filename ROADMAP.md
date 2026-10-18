@@ -612,3 +612,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   the real service.
 - **2026-10-18 — docs in step.** README and the parity table now describe the AI features and accounts (a new
   "AI & accounts" row, self-assessed at 35%, estimated: nothing has run against the real service).
+- **2026-10-18 — AI: the Assistant principles.** After reading StitchHub's draft terms (which exclude the Foundry
+  apps), the app adopts the principles of their Assistant section without claiming the text: a switch per feature
+  in the Account window (kept with the settings; a switched-off feature's menu item is disabled), a local log of
+  every request and answer (`ai-log.jsonl`, owner-only, rotated at 5 MB, pictures replaced by their size, no
+  headers so no tokens or keys), notes that answers can be wrong, and a lawful-use reminder with Anthropic's
+  usage policy in the consent screen. Checked by 4 tests (log contents and secrets, rotation, switches kept)
+  and the full gate. Not done: terms for the Foundry apps; the browser keeps no log (no file to put it in).

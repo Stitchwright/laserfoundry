@@ -63,6 +63,10 @@ pub(crate) struct AiState {
     pending: Option<Pending>,
     /// The person agreed to what is sent (kept with the account settings).
     consented: bool,
+    /// Features the person switched off (indexed like [`Window::feature`]); all are on by default.
+    off: [bool; 4],
+    /// What is being logged about the request in flight (written when its answer comes).
+    logging: Option<LogEntry>,
     /// A request waiting for the person's agreement before it is sent the first time.
     awaiting_consent: Option<(Pending, HttpRequest)>,
     /// A line under the window's buttons: what happened, and whether it is an error.
@@ -81,6 +85,26 @@ pub(crate) struct AiState {
     check_notes: String,
     photos: Vec<(String, Picture)>,
     check: Option<Check>,
+}
+
+/// One request's record in the log of what was sent.
+struct LogEntry {
+    feature: &'static str,
+    destination: String,
+    request: Value,
+}
+
+impl Window {
+    /// Which of the four features a window is (`None` for the account window).
+    fn feature(self) -> Option<(usize, &'static str)> {
+        match self {
+            Window::Design => Some((0, "design")),
+            Window::Redraw => Some((1, "redraw")),
+            Window::Ask => Some((2, "ask")),
+            Window::Check => Some((3, "check")),
+            Window::Account => None,
+        }
+    }
 }
 
 impl AiState {
@@ -108,6 +132,9 @@ impl LightFoundryApp {
     /// Opens one of the AI windows (loading what was kept the first time).
     pub(crate) fn open_ai(&mut self, window: Window) {
         self.load_ai();
+        if !self.ai_feature_on(window) {
+            return;
+        }
         if self.ai.size_mm <= 0.0 {
             self.ai.size_mm = 100.0;
         }
@@ -117,7 +144,12 @@ impl LightFoundryApp {
         self.ai.window = Some(window);
     }
 
-    fn load_ai(&mut self) {
+    /// Whether the feature behind `window` is switched on.
+    pub(crate) fn ai_feature_on(&self, window: Window) -> bool {
+        window.feature().is_none_or(|(i, _)| !self.ai.off[i])
+    }
+
+    pub(crate) fn load_ai(&mut self) {
         if std::mem::replace(&mut self.ai.loaded, true) {
             return;
         }
@@ -129,10 +161,27 @@ impl LightFoundryApp {
         self.ai.use_key = kept.as_ref().and_then(|v| v.get("use_key")).and_then(Value::as_bool).unwrap_or(false);
         self.ai.token = text("token").filter(|t| t.starts_with(cloud::TOKEN_PREFIX));
         self.ai.consented = kept.as_ref().and_then(|v| v.get("consented")).and_then(Value::as_bool).unwrap_or(false);
+        let off: Vec<&str> = kept
+            .as_ref()
+            .and_then(|v| v.get("off"))
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
+        for window in [Window::Design, Window::Redraw, Window::Ask, Window::Check] {
+            if let Some((i, name)) = window.feature() {
+                self.ai.off[i] = off.contains(&name);
+            }
+        }
     }
 
     fn save_ai(&self) {
-        let value = json!({ "server": self.ai.server, "email": self.ai.email, "key": self.ai.key, "use_key": self.ai.use_key, "token": self.ai.token, "consented": self.ai.consented });
+        let off: Vec<&str> = [Window::Design, Window::Redraw, Window::Ask, Window::Check]
+            .into_iter()
+            .filter_map(Window::feature)
+            .filter(|(i, _)| self.ai.off[*i])
+            .map(|(_, name)| name)
+            .collect();
+        let value = json!({ "server": self.ai.server, "email": self.ai.email, "key": self.ai.key, "use_key": self.ai.use_key, "token": self.ai.token, "consented": self.ai.consented, "off": off });
         self.platform.secret_set(SECRET_KEY, &value.to_string());
     }
 
@@ -160,7 +209,9 @@ impl LightFoundryApp {
 
     /// Hands `request` to the host.
     fn dispatch(&mut self, what: Pending, request: HttpRequest) {
+        let logging = self.log_entry(what, &request);
         if self.platform.start_http(request) {
+            self.ai.logging = logging;
             self.ai.pending = Some(what);
             if what != Pending::Account {
                 self.ai.note = None; // a background refresh of the credits keeps what the window just said
@@ -178,9 +229,40 @@ impl LightFoundryApp {
             return;
         };
         self.ai.pending = None;
+        self.write_log(&result);
         match result {
             Err(e) => self.ai_error(&AiError::Network(e)),
             Ok((status, body)) => self.ai_answer(what, status, &body),
+        }
+    }
+
+    /// What the log says about a request: the feature, where it went, and the body with pictures left out. Only
+    /// the AI requests are logged (not signing in, and never a token or key: headers are not kept).
+    fn log_entry(&self, what: Pending, request: &HttpRequest) -> Option<LogEntry> {
+        let feature = match what {
+            Pending::Art => "art",
+            Pending::Ask => "ask",
+            Pending::Check => "check",
+            _ => return None,
+        };
+        self.platform.ai_log_file()?;
+        let mut body: Value = serde_json::from_str(&request.body).unwrap_or(Value::Null);
+        redact_pictures(&mut body);
+        let destination = if self.ai.use_key { lightfoundry_ai::API_URL.to_string() } else { request.url.clone() };
+        Some(LogEntry { feature, destination, request: body })
+    }
+
+    /// Appends the finished request and its answer (or why there was none) to the log of what was sent.
+    fn write_log(&mut self, result: &Result<(u16, String), String>) {
+        let (Some(entry), Some(path)) = (self.ai.logging.take(), self.platform.ai_log_file()) else { return };
+        let answer = match result {
+            Ok((status, body)) => json!({ "status": status, "body": body.chars().take(MAX_LOGGED_ANSWER).collect::<String>() }),
+            Err(e) => json!({ "error": e }),
+        };
+        let at = web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        let line = json!({ "time": at, "feature": entry.feature, "to": entry.destination, "request": entry.request, "answer": answer });
+        if let Err(e) = append_log(&path, &line.to_string()) {
+            log::warn!("could not write the AI log: {e}");
         }
     }
 
@@ -390,7 +472,7 @@ impl LightFoundryApp {
             ui.heading(tr("Send this to the AI service?"));
             ui.label(trf!("It goes to: {destination}", destination = destination));
             ui.label(tr("What is sent: your description or question, any picture you chose, and a plain-text summary of your machine and the layers in use (never your artwork). The AI service and the model provider see it."));
-            ui.label(tr("Do not send anything private."));
+            ui.label(tr("Do not send anything private. Use the AI lawfully: nothing Anthropic's usage policy forbids (anthropic.com/legal/aup)."));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 if ui.button(tr("Send")).clicked() {
@@ -534,7 +616,29 @@ impl LightFoundryApp {
             }
         }
         ui.separator();
+        ui.label(tr("Features"));
+        let mut changed = false;
+        for (window, label) in [
+            (Window::Design, tr("Design from Prompt")),
+            (Window::Redraw, tr("Redraw Image")),
+            (Window::Ask, tr("Ask About Lasering")),
+            (Window::Check, tr("Check My Cut")),
+        ] {
+            if let Some((i, _)) = window.feature() {
+                let mut on = !self.ai.off[i];
+                if ui.checkbox(&mut on, label).changed() {
+                    self.ai.off[i] = !on;
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.save_ai();
+        }
         ui.weak(tr("What you ask is sent to the AI service. Nothing is sent until you press a button."));
+        if let Some(path) = self.platform.ai_log_file() {
+            ui.weak(trf!("A log of every request and answer is kept in {path}, so you can check what was sent.", path = path.display()));
+        }
         self.note_row(ui);
     }
 
@@ -566,6 +670,7 @@ impl LightFoundryApp {
             });
         });
         ui.weak(tr("Red outlines are cut, blue lines scored, black shapes engraved. Undo removes what is placed."));
+        ui.weak(tr("The AI can get it wrong: look over the artwork before you cut anything."));
         self.payer_row(ui);
         if ui.add_enabled(!busy, egui::Button::new(tr("Draw"))).clicked() {
             self.start_design(redraw);
@@ -587,7 +692,7 @@ impl LightFoundryApp {
         });
         ui.add(egui::TextEdit::multiline(&mut self.ai.question).desired_rows(2).desired_width(f32::INFINITY).hint_text(tr("Ask a question…")));
         ui.weak(tr(
-            "The AI is told about your machine and the layers in use, not your artwork. Test on a scrap and never leave a running laser unattended.",
+            "The AI is told about your machine and the layers in use, not your artwork. Answers can be wrong: read them, test on a scrap, and never leave a running laser unattended.",
         ));
         self.payer_row(ui);
         ui.horizontal(|ui| {
@@ -616,7 +721,7 @@ impl LightFoundryApp {
         }
         ui.label(tr("Material and what you see (optional)"));
         ui.add(egui::TextEdit::multiline(&mut self.ai.check_notes).desired_rows(2).desired_width(f32::INFINITY));
-        ui.weak(tr("The photos, your notes and your layers' settings are sent to the AI service."));
+        ui.weak(tr("The photos, your notes and your layers' settings are sent to the AI service. Suggestions can be wrong: try them on a scrap."));
         self.payer_row(ui);
         if ui.add_enabled(!busy, egui::Button::new(tr("Check"))).clicked() {
             self.start_check();
@@ -648,6 +753,42 @@ impl LightFoundryApp {
             }
         }
     }
+}
+
+/// The most characters of an answer kept in the log.
+const MAX_LOGGED_ANSWER: usize = 100_000;
+/// The log is moved aside (keeping one older copy) when it grows past this.
+const MAX_LOG_BYTES: u64 = 5 * 1024 * 1024;
+
+/// Replaces the data of every picture in a request body with its size, so the log shows that one was sent
+/// without holding it.
+fn redact_pictures(v: &mut Value) {
+    match v {
+        Value::Object(map) => {
+            if let Some(Value::String(data)) = map.get_mut("data") {
+                *data = format!("<picture, {} base64 characters>", data.len());
+            }
+            map.values_mut().for_each(redact_pictures);
+        }
+        Value::Array(list) => list.iter_mut().for_each(redact_pictures),
+        _ => {}
+    }
+}
+
+/// Adds a line to the log at `path`, readable by its owner only; an old log is moved aside first.
+fn append_log(path: &std::path::Path, line: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    if std::fs::metadata(path).is_ok_and(|m| m.len() > MAX_LOG_BYTES) {
+        let _ = std::fs::rename(path, path.with_extension("jsonl.1"));
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    writeln!(options.open(path)?, "{line}")
 }
 
 fn use_label(u: Use) -> String {
@@ -684,6 +825,7 @@ mod tests {
         browser: bool,
         upload: Option<crate::Upload>,
         requested: Vec<Vec<String>>,
+        log: Option<PathBuf>,
     }
 
     struct Fake(Rc<RefCell<Shared>>);
@@ -711,6 +853,10 @@ mod tests {
 
         fn browser_files(&self) -> bool {
             self.0.borrow().browser
+        }
+
+        fn ai_log_file(&self) -> Option<PathBuf> {
+            self.0.borrow().log.clone()
         }
 
         fn request_upload(&self, extensions: &[&str]) {
@@ -968,6 +1114,76 @@ mod tests {
         assert_eq!(app.session.doc.layer(0).unwrap().speed, before.speed, "one undo step");
         app.apply_suggestion(7); // no such suggestion: nothing happens
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn every_ai_request_and_answer_is_logged_without_secrets_or_pictures() {
+        let (mut app, shared) = app();
+        let dir = std::env::temp_dir().join(format!("lf-ai-log-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let log = dir.join("ai-log.jsonl");
+        shared.borrow_mut().log = Some(log.clone());
+        sign_in(&mut app, &shared);
+        assert!(!log.exists(), "signing in is not an AI request");
+        app.ai.photos.push(("p.jpg".into(), Picture { media_type: "image/jpeg", data_base64: "QUJD".repeat(1000) }));
+        app.ai.check_notes = "3 mm ply".into();
+        app.start_check();
+        answer(&mut app, &shared, 200, &model_reply(r#"{"summary":"ok","suggestions":[]}"#));
+        settle(&mut app, &shared);
+        app.ai.question = "hello there".into();
+        app.start_ask();
+        answer(&mut app, &shared, 500, "oops");
+        let text = std::fs::read_to_string(&log).unwrap();
+        let lines: Vec<Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+        assert_eq!(lines.len(), 2, "{text}");
+        assert_eq!((lines[0]["feature"].as_str(), lines[1]["feature"].as_str()), (Some("check"), Some("ask")));
+        assert_eq!(lines[0]["to"], "https://c.example/v1/messages");
+        assert!(
+            lines[0]["request"].to_string().contains("3 mm ply") && lines[0]["request"].to_string().contains("<picture, 4000 base64 characters>")
+        );
+        assert!(!text.contains("QUJDQUJD"), "the picture itself is not kept");
+        assert!(!text.contains("sfs_tok") && !text.contains("secret words"), "no token or password in the log");
+        assert_eq!(lines[0]["answer"]["status"], 200);
+        assert_eq!(lines[1]["answer"]["status"], 500);
+        #[cfg(unix)]
+        assert_eq!(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(&log).unwrap().permissions()) & 0o077, 0, "owner only");
+        // without a place to keep a log, nothing is written and nothing breaks
+        shared.borrow_mut().log = None;
+        app.ai.question = "again".into();
+        app.start_ask();
+        answer(&mut app, &shared, 200, &model_reply("fine"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_big_log_is_moved_aside() {
+        let dir = std::env::temp_dir().join(format!("lf-ai-log-big-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("ai-log.jsonl");
+        std::fs::write(&log, vec![b'x'; MAX_LOG_BYTES as usize + 1]).unwrap();
+        append_log(&log, "{\"new\":1}").unwrap();
+        assert_eq!(std::fs::read_to_string(&log).unwrap().trim(), "{\"new\":1}");
+        assert!(dir.join("ai-log.jsonl.1").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_feature_can_be_switched_off_and_stays_off() {
+        let (mut app, shared) = app();
+        app.open_ai(Window::Account);
+        assert!(app.ai_feature_on(Window::Ask) && app.ai_feature_on(Window::Account));
+        app.ai.off[2] = true; // Ask About Lasering
+        app.save_ai();
+        app.ai.window = None;
+        app.open_ai(Window::Ask);
+        assert_eq!(app.ai.window, None, "a switched-off feature does not open");
+        assert!(shared.borrow().secrets[SECRET_KEY].contains("\"off\":[\"ask\"]"));
+        let (again, _) = app_with(&shared);
+        assert!(
+            !again.ai_feature_on(Window::Ask) && again.ai_feature_on(Window::Design) && again.ai_feature_on(Window::Account),
+            "kept between starts"
+        );
     }
 
     #[test]

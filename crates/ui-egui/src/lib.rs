@@ -397,6 +397,7 @@ impl LightFoundryApp {
             last_title: String::new(),
         };
         app.load_saved_translation();
+        app.load_ai();
         app
     }
 

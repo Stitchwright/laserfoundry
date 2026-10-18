@@ -142,6 +142,10 @@ impl Platform for DesktopPlatform {
         }
     }
 
+    fn ai_log_file(&self) -> Option<PathBuf> {
+        Some(data_dir()?.join("LightFoundry").join("ai-log.jsonl"))
+    }
+
     fn secret_get(&self, key: &str) -> Option<String> {
         crate::net::secret_get(&data_dir()?.join("LightFoundry").join("secrets.json"), key)
     }

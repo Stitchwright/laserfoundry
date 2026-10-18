@@ -75,7 +75,15 @@ build takes only the built-in address).
   in the page's content security policy and into the app. Without it the AI menu is hidden. Pictures come through the browser's
   file chooser, so all four features and the account work there. The session token is kept in the browser's local storage (the policy keeps scripts
   from elsewhere out). The service must answer cross-origin requests (the StitchFoundry service does).
-- **Privacy and terms.** Before the first AI request the app asks (Send / Send and do not ask again / Cancel),
+- **Terms.** StitchHub's draft terms (`legal/terms-2026-10-16-draft.md` in the `stitchhub` repository, not in
+  force, awaiting a lawyer) say they do not apply to StitchFoundry or LightFoundry, so the app does not link or
+  claim them. It follows the principles of their section on the Assistant instead: an AI only runs when a
+  button is pressed; each feature has its own switch (Account window); the person is told what is sent and
+  where; a log of every request and answer is kept on the person's computer (`ai-log.jsonl` in the data
+  folder, owner-only, pictures and tokens left out) so they can check; answers can be wrong and must be read
+  before use; and the AI must be used lawfully, with a pointer to Anthropic's usage policy. Terms for the
+  Foundry apps and the account service are still the owner's to write.
+- **Privacy note (old wording).** Before the first AI request the app asks (Send / Send and do not ask again / Cancel),
   naming where it goes and what: the description or question, any picture, and a plain-text summary of the
   machine and layers in use, never the artwork. A privacy note and terms of service for the service are its
   owner's to write.

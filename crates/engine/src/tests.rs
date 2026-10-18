@@ -2013,6 +2013,101 @@ mod robustness_tests {
         assert!(s.execute("arrange.grid", &json!({"columns": 2, "rows": 2})).is_ok());
     }
 
+    const ART: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="20mm" viewBox="0 0 40 20">
+        <rect x="0" y="0" width="40" height="20" fill="none" stroke="#ff0000"/>
+        <circle cx="10" cy="10" r="4" fill="#000000"/><path d="M20 5 L30 15" stroke="#0000ff" fill="none"/></svg>"##;
+
+    #[test]
+    fn ai_artwork_lands_on_the_layers_its_colours_name_centred_and_grouped() {
+        let mut s = Session::new();
+        let v = s.execute("ai.place_art", &json!({ "svg": ART })).unwrap();
+        assert_eq!(v["ids"].as_array().unwrap().len(), 3);
+        assert_eq!(v["layers"], json!([0, 1, 2]), "black, blue and red are the first layers");
+        assert!((v["width_mm"].as_f64().unwrap() - 40.0).abs() < 0.5, "{v}");
+        let bed = (s.doc.machine.bed_width, s.doc.machine.bed_height);
+        let b = s.doc.bounds_of(&s.selection).unwrap();
+        assert!((b.center().x - bed.0 / 2.0).abs() < 0.5 && (b.center().y - bed.1 / 2.0).abs() < 0.5, "centred on the bed");
+        assert_eq!(s.doc.layer(0).unwrap().mode, lightfoundry_doc::LayerMode::Fill, "an untouched layer of filled art engraves");
+        assert_eq!(s.doc.layer(2).unwrap().mode, lightfoundry_doc::LayerMode::Line);
+        let groups: std::collections::BTreeSet<_> = s.doc.shapes.iter().map(|sh| sh.group).collect();
+        assert_eq!(groups.len(), 1, "one group");
+        // one undo step takes all of it away
+        s.execute("edit.undo", &Value::Null).unwrap();
+        assert!(s.doc.shapes.is_empty());
+    }
+
+    #[test]
+    fn ai_artwork_can_be_sized_placed_and_is_kept_on_the_bed() {
+        let mut s = Session::new();
+        s.execute("ai.place_art", &json!({ "svg": ART, "size_mm": 80, "x": 10, "y": 20 })).unwrap();
+        let b = s.doc.bounds_of(&s.selection).unwrap();
+        assert!((b.width() - 80.0).abs() < 0.5 && (b.x0 - 10.0).abs() < 0.01 && (b.y0 - 20.0).abs() < 0.01, "{b:?}");
+        // as drawn, but never larger than the bed
+        let big = ART.replace("40mm", "4000mm").replace("20mm", "2000mm").replace("0 0 40 20", "0 0 4000 2000");
+        let mut s = Session::new();
+        s.execute("ai.place_art", &json!({ "svg": big })).unwrap();
+        let b = s.doc.bounds_of(&s.selection).unwrap();
+        assert!(b.width() <= s.doc.machine.bed_width + 0.01 && b.height() <= s.doc.machine.bed_height + 0.01, "{b:?}");
+    }
+
+    #[test]
+    fn ai_artwork_that_cannot_be_used_is_refused_and_changes_nothing() {
+        let mut s = Session::new();
+        for bad in [
+            json!({ "svg": "not an svg" }),
+            json!({ "svg": "<svg xmlns='http://www.w3.org/2000/svg'/>" }),
+            json!({ "svg": ART, "size_mm": 0 }),
+            json!({ "svg": ART, "size_mm": 1e12 }),
+            json!({ "svg": ART, "x": 1e308, "y": null }),
+            json!({}),
+        ] {
+            assert!(s.execute("ai.place_art", &bad).is_err(), "{bad}");
+        }
+        assert!(s.doc.shapes.is_empty());
+    }
+
+    #[test]
+    fn pictures_for_the_ai_are_shrunk_flattened_onto_white_and_encoded() {
+        let mut s = Session::new();
+        let mut png = Vec::new();
+        // transparent except for a black square: 3000 x 1000
+        let mut img = image::RgbaImage::from_pixel(3000, 1000, image::Rgba([0, 0, 0, 0]));
+        for x in 100..200 {
+            for y in 100..200 {
+                img.put_pixel(x, y, image::Rgba([0, 0, 0, 255]));
+            }
+        }
+        image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        let v = s.execute("ai.prepare_picture", &json!({ "data_base64": lightfoundry_doc::base64::encode(&png) })).unwrap();
+        assert_eq!(v["media_type"], "image/jpeg");
+        assert_eq!(v["width"], 1568);
+        assert!((v["height"].as_u64().unwrap() as i64 - 523).abs() <= 1, "{v}");
+        let jpeg = lightfoundry_doc::base64::decode(v["data_base64"].as_str().unwrap()).unwrap();
+        let out = image::load_from_memory(&jpeg).unwrap().to_rgb8();
+        assert!(out.get_pixel(1000, 400).0.iter().all(|c| *c > 240), "transparent became white");
+        assert!(out.get_pixel(75, 75).0.iter().all(|c| *c < 40), "the black square stayed black");
+        // not a picture, nothing given, and an endless file
+        assert!(s.execute("ai.prepare_picture", &json!({ "data_base64": "AAAA" })).is_err());
+        assert!(s.execute("ai.prepare_picture", &json!({})).is_err());
+        #[cfg(unix)]
+        assert!(s.execute("ai.prepare_picture", &json!({ "path": "/dev/zero" })).is_err());
+    }
+
+    #[test]
+    fn the_model_is_told_about_the_machine_and_the_layers_in_use() {
+        let mut s = Session::new();
+        assert!(s.execute("ai.context", &Value::Null).unwrap()["text"].as_str().unwrap().contains("The document is empty"));
+        s.execute("shape.rectangle", &json!({"x": 0, "y": 0, "width": 10, "height": 10})).unwrap();
+        s.execute("layer.set", &json!({"id": 0, "speed": 750, "max_power": 55, "passes": 2, "air_assist": true})).unwrap();
+        let t = s.execute("ai.context", &Value::Null).unwrap()["text"].as_str().unwrap().to_string();
+        assert!(t.contains("bed 400 x 400") || t.contains("bed "), "{t}");
+        assert!(
+            t.contains("Layer 0") && t.contains("speed 750 mm/min") && t.contains("55 %") && t.contains("2 passes") && t.contains("air assist on"),
+            "{t}"
+        );
+        assert!(!t.contains("Layer 1"), "only layers in use");
+    }
+
     /// A path that names an endless device must be refused, not read until memory runs out.
     #[cfg(unix)]
     #[test]

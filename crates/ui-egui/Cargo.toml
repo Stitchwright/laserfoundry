@@ -15,6 +15,7 @@ lightfoundry-geom = { workspace = true }
 lightfoundry-doc = { workspace = true }
 lightfoundry-toolpath = { workspace = true }
 lightfoundry-format = { workspace = true }
+lightfoundry-ai = { workspace = true }
 egui = { workspace = true }
 kurbo = { workspace = true }
 lightfoundry-i18n = { workspace = true }

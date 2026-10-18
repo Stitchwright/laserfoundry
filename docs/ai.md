@@ -1,7 +1,8 @@
 # AI features and accounts
 
-> **Status:** 2026-10-18. The request and reply code is written and tested (`crates/ai`); the interface
-> and the hosts' network clients are next (see the ROADMAP log).
+> **Status:** 2026-10-18. The request and reply code (`crates/ai`), the engine commands, the AI menu and its
+> windows, and the desktop app's network client are built and tested. Not hosted or tried against a real
+> service or key yet; the hosted browser build does not offer the AI menu yet (see the end).
 
 Four features use an AI model (Claude, through the Messages API). Each is paid for in one of two ways:
 the person's **own Anthropic API key**, or a **session with the account service**, which takes credits.
@@ -51,7 +52,28 @@ Errors come in Anthropic's shape; 401 means sign in again, 402 not enough credit
 429 wait, 503 the service is not set up. Prices, packs and free credits are the service owner's settings.
 The service's own documentation is the reference for what it keeps and how it is hosted.
 
+## Where things are
+
+| Part                                         | Where                                                                                           |
+|----------------------------------------------|-------------------------------------------------------------------------------------------------|
+| Requests, replies, errors, the account API   | `crates/ai` (no network code; fuzzed: `ai_reply`)                                               |
+| Describing the document, placing artwork, preparing a picture | engine commands `ai.context`, `ai.place_art`, `ai.prepare_picture`              |
+| The AI menu and its windows                  | `crates/ui-egui/src/ai_ui.rs` (the menu appears only where the host can send requests)          |
+| Sending, and keeping the session token       | `apps/lightfoundry/src/net.rs` (no redirects, 240 s timeout, answers capped at 16 MB; the token and key live in `secrets.json` in the app's private data folder, readable by its owner only) |
+
+The service's address is typed in the account window, or set at build time with `LF_CLOUD_URL`.
+
 ## What is not done yet
 
-The account window, the four dialogs, the hosts' network clients and the session token's storage; a
-privacy note shown before the first request; terms of service (the service owner's).
+- **A real try.** Everything is tested against scripted answers and a local one-shot server, never a real
+  account service or Anthropic key. The first real run may need prompt tuning (the artwork's colours, sizes and
+  the line widths the importer reads).
+- **The hosted browser build.** It cannot send the requests: its content security policy allows only its own
+  origin, and the service's address is not fixed. It needs a build-time address added to the policy and a
+  `fetch` client in `apps/lightfoundry-web`; until then the AI menu is hidden there.
+- **Privacy and terms.** The windows say what is sent. A privacy note and terms of service for the service are
+  its owner's to write; a first-use consent screen is not built.
+- **Command line and agents.** `ai.context`, `ai.place_art` and `ai.prepare_picture` are commands any agent can
+  call, but the requests themselves are made only from the windows.
+- **Saved conversations and checks**, pictures from the browser's file chooser, and sharing checks to improve
+  the service (the StitchFoundry service has this for its own check).

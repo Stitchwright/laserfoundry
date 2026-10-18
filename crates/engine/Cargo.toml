@@ -18,6 +18,7 @@ lightfoundry-gcode = { workspace = true }
 lightfoundry-svg = { workspace = true }
 lightfoundry-dxf = { workspace = true }
 lightfoundry-format = { workspace = true }
+lightfoundry-ai = { workspace = true }
 lightfoundry-device = { workspace = true }
 kurbo = { workspace = true }
 serde = { workspace = true }

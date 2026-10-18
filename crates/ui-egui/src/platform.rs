@@ -53,6 +53,33 @@ pub trait Platform {
         None
     }
 
+    /// Whether this host can send the AI and account requests (the desktop app can; the hosted browser build
+    /// cannot until the page's content security policy names a service).
+    fn http_available(&self) -> bool {
+        false
+    }
+
+    /// Starts sending `request` in the background. False when this host cannot, or one is already running.
+    fn start_http(&self, _request: lightfoundry_ai::HttpRequest) -> bool {
+        false
+    }
+
+    /// Once, after a started request has finished: the HTTP status and body, or why nothing came back.
+    fn take_http(&self) -> Option<Result<(u16, String), String>> {
+        None
+    }
+
+    /// Reads something secret the host keeps for the app (an account's session token, an API key). By default
+    /// the same small storage as [`storage_get`](Platform::storage_get); the desktop host keeps it in a file
+    /// only its owner can read.
+    fn secret_get(&self, key: &str) -> Option<String> {
+        self.storage_get(key)
+    }
+
+    fn secret_set(&self, key: &str, value: &str) {
+        self.storage_set(key, value);
+    }
+
     /// Called every frame: whether leaving now would lose work or interrupt a running job. A browser host
     /// asks the person to confirm before the page is closed or reloaded; other hosts ignore it.
     fn set_leave_warning(&self, _on: bool) {}

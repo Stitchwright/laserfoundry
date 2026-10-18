@@ -1,6 +1,7 @@
 //! LightFoundry desktop app: hosts the egui front end in an eframe window.
 
 mod host;
+mod net;
 
 use std::path::PathBuf;
 

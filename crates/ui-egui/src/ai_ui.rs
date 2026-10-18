@@ -1,0 +1,850 @@
+//! The AI features and the account: Design from Prompt, Redraw Image, Ask About Lasering, Check My Cut and
+//! the account window (sign in, credits, buying more). The requests and replies are `lightfoundry-ai`'s; the
+//! host sends them ([`Platform::start_http`]); what changes in the document goes through engine commands.
+
+use lightfoundry_ai::art::{ArtRequest, Use};
+use lightfoundry_ai::ask::Turn;
+use lightfoundry_ai::check::{Check, CheckRequest};
+use lightfoundry_ai::cloud::{self, Account};
+use lightfoundry_ai::{AiError, Auth, HttpRequest, Picture};
+use serde_json::{Value, json};
+
+use crate::LightFoundryApp;
+use crate::i18n::{self, tr, trf};
+
+/// Where the account and key are kept (see [`Platform::secret_set`](crate::Platform::secret_set)).
+const SECRET_KEY: &str = "lightfoundry.ai";
+/// The address of the account service built into this app, if any (`LF_CLOUD_URL` at build time).
+const BUILT_IN_SERVER: Option<&str> = option_env!("LF_CLOUD_URL");
+
+/// Which window is open.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Window {
+    Account,
+    Design,
+    Redraw,
+    Ask,
+    Check,
+}
+
+/// What the request in flight is for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Pending {
+    SignIn,
+    SignUp,
+    SignOut,
+    Account,
+    Checkout,
+    Art,
+    Ask,
+    Check,
+}
+
+/// Everything the AI windows remember.
+#[derive(Default)]
+pub(crate) struct AiState {
+    pub(crate) window: Option<Window>,
+    loaded: bool,
+    // account
+    server: String,
+    email: String,
+    password: String,
+    key: String,
+    use_key: bool,
+    token: Option<String>,
+    account: Option<Account>,
+    pending: Option<Pending>,
+    /// A line under the window's buttons: what happened, and whether it is an error.
+    note: Option<(String, bool)>,
+    // Design from Prompt and Redraw Image
+    prompt: String,
+    size_mm: f64,
+    use_for: Use,
+    picture: Option<(String, Picture)>,
+    // Ask About Lasering
+    question: String,
+    turns: Vec<Turn>,
+    // Check My Cut
+    check_notes: String,
+    photos: Vec<(String, Picture)>,
+    check: Option<Check>,
+}
+
+impl AiState {
+    /// The way requests are paid for right now.
+    fn auth(&self) -> Result<Auth, AiError> {
+        if self.use_key {
+            return Ok(Auth::Key(self.key.clone()));
+        }
+        match &self.token {
+            Some(token) => Ok(Auth::Session { server: self.server.clone(), token: token.clone() }),
+            None => Err(AiError::SignIn),
+        }
+    }
+
+    fn signed_in(&self) -> bool {
+        self.token.is_some()
+    }
+
+    fn busy(&self) -> bool {
+        self.pending.is_some()
+    }
+}
+
+impl LightFoundryApp {
+    /// Opens one of the AI windows (loading what was kept the first time).
+    pub(crate) fn open_ai(&mut self, window: Window) {
+        self.load_ai();
+        if self.ai.size_mm <= 0.0 {
+            self.ai.size_mm = 100.0;
+        }
+        self.ai.window = Some(window);
+    }
+
+    fn load_ai(&mut self) {
+        if std::mem::replace(&mut self.ai.loaded, true) {
+            return;
+        }
+        let kept: Option<Value> = self.platform.secret_get(SECRET_KEY).and_then(|t| serde_json::from_str(&t).ok());
+        let text = |k: &str| kept.as_ref().and_then(|v| v.get(k)).and_then(Value::as_str).map(str::to_string);
+        self.ai.server = text("server").or_else(|| BUILT_IN_SERVER.map(str::to_string)).unwrap_or_default();
+        self.ai.email = text("email").unwrap_or_default();
+        self.ai.key = text("key").unwrap_or_default();
+        self.ai.use_key = kept.as_ref().and_then(|v| v.get("use_key")).and_then(Value::as_bool).unwrap_or(false);
+        self.ai.token = text("token").filter(|t| t.starts_with(cloud::TOKEN_PREFIX));
+    }
+
+    fn save_ai(&self) {
+        let value =
+            json!({ "server": self.ai.server, "email": self.ai.email, "key": self.ai.key, "use_key": self.ai.use_key, "token": self.ai.token });
+        self.platform.secret_set(SECRET_KEY, &value.to_string());
+    }
+
+    fn ai_error(&mut self, e: &AiError) {
+        if matches!(e, AiError::SignIn) && self.ai.token.is_some() && !self.ai.use_key {
+            // the session ended: forget it so the window asks for a sign-in
+            self.ai.token = None;
+            self.ai.account = None;
+            self.save_ai();
+        }
+        self.ai.note = Some((i18n::tr_message(&e.to_string()), true));
+    }
+
+    /// Sends `request` in the background, to be read by [`poll_ai`](Self::poll_ai) as `what`.
+    fn send_ai(&mut self, what: Pending, request: Result<HttpRequest, AiError>) {
+        match request {
+            Err(e) => self.ai_error(&e),
+            Ok(request) => {
+                if self.platform.start_http(request) {
+                    self.ai.pending = Some(what);
+                    if what != Pending::Account {
+                        self.ai.note = None; // a background refresh of the credits keeps what the window just said
+                    }
+                } else {
+                    self.ai.note = Some((tr("Another request is still running: wait for it to finish."), true));
+                }
+            }
+        }
+    }
+
+    /// Reads the answer to the request in flight, once it has come. Call every frame.
+    pub(crate) fn poll_ai(&mut self, ctx: &egui::Context) {
+        let Some(what) = self.ai.pending else { return };
+        let Some(result) = self.platform.take_http() else {
+            ctx.request_repaint_after(std::time::Duration::from_millis(200));
+            return;
+        };
+        self.ai.pending = None;
+        match result {
+            Err(e) => self.ai_error(&AiError::Network(e)),
+            Ok((status, body)) => self.ai_answer(what, status, &body),
+        }
+    }
+
+    fn ai_answer(&mut self, what: Pending, status: u16, body: &str) {
+        let session = !self.ai.use_key;
+        match what {
+            Pending::SignIn | Pending::SignUp => match cloud::parse(status, body) {
+                Ok(v) => match cloud::session(&v) {
+                    Some((token, email)) => {
+                        self.ai.token = Some(token);
+                        if !email.is_empty() {
+                            self.ai.email = email;
+                        }
+                        self.ai.password.clear();
+                        self.ai.use_key = false;
+                        self.save_ai();
+                        self.ai.note = Some((tr("Signed in."), false));
+                        self.refresh_account();
+                    }
+                    None => self.ai_error(&AiError::NoAnswer),
+                },
+                Err(e) => self.ai_error(&e),
+            },
+            Pending::SignOut => {
+                self.ai.token = None;
+                self.ai.account = None;
+                self.save_ai();
+                self.ai.note = Some((tr("Signed out."), false));
+            }
+            Pending::Account => match cloud::parse(status, body) {
+                Ok(v) => self.ai.account = Some(cloud::read_account(&v)),
+                Err(e) => self.ai_error(&e),
+            },
+            Pending::Checkout => match cloud::parse(status, body) {
+                Ok(v) => match cloud::checkout_url(&v) {
+                    Some(url) => {
+                        self.pending_url = Some(url);
+                        self.ai.note =
+                            Some((tr("The payment page is opening in your browser. Come back and press Refresh when you have paid."), false));
+                    }
+                    None => self.ai_error(&AiError::NoAnswer),
+                },
+                Err(e) => self.ai_error(&e),
+            },
+            Pending::Art => match lightfoundry_ai::art::parse_reply(status, body, session) {
+                Ok(art) => {
+                    let size = self.ai.size_mm;
+                    if let Some(placed) = self.run("ai.place_art", json!({ "svg": art.svg, "size_mm": size })) {
+                        let (w, h) = (placed["width_mm"].as_f64().unwrap_or(0.0), placed["height_mm"].as_f64().unwrap_or(0.0));
+                        self.ai.note =
+                            Some((trf!("Placed the artwork ({w} × {h} mm). Undo removes it.", w = format!("{w:.0}"), h = format!("{h:.0}")), false));
+                        self.refresh_account();
+                    }
+                }
+                Err(e) => self.ai_error(&e),
+            },
+            Pending::Ask => match lightfoundry_ai::ask::parse_reply(status, body, session) {
+                Ok(answer) => {
+                    self.ai.turns.push(Turn { from_person: false, text: answer });
+                    self.refresh_account();
+                }
+                Err(e) => {
+                    self.ai.turns.pop(); // the question that was not answered goes back to the box
+                    self.ai_error(&e);
+                }
+            },
+            Pending::Check => match lightfoundry_ai::check::parse_reply(status, body, session) {
+                Ok(check) => {
+                    self.ai.check = Some(check);
+                    self.refresh_account();
+                }
+                Err(e) => self.ai_error(&e),
+            },
+        }
+    }
+
+    /// Asks the service for the account's credits (a no-op with the person's own key).
+    fn refresh_account(&mut self) {
+        if self.ai.use_key || self.ai.pending.is_some() {
+            return;
+        }
+        if let Some(token) = self.ai.token.clone() {
+            let request = cloud::account(&self.ai.server, &token);
+            self.send_ai(Pending::Account, request);
+        }
+    }
+
+    /// Describes the open document for the model.
+    fn ai_context(&mut self) -> String {
+        self.run("ai.context", Value::Null).and_then(|v| v["text"].as_str().map(str::to_string)).unwrap_or_default()
+    }
+
+    /// Chooses a picture file and prepares it for the model.
+    fn choose_picture(&mut self) -> Option<(String, Picture)> {
+        let path = self.pick_open("Choose a picture", &["png", "jpg", "jpeg", "webp", "gif", "bmp"])?;
+        let name = path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        let v = self.run("ai.prepare_picture", json!({ "path": path }))?;
+        let data = v["data_base64"].as_str()?.to_string();
+        Some((name, Picture { media_type: "image/jpeg", data_base64: data }))
+    }
+
+    fn start_design(&mut self, redraw: bool) {
+        let mut request = ArtRequest::new(&self.ai.prompt, self.ai.size_mm, self.ai.use_for);
+        if redraw {
+            match &self.ai.picture {
+                Some((_, p)) => request = request.with_image(p.clone()),
+                None => {
+                    self.ai.note = Some((tr("Choose a picture first."), true));
+                    return;
+                }
+            }
+        }
+        let http = self.ai.auth().and_then(|auth| request.http(&auth));
+        self.send_ai(Pending::Art, http);
+    }
+
+    fn start_ask(&mut self) {
+        let turn = match lightfoundry_ai::ask::question(&self.ai.question) {
+            Ok(t) => t,
+            Err(e) => return self.ai_error(&e),
+        };
+        self.ai.turns.push(turn);
+        let context = self.ai_context();
+        let http = self.ai.auth().and_then(|auth| lightfoundry_ai::ask::request(&auth, &context, &self.ai.turns));
+        if http.is_ok() {
+            self.ai.question.clear();
+        }
+        let sent = self.ai.pending;
+        self.send_ai(Pending::Ask, http);
+        if self.ai.pending == sent {
+            self.ai.turns.pop(); // nothing was sent
+        }
+    }
+
+    fn start_check(&mut self) {
+        let settings = self.ai_context();
+        let request = CheckRequest { photos: self.ai.photos.iter().map(|(_, p)| p.clone()).collect(), notes: self.ai.check_notes.clone(), settings };
+        let http = self.ai.auth().and_then(|auth| request.http(&auth));
+        self.ai.check = None;
+        self.send_ai(Pending::Check, http);
+    }
+
+    /// Applies one of the model's suggestions to its layer: an ordinary command, one undo step.
+    pub(crate) fn apply_suggestion(&mut self, index: usize) {
+        let Some(s) = self.ai.check.as_ref().and_then(|c| c.suggestions.get(index)).cloned() else { return };
+        let mut params = json!({ "id": s.layer });
+        if let Some(v) = s.speed {
+            params["speed"] = json!(v);
+        }
+        if let Some(v) = s.max_power {
+            params["max_power"] = json!(v);
+        }
+        if let Some(v) = s.passes {
+            params["passes"] = json!(v);
+        }
+        if self.run("layer.set", params).is_some() {
+            self.say(trf!("Changed layer {layer}'s settings", layer = s.layer));
+        }
+    }
+
+    /// Draws whichever AI window is open.
+    pub(crate) fn ai_windows(&mut self, ctx: &egui::Context) {
+        let Some(window) = self.ai.window else { return };
+        let mut open = true;
+        let title = match window {
+            Window::Account => tr("Account"),
+            Window::Design => tr("Design from Prompt"),
+            Window::Redraw => tr("Redraw Image"),
+            Window::Ask => tr("Ask About Lasering"),
+            Window::Check => tr("Check My Cut"),
+        };
+        egui::Window::new(title).open(&mut open).collapsible(false).default_width(460.0).default_pos(egui::pos2(260.0, 70.0)).show(ctx, |ui| {
+            match window {
+                Window::Account => self.account_window(ui),
+                Window::Design => self.design_window(ui, false),
+                Window::Redraw => self.design_window(ui, true),
+                Window::Ask => self.ask_window(ui),
+                Window::Check => self.check_window(ui),
+            }
+        });
+        if !open {
+            self.ai.window = None;
+        }
+    }
+
+    fn payer_row(&mut self, ui: &mut egui::Ui) {
+        if self.ai.use_key {
+            ui.weak(tr("Paying with your own Anthropic key."));
+        } else if let Some(a) = &self.ai.account {
+            ui.horizontal(|ui| {
+                ui.label(trf!("Credits: {credits}", credits = a.credits));
+                if ui.small_button(tr("Account…")).clicked() {
+                    self.ai.window = Some(Window::Account);
+                }
+            });
+        } else if !self.ai.signed_in() {
+            ui.horizontal(|ui| {
+                ui.colored_label(self.tokens.error, tr("Not signed in."));
+                if ui.small_button(tr("Account…")).clicked() {
+                    self.ai.window = Some(Window::Account);
+                }
+            });
+        }
+    }
+
+    fn note_row(&self, ui: &mut egui::Ui) {
+        if let Some((text, error)) = &self.ai.note {
+            ui.colored_label(if *error { self.tokens.error } else { ui.visuals().text_color() }, text);
+        }
+        if self.ai.busy() {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(tr("Waiting for the answer…"));
+            });
+        }
+    }
+
+    fn account_window(&mut self, ui: &mut egui::Ui) {
+        let busy = self.ai.busy();
+        ui.checkbox(&mut self.ai.use_key, tr("Use my own Anthropic API key instead of an account"));
+        if self.ai.use_key {
+            ui.horizontal(|ui| {
+                ui.label(tr("API key"));
+                ui.add(egui::TextEdit::singleline(&mut self.ai.key).password(true).desired_width(300.0));
+            });
+            ui.weak(tr("Requests go straight to Anthropic and are billed to your key. The key is kept on this computer."));
+            if ui.button(tr("Save")).clicked() {
+                self.save_ai();
+                self.ai.note = Some((tr("Saved."), false));
+            }
+        } else {
+            ui.horizontal(|ui| {
+                ui.label(tr("Server"));
+                ui.add(egui::TextEdit::singleline(&mut self.ai.server).desired_width(320.0).hint_text("https://…"));
+            });
+            if self.ai.signed_in() {
+                ui.label(trf!("Signed in as {email}", email = self.ai.email));
+                if let Some(a) = self.ai.account.clone() {
+                    ui.label(trf!("Credits: {credits}", credits = a.credits));
+                    if a.payments {
+                        for pack in &a.packs {
+                            let label = trf!("Buy {credits} credits for {price}", credits = pack.credits, price = cloud::dollars(pack.cents));
+                            if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
+                                let request = cloud::checkout(&self.ai.server, self.ai.token.as_deref().unwrap_or_default(), &pack.id);
+                                self.send_ai(Pending::Checkout, request);
+                            }
+                        }
+                    } else {
+                        ui.weak(tr("This service is not taking payments yet."));
+                    }
+                }
+                ui.horizontal(|ui| {
+                    if ui.add_enabled(!busy, egui::Button::new(tr("Refresh"))).clicked() {
+                        self.refresh_account();
+                    }
+                    if ui.add_enabled(!busy, egui::Button::new(tr("Sign out"))).clicked() {
+                        let request = cloud::sign_out(&self.ai.server, self.ai.token.as_deref().unwrap_or_default());
+                        self.send_ai(Pending::SignOut, request);
+                    }
+                });
+            } else {
+                ui.horizontal(|ui| {
+                    ui.label(tr("Email"));
+                    ui.add(egui::TextEdit::singleline(&mut self.ai.email).desired_width(260.0));
+                });
+                ui.horizontal(|ui| {
+                    ui.label(tr("Password"));
+                    ui.add(egui::TextEdit::singleline(&mut self.ai.password).password(true).desired_width(260.0));
+                });
+                ui.horizontal(|ui| {
+                    if ui.add_enabled(!busy, egui::Button::new(tr("Sign in"))).clicked() {
+                        let request = cloud::sign_in(&self.ai.server, &self.ai.email, &self.ai.password);
+                        self.save_ai();
+                        self.send_ai(Pending::SignIn, request);
+                    }
+                    if ui.add_enabled(!busy, egui::Button::new(tr("Create account"))).clicked() {
+                        let request = cloud::sign_up(&self.ai.server, &self.ai.email, &self.ai.password);
+                        self.save_ai();
+                        self.send_ai(Pending::SignUp, request);
+                    }
+                });
+            }
+        }
+        ui.separator();
+        ui.weak(tr("What you ask is sent to the AI service. Nothing is sent until you press a button."));
+        self.note_row(ui);
+    }
+
+    fn design_window(&mut self, ui: &mut egui::Ui, redraw: bool) {
+        let busy = self.ai.busy();
+        if redraw {
+            ui.horizontal(|ui| {
+                if ui.button(tr("Choose picture…")).clicked()
+                    && let Some(p) = self.choose_picture()
+                {
+                    self.ai.picture = Some(p);
+                }
+                match &self.ai.picture {
+                    Some((name, _)) => ui.label(name),
+                    None => ui.weak(tr("No picture chosen")),
+                };
+            });
+            ui.weak(tr("Use pictures you own or may use: the AI will not copy someone else's logo or character."));
+            ui.label(tr("What to change (optional)"));
+        } else {
+            ui.label(tr("Describe the design"));
+        }
+        ui.add(egui::TextEdit::multiline(&mut self.ai.prompt).desired_rows(3).desired_width(f32::INFINITY));
+        ui.horizontal(|ui| {
+            ui.label(tr("Size (longest side)"));
+            ui.add(egui::DragValue::new(&mut self.ai.size_mm).range(10.0..=1000.0).suffix(" mm"));
+            egui::ComboBox::from_id_salt("ai_use").selected_text(use_label(self.ai.use_for)).show_ui(ui, |ui| {
+                for u in [Use::CutAndEngrave, Use::Engrave, Use::Cut] {
+                    ui.selectable_value(&mut self.ai.use_for, u, use_label(u));
+                }
+            });
+        });
+        ui.weak(tr("Red outlines are cut, blue lines scored, black shapes engraved. Undo removes what is placed."));
+        self.payer_row(ui);
+        if ui.add_enabled(!busy, egui::Button::new(tr("Draw"))).clicked() {
+            self.start_design(redraw);
+        }
+        self.note_row(ui);
+    }
+
+    fn ask_window(&mut self, ui: &mut egui::Ui) {
+        let busy = self.ai.busy();
+        egui::ScrollArea::vertical().max_height(260.0).stick_to_bottom(true).show(ui, |ui| {
+            for turn in &self.ai.turns {
+                if turn.from_person {
+                    ui.strong(&turn.text);
+                } else {
+                    ui.label(&turn.text);
+                }
+                ui.add_space(6.0);
+            }
+        });
+        ui.add(egui::TextEdit::multiline(&mut self.ai.question).desired_rows(2).desired_width(f32::INFINITY).hint_text(tr("Ask a question…")));
+        ui.weak(tr(
+            "The AI is told about your machine and the layers in use, not your artwork. Test on a scrap and never leave a running laser unattended.",
+        ));
+        self.payer_row(ui);
+        ui.horizontal(|ui| {
+            if ui.add_enabled(!busy, egui::Button::new(tr("Ask"))).clicked() {
+                self.start_ask();
+            }
+            if ui.add_enabled(!busy && !self.ai.turns.is_empty(), egui::Button::new(tr("New conversation"))).clicked() {
+                self.ai.turns.clear();
+            }
+        });
+        self.note_row(ui);
+    }
+
+    fn check_window(&mut self, ui: &mut egui::Ui) {
+        let busy = self.ai.busy();
+        ui.horizontal(|ui| {
+            if ui.add_enabled(self.ai.photos.len() < lightfoundry_ai::MAX_IMAGES, egui::Button::new(tr("Add photo…"))).clicked()
+                && let Some(p) = self.choose_picture()
+            {
+                self.ai.photos.push(p);
+            }
+            if !self.ai.photos.is_empty() && ui.button(tr("Remove photos")).clicked() {
+                self.ai.photos.clear();
+            }
+        });
+        for (name, _) in &self.ai.photos {
+            ui.label(name);
+        }
+        ui.label(tr("Material and what you see (optional)"));
+        ui.add(egui::TextEdit::multiline(&mut self.ai.check_notes).desired_rows(2).desired_width(f32::INFINITY));
+        ui.weak(tr("The photos, your notes and your layers' settings are sent to the AI service."));
+        self.payer_row(ui);
+        if ui.add_enabled(!busy, egui::Button::new(tr("Check"))).clicked() {
+            self.start_check();
+        }
+        self.note_row(ui);
+        if let Some(check) = self.ai.check.clone() {
+            ui.separator();
+            ui.label(&check.summary);
+            for (i, s) in check.suggestions.iter().enumerate() {
+                ui.horizontal_wrapped(|ui| {
+                    let mut parts = Vec::new();
+                    if let Some(v) = s.speed {
+                        parts.push(trf!("speed {v} mm/min", v = v));
+                    }
+                    if let Some(v) = s.max_power {
+                        parts.push(trf!("power {v} %", v = v));
+                    }
+                    if let Some(v) = s.passes {
+                        parts.push(trf!("{v} passes", v = v));
+                    }
+                    ui.label(trf!("Layer {layer}: {changes}", layer = s.layer, changes = parts.join(", ")));
+                    if ui.small_button(tr("Apply")).clicked() {
+                        self.apply_suggestion(i);
+                    }
+                });
+                if !s.reason.is_empty() {
+                    ui.weak(&s.reason);
+                }
+            }
+        }
+    }
+}
+
+fn use_label(u: Use) -> String {
+    match u {
+        Use::CutAndEngrave => tr("Cut and engrave"),
+        Use::Engrave => tr("Engrave only"),
+        Use::Cut => tr("Cut only"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::collections::{HashMap, VecDeque};
+    use std::path::PathBuf;
+    use std::rc::Rc;
+
+    use lightfoundry_device::Transport;
+    use lightfoundry_engine::Session;
+
+    use super::*;
+    use crate::Platform;
+
+    #[derive(Default)]
+    struct Shared {
+        /// Requests the app sent, oldest first.
+        sent: Vec<HttpRequest>,
+        /// Answers to give, oldest first.
+        answers: VecDeque<Result<(u16, String), String>>,
+        in_flight: bool,
+        secrets: HashMap<String, String>,
+        picture: Option<PathBuf>,
+    }
+
+    struct Fake(Rc<RefCell<Shared>>);
+
+    impl Platform for Fake {
+        fn pick_open(&self, _: &str, _: &[&str]) -> Option<PathBuf> {
+            self.0.borrow().picture.clone()
+        }
+
+        fn pick_save(&self, _: &str, _: &str, _: &[&str]) -> Option<PathBuf> {
+            None
+        }
+
+        fn serial_ports(&self) -> Vec<String> {
+            Vec::new()
+        }
+
+        fn open_serial(&self, _: &str) -> Result<Box<dyn Transport + Send>, String> {
+            Err("no serial".into())
+        }
+
+        fn http_available(&self) -> bool {
+            true
+        }
+
+        fn start_http(&self, request: HttpRequest) -> bool {
+            let mut s = self.0.borrow_mut();
+            if s.in_flight {
+                return false;
+            }
+            s.in_flight = true;
+            s.sent.push(request);
+            true
+        }
+
+        fn take_http(&self) -> Option<Result<(u16, String), String>> {
+            let mut s = self.0.borrow_mut();
+            let answer = s.answers.pop_front()?;
+            s.in_flight = false;
+            Some(answer)
+        }
+
+        fn secret_get(&self, key: &str) -> Option<String> {
+            self.0.borrow().secrets.get(key).cloned()
+        }
+
+        fn secret_set(&self, key: &str, value: &str) {
+            self.0.borrow_mut().secrets.insert(key.to_string(), value.to_string());
+        }
+    }
+
+    fn app() -> (LightFoundryApp, Rc<RefCell<Shared>>) {
+        let shared = Rc::new(RefCell::new(Shared::default()));
+        (LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared)))), shared)
+    }
+
+    /// Gives the answer to the request in flight and lets the app read it.
+    fn answer(app: &mut LightFoundryApp, shared: &Rc<RefCell<Shared>>, status: u16, body: &str) {
+        shared.borrow_mut().answers.push_back(Ok((status, body.to_string())));
+        app.poll_ai(&egui::Context::default());
+    }
+
+    /// Answers the credits refresh that follows a paid request, if one was sent.
+    fn settle(app: &mut LightFoundryApp, shared: &Rc<RefCell<Shared>>) {
+        if app.ai.pending == Some(Pending::Account) {
+            answer(app, shared, 200, r#"{"email":"me@example.com","credits":90,"payments":true,"packs":[]}"#);
+        }
+    }
+
+    fn model_reply(text: &str) -> String {
+        json!({"type": "message", "model": "m", "stop_reason": "end_turn", "content": [{"type": "text", "text": text}]}).to_string()
+    }
+
+    fn sign_in(app: &mut LightFoundryApp, shared: &Rc<RefCell<Shared>>) {
+        app.open_ai(Window::Account);
+        app.ai.server = "https://c.example".into();
+        app.ai.email = "me@example.com".into();
+        app.ai.password = "secret words".into();
+        let request = cloud::sign_in(&app.ai.server, &app.ai.email, &app.ai.password);
+        app.send_ai(Pending::SignIn, request);
+        answer(app, shared, 200, r#"{"token":"sfs_tok","account":{"email":"me@example.com","credits":100}}"#);
+        answer(app, shared, 200, r#"{"email":"me@example.com","credits":100,"payments":true,"packs":[{"id":"small","credits":1000,"cents":1000}]}"#);
+    }
+
+    #[test]
+    fn signing_in_keeps_the_session_privately_and_reads_the_credits() {
+        let (mut app, shared) = app();
+        sign_in(&mut app, &shared);
+        assert_eq!(app.ai.token.as_deref(), Some("sfs_tok"));
+        assert!(app.ai.password.is_empty(), "the password is not kept");
+        assert_eq!(app.ai.account.as_ref().map(|a| a.credits), Some(100));
+        let kept = shared.borrow().secrets[SECRET_KEY].clone();
+        assert!(kept.contains("sfs_tok") && !kept.contains("secret words"), "{kept}");
+        let sent = &shared.borrow().sent;
+        assert_eq!(sent[0].url, "https://c.example/v1/signin");
+        assert_eq!(sent[1].url, "https://c.example/v1/account");
+        // a new start reads the session back
+        let (mut again, _) = app_with(&shared);
+        again.open_ai(Window::Ask);
+        assert_eq!(again.ai.token.as_deref(), Some("sfs_tok"));
+        assert_eq!(again.ai.server, "https://c.example");
+    }
+
+    fn app_with(shared: &Rc<RefCell<Shared>>) -> (LightFoundryApp, ()) {
+        (LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(shared)))), ())
+    }
+
+    #[test]
+    fn design_from_prompt_places_the_artwork_and_a_refusal_places_nothing() {
+        let (mut app, shared) = app();
+        sign_in(&mut app, &shared);
+        app.ai.prompt = "a small fox".into();
+        app.ai.size_mm = 60.0;
+        app.start_design(false);
+        assert_eq!(app.ai.pending, Some(Pending::Art));
+        let sent = shared.borrow().sent.last().cloned().unwrap();
+        assert_eq!(sent.url, "https://c.example/v1/messages");
+        assert!(sent.headers.contains(&("authorization", "Bearer sfs_tok".to_string())));
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="30mm" height="20mm" viewBox="0 0 30 20"><rect width="30" height="20" fill="none" stroke="#ff0000"/></svg>"##;
+        answer(&mut app, &shared, 200, &model_reply(svg));
+        assert!(matches!(&app.ai.note, Some((_, false))), "{:?}", app.ai.note);
+        settle(&mut app, &shared);
+        assert_eq!(app.ai.account.as_ref().map(|a| a.credits), Some(90), "the credits are read again after a paid request");
+        assert_eq!(app.session.doc.shapes.len(), 1);
+        let b = app.session.doc.bounds_of(&app.session.selection).unwrap();
+        assert!((b.width() - 60.0).abs() < 0.5, "sized as asked: {b:?}");
+        assert!(matches!(&app.ai.note, Some((_, false))), "{:?}", app.ai.note);
+        // refused: nothing more is placed, the reason is shown
+        app.start_design(false);
+        answer(&mut app, &shared, 200, &model_reply("DECLINED: that is a brand's logo"));
+        assert_eq!(app.session.doc.shapes.len(), 1);
+        assert!(matches!(&app.ai.note, Some((m, true)) if m.contains("logo")), "{:?}", app.ai.note);
+        // junk artwork is reported, not fatal
+        app.start_design(false);
+        answer(&mut app, &shared, 200, &model_reply("<svg><nonsense"));
+        assert_eq!(app.session.doc.shapes.len(), 1);
+    }
+
+    #[test]
+    fn requests_that_cannot_be_made_say_why_and_send_nothing() {
+        let (mut app, shared) = app();
+        app.open_ai(Window::Design);
+        app.ai.prompt = "a fox".into();
+        app.start_design(false);
+        assert!(matches!(&app.ai.note, Some((m, true)) if m.contains("Sign in")), "{:?}", app.ai.note);
+        app.ai.prompt.clear();
+        app.ai.use_key = true;
+        app.ai.key = "sk-ant-x".into();
+        app.start_design(false);
+        assert!(matches!(&app.ai.note, Some((m, true)) if m.contains("Describe")), "{:?}", app.ai.note);
+        app.start_design(true);
+        assert!(matches!(&app.ai.note, Some((m, true)) if m.contains("picture")), "{:?}", app.ai.note);
+        assert!(shared.borrow().sent.is_empty());
+        // one request at a time
+        app.ai.prompt = "a fox".into();
+        app.start_design(false);
+        assert_eq!(shared.borrow().sent[0].url, lightfoundry_ai::API_URL, "the person's own key goes to Anthropic");
+        app.start_design(false);
+        assert_eq!(shared.borrow().sent.len(), 1);
+        assert!(matches!(&app.ai.note, Some((m, true)) if m.contains("still running")), "{:?}", app.ai.note);
+    }
+
+    #[test]
+    fn an_ended_session_forgets_itself_and_not_enough_credits_is_said() {
+        let (mut app, shared) = app();
+        sign_in(&mut app, &shared);
+        app.ai.question = "hi".into();
+        app.start_ask();
+        answer(&mut app, &shared, 402, r#"{"error":{"message":"x"}}"#);
+        assert!(matches!(&app.ai.note, Some((m, true)) if m.contains("credits")), "{:?}", app.ai.note);
+        assert!(app.ai.token.is_some() && app.ai.turns.is_empty(), "an unanswered question is not kept in the conversation");
+        app.ai.question = "hi".into();
+        app.start_ask();
+        answer(&mut app, &shared, 401, "{}");
+        assert!(app.ai.token.is_none() && app.ai.account.is_none(), "the session ended");
+        assert!(shared.borrow().secrets[SECRET_KEY].contains("\"token\":null"));
+    }
+
+    #[test]
+    fn asking_sends_the_document_as_context_and_keeps_the_conversation() {
+        let (mut app, shared) = app();
+        sign_in(&mut app, &shared);
+        app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 10, "height": 10}));
+        app.ai.question = "  Is 1000 mm/min right for 3 mm ply?  ".into();
+        app.start_ask();
+        let body: Value = serde_json::from_str(&shared.borrow().sent.last().unwrap().body).unwrap();
+        assert!(body["system"].as_str().unwrap().contains("Layer 0"), "the layers in use are told");
+        assert_eq!(body["messages"][0]["content"], "Is 1000 mm/min right for 3 mm ply?");
+        assert!(app.ai.question.is_empty());
+        answer(&mut app, &shared, 200, &model_reply("Try 1200 mm/min at 70 %."));
+        settle(&mut app, &shared);
+        assert_eq!(app.ai.turns.len(), 2);
+        assert_eq!(app.ai.turns[1].text, "Try 1200 mm/min at 70 %.");
+        app.ai.question = "and two passes?".into();
+        app.start_ask();
+        let body: Value = serde_json::from_str(&shared.borrow().sent.last().unwrap().body).unwrap();
+        assert_eq!(body["messages"].as_array().unwrap().len(), 3, "the earlier turns go along");
+    }
+
+    #[test]
+    fn check_my_cut_suggestions_apply_as_one_undo_step_each() {
+        let (mut app, shared) = app();
+        sign_in(&mut app, &shared);
+        app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 10, "height": 10}));
+        // a photo from a real file
+        let dir = std::env::temp_dir().join(format!("lf-ai-photo-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("cut.png");
+        image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(40, 30, image::Rgb([120, 80, 40]))).save(&file).unwrap();
+        shared.borrow_mut().picture = Some(file);
+        let photo = app.choose_picture().unwrap();
+        assert_eq!(photo.0, "cut.png");
+        app.ai.photos.push(photo);
+        app.ai.check_notes = "3 mm birch, charred".into();
+        app.start_check();
+        let body: Value = serde_json::from_str(&shared.borrow().sent.last().unwrap().body).unwrap();
+        assert_eq!(body["messages"][0]["content"][0]["type"], "image");
+        let reply = r#"{"summary":"Too hot.","suggestions":[{"layer":0,"speed":1500,"max_power":50,"passes":2,"reason":"less heat"},{"layer":99,"speed":10}]}"#;
+        answer(&mut app, &shared, 200, &model_reply(reply));
+        settle(&mut app, &shared);
+        let check = app.ai.check.clone().unwrap();
+        assert_eq!((check.summary.as_str(), check.suggestions.len()), ("Too hot.", 1), "the layer that does not exist is dropped");
+        let before = app.session.doc.layer(0).unwrap().clone();
+        app.apply_suggestion(0);
+        let l = app.session.doc.layer(0).unwrap();
+        assert_eq!((l.speed, l.max_power, l.passes), (1500.0, 50.0, 2));
+        app.session.execute("edit.undo", &Value::Null).unwrap();
+        assert_eq!(app.session.doc.layer(0).unwrap().speed, before.speed, "one undo step");
+        app.apply_suggestion(7); // no such suggestion: nothing happens
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn buying_credits_opens_only_an_https_page_and_the_windows_draw() {
+        let (mut app, shared) = app();
+        sign_in(&mut app, &shared);
+        let request = cloud::checkout(&app.ai.server, "sfs_tok", "small");
+        app.send_ai(Pending::Checkout, request);
+        answer(&mut app, &shared, 200, r#"{"url":"https://checkout.stripe.com/c/pay/x"}"#);
+        assert_eq!(app.pending_url.as_deref(), Some("https://checkout.stripe.com/c/pay/x"));
+        app.pending_url = None;
+        let request = cloud::checkout(&app.ai.server, "sfs_tok", "small");
+        app.send_ai(Pending::Checkout, request);
+        answer(&mut app, &shared, 200, r#"{"url":"javascript:alert(1)"}"#);
+        assert!(app.pending_url.is_none());
+        // every window draws in every state
+        let ctx = egui::Context::default();
+        for window in [Window::Account, Window::Design, Window::Redraw, Window::Ask, Window::Check] {
+            app.ai.window = Some(window);
+            ctx.run_ui(egui::RawInput::default(), |ui| app.ai_windows(ui.ctx())).drop_without_applying_deltas();
+        }
+        app.ai.token = None;
+        app.ai.window = Some(Window::Account);
+        ctx.run_ui(egui::RawInput::default(), |ui| app.ai_windows(ui.ctx())).drop_without_applying_deltas();
+    }
+}

@@ -10,6 +10,9 @@ pub fn menu_bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
             ui.menu_button(tr("Edit"), |ui| edit_menu(app, ui));
             ui.menu_button(tr("Arrange"), |ui| arrange_menu(app, ui));
             ui.menu_button(tr("Laser"), |ui| laser_menu(app, ui));
+            if app.platform.http_available() {
+                ui.menu_button(tr("AI"), |ui| ai_menu(app, ui));
+            }
             ui.menu_button(tr("Help"), |ui| help_menu(app, ui));
             ui.menu_button(tr("View"), |ui| {
                 if ui.button(tr("Fit bed to window")).clicked() {
@@ -124,6 +127,25 @@ pub fn menu_bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
             });
         });
     });
+}
+
+/// AI: the four features and the account. Each opens its own window.
+fn ai_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+    use crate::ai_ui::Window;
+    for (label, window) in [
+        ("Design from Prompt…", Window::Design),
+        ("Redraw Image…", Window::Redraw),
+        ("Ask About Lasering…", Window::Ask),
+        ("Check My Cut…", Window::Check),
+    ] {
+        if item(ui, label, "") {
+            app.open_ai(window);
+        }
+    }
+    ui.separator();
+    if item(ui, "Account…", "") {
+        app.open_ai(Window::Account);
+    }
 }
 
 /// Help: each entry's command returns a web address, which the system browser opens.

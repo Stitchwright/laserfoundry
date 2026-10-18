@@ -21,11 +21,16 @@ impl eframe::App for Host {
     }
 }
 
+/// An AI or account request's answer: the HTTP status and body, or why none came.
+type HttpAnswer = Result<(u16, String), String>;
+
 /// Native file dialogs and serial ports.
 #[derive(Default)]
 pub struct DesktopPlatform {
     /// The font library download in progress, if any: its result arrives here.
     font_job: Mutex<Option<mpsc::Receiver<Result<String, String>>>>,
+    /// The AI or account request in flight, if any: its answer arrives here.
+    http_job: Mutex<Option<mpsc::Receiver<HttpAnswer>>>,
 }
 
 impl Platform for DesktopPlatform {
@@ -102,6 +107,49 @@ impl Platform for DesktopPlatform {
                 *job = None;
                 Some(Err("the font download stopped unexpectedly".into()))
             }
+        }
+    }
+
+    fn http_available(&self) -> bool {
+        true
+    }
+
+    fn start_http(&self, request: lightfoundry_ai::HttpRequest) -> bool {
+        let Ok(mut job) = self.http_job.lock() else { return false };
+        if job.is_some() {
+            return false;
+        }
+        let (sender, receiver) = mpsc::channel();
+        *job = Some(receiver);
+        std::thread::spawn(move || {
+            let _ = sender.send(crate::net::send(&request));
+        });
+        true
+    }
+
+    fn take_http(&self) -> Option<Result<(u16, String), String>> {
+        let mut job = self.http_job.lock().ok()?;
+        match job.as_ref()?.try_recv() {
+            Ok(result) => {
+                *job = None;
+                Some(result)
+            }
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                *job = None;
+                Some(Err("the request stopped unexpectedly".into()))
+            }
+        }
+    }
+
+    fn secret_get(&self, key: &str) -> Option<String> {
+        crate::net::secret_get(&data_dir()?.join("LightFoundry").join("secrets.json"), key)
+    }
+
+    fn secret_set(&self, key: &str, value: &str) {
+        let Some(path) = data_dir().map(|d| d.join("LightFoundry").join("secrets.json")) else { return };
+        if let Err(e) = crate::net::secret_set(&path, key, value) {
+            log::warn!("could not keep the account settings: {e}");
         }
     }
 

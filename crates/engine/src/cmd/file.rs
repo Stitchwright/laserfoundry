@@ -153,7 +153,7 @@ fn project_data(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     Ok(json!({ "data_base64": lightfoundry_doc::base64::encode(&bytes), "bytes": bytes.len() }))
 }
 
-fn decode_data(data: &str) -> Result<Vec<u8>, EngineError> {
+pub(super) fn decode_data(data: &str) -> Result<Vec<u8>, EngineError> {
     lightfoundry_doc::base64::decode(data).ok_or_else(|| EngineError::BadParams("data_base64 is not valid base64".into()))
 }
 
@@ -414,7 +414,7 @@ fn source_bytes(p: &ImportParams) -> Result<Vec<u8>, EngineError> {
 }
 
 /// Exact colour match against the layer palette; anything else lands on layer 0.
-fn layer_for_color(hex: &str) -> LayerId {
+pub(super) fn layer_for_color(hex: &str) -> LayerId {
     LAYER_COLORS.iter().position(|c| c.eq_ignore_ascii_case(hex)).map_or(0, |i| i as LayerId)
 }
 

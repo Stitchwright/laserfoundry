@@ -118,6 +118,7 @@ shape {id} does not exist
 shape {id} is not an image
 shape {id} is not text
 shapes contain a non-finite or out-of-range coordinate
+size_mm must be between {1} and {2}
 sizes must be positive, finite and the shape must have extent in that direction
 spacing must be a finite number between 0 and 10
 start must be two finite numbers
@@ -129,6 +130,9 @@ that picture has no colour (grey, or imported by an older version); import it ag
 that picture is too large or too detailed to trace
 that text is too large to bend
 that would make the picture too large
+the artwork has no shapes
+the artwork has no size
+the artwork has too many shapes
 the controller raised ALARM:{0}; clear it (unlock/home) before running again
 the controller rejected line {line} ({text}) with error:{code}
 the download was cancelled
@@ -147,6 +151,8 @@ the offset leaves nothing (the shapes collapse at that distance)
 the path has no geometry
 the path is too short to follow
 the picture has no ink to trace (it is all paper-white)
+the picture is too large
+the picture is too large to send
 the program has {total} lines; line {line} does not exist
 the program is too long to resume
 the result is empty (the shapes do not overlap that way)

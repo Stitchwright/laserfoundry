@@ -9,6 +9,7 @@ mod head_ui;
 pub(crate) mod i18n {
     pub use lightfoundry_i18n::*;
 }
+mod ai_ui;
 mod browser_recent;
 mod job_position;
 mod menus;
@@ -199,6 +200,9 @@ pub struct LightFoundryApp {
     awaiting_upload: Option<UploadKind>,
     /// A program waiting for the person to confirm a start the bed cannot be checked for (relative start).
     pending_start: Option<String>,
+    ai: ai_ui::AiState,
+    /// A web address to open in the browser at the next frame (a payment page).
+    pending_url: Option<String>,
     /// The controller's settings were asked for on this connection (so jobs can be refused when laser mode is off).
     settings_asked: bool,
     /// The person chose not to be asked again about relative starts in this session.
@@ -383,6 +387,8 @@ impl LightFoundryApp {
             recorded_path: None,
             allow_close: false,
             pending_start: None,
+            ai: ai_ui::AiState::default(),
+            pending_url: None,
             settings_asked: false,
             relative_start_trusted: false,
             last_title: String::new(),
@@ -400,6 +406,10 @@ impl LightFoundryApp {
         self.autosave_tick(ui.ctx());
         self.watch_close_and_title(ui.ctx());
         self.platform.set_leave_warning(self.job_active() || self.session.dirty);
+        self.poll_ai(ui.ctx());
+        if let Some(url) = self.pending_url.take() {
+            ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+        }
         self.track_recent();
         self.poll_upload(ui.ctx());
         self.poll_font_download(ui.ctx());
@@ -423,6 +433,7 @@ impl LightFoundryApp {
         }
         egui::CentralPanel::default().show(ui, |ui| canvas::show(self, ui));
         self.dialogs(ui.ctx());
+        self.ai_windows(ui.ctx());
     }
 
     /// Loads the saved translation, if there is one. A damaged file is reported and ignored.

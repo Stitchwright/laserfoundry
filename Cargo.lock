@@ -1808,6 +1808,7 @@ dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "lightfoundry-ai",
  "lightfoundry-device",
  "lightfoundry-engine",
  "lightfoundry-fontlib",
@@ -1817,6 +1818,7 @@ dependencies = [
  "log",
  "rfd",
  "serde_json",
+ "ureq",
 ]
 
 [[package]]
@@ -1874,6 +1876,7 @@ version = "0.1.0"
 dependencies = [
  "image",
  "kurbo",
+ "lightfoundry-ai",
  "lightfoundry-device",
  "lightfoundry-doc",
  "lightfoundry-dxf",
@@ -2016,6 +2019,7 @@ dependencies = [
  "egui",
  "image",
  "kurbo",
+ "lightfoundry-ai",
  "lightfoundry-device",
  "lightfoundry-doc",
  "lightfoundry-engine",

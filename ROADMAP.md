@@ -581,3 +581,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   one account and balance; the code is new, not copied. 19 tests plus a fuzz entry (`ai_reply`, stable
   mutation test and a `fuzz/` target). Not done: the account window and dialogs, the hosts' network clients,
   token storage. See `docs/ai.md`.
+- **2026-10-18 — AI and accounts, the interface and the desktop client.** An AI menu (Design from Prompt, Redraw
+  Image, Ask About Lasering, Check My Cut, Account) shown where the host can send requests (the desktop app).
+  Engine commands: `ai.context` (the machine and layers in use, in words), `ai.place_art` (the model's SVG onto
+  the layers its colours name, sized, centred, grouped, one undo step; an untouched layer of filled art becomes a
+  fill layer), `ai.prepare_picture` (shrunk to 1568 px, transparency onto white, JPEG). Check My Cut's
+  suggestions are applied one at a time as `layer.set`. The desktop host sends with `ureq` (no redirects) and
+  keeps the session token and any API key in an owner-only file. Checked by 7 interface tests against a scripted
+  host, 5 engine tests (placing, sizing, hostile artwork, context, pictures), 3 host tests (a local server,
+  redirects, the private file) and the full gate. Not done: any run against a real service or key, the browser
+  build, a privacy/consent screen. See `docs/ai.md`.

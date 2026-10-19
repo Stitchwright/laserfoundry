@@ -662,3 +662,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   default address; the service's health and CORS preflight were read with curl. Not done: a signed-in request
   against the real service (that creates an account and spends credits, so it is the owner's to try), and prompt
   tuning from a real run.
+- **2026-10-19 — Landing-page copy.** `docs/marketing.md`: names and links, taglines, short and long
+  descriptions, feature blocks, audience, an honest-status paragraph, FAQ and keywords, for the StitchFoundry team
+  to build the LaserFoundry page from. Every claim was checked against the README and the parity assessment. Not
+  done: screenshots (to be captured from the real app) and the page itself.

@@ -631,3 +631,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   plain text with nothing private) and `docs/hardware-bringup.md`: safety, reading and fixing the settings the
   program checks, a laser-off motion test, first marks on scrap, and exactly what to bring back for a fix.
   Checked by a frame test against the simulator. Not done: any of it on real hardware (that is the next step).
+- **2026-10-19 — the `lightfoundry.app` domain, prepared.** `docs/domain.md`: registering through Cloudflare, the
+  DNS records for GitHub Pages (DNS only), verifying the domain with GitHub, setting it in the repository, and
+  what to change in the repository afterwards. The program needs no change (the page uses relative paths). Not
+  done: the registration and the DNS (the owner's), and the links in the README and docs, which wait for the
+  domain to work.

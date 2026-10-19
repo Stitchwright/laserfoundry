@@ -666,3 +666,6 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   descriptions, feature blocks, audience, an honest-status paragraph, FAQ and keywords, for the StitchFoundry team
   to build the LaserFoundry page from. Every claim was checked against the README and the parity assessment. Not
   done: screenshots (to be captured from the real app) and the page itself.
+- **2026-10-19 — A first screenshot for the landing page.** `docs/screenshots/canvas.png`, taken from the desktop
+  app under Xvfb with an original demo design; `docs/marketing.md` says what else the page needs. Not done: the
+  preview, dithering and AI-window screenshots.

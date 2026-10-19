@@ -157,4 +157,7 @@ laser.
 
 Canvas with a design and layer palette; toolpath preview mid-playback; photo dithering before and after; the
 machine panel with the jog pad; the AI Design from Prompt window with a result. (Take them from the real app;
-no third-party artwork.)
+no third-party artwork.) One is ready: `docs/screenshots/canvas.png`, the desktop app (1280x800, software
+rendering) with a small demo design from scratch: the layer palette is on the right and the colours of the
+drawing are the layers that decide cut, score or engrave. It is an original screenshot of our own app; the page
+should add the toolpath preview, the dithering comparison and the AI window.

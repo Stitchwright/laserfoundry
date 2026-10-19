@@ -2,7 +2,7 @@
 //!
 //! Everything is in millimetres on the workspace (y down).
 
-use lightfoundry_geom::{Point, Rect};
+use laserfoundry_geom::{Point, Rect};
 
 /// How close (in screen points) something must be to attract the cursor.
 pub const SNAP_RADIUS_PX: f64 = 8.0;
@@ -926,7 +926,7 @@ mod tests {
 
         #[test]
         fn rectangles_give_corners_and_edge_midpoints_in_workspace_space() {
-            let path = lightfoundry_geom::rect_path(0.0, 0.0, 10.0, 4.0);
+            let path = laserfoundry_geom::rect_path(0.0, 0.0, 10.0, 4.0);
             let pts = path_points(&path, Affine::translate((100.0, 50.0)), 100);
             for want in [Point::new(100.0, 50.0), Point::new(110.0, 54.0), Point::new(105.0, 50.0), Point::new(110.0, 52.0)] {
                 assert!(pts.iter().any(|(p, _)| p.distance(want) < 1e-9), "{want:?} in {pts:?}");
@@ -940,7 +940,7 @@ mod tests {
             curve.curve_to((5.0, 30.0), (15.0, 30.0), (20.0, 0.0));
             let pts = path_points(&curve, Affine::IDENTITY, 100);
             assert_eq!(pts, vec![(Point::new(0.0, 0.0), TargetKind::Endpoint), (Point::new(20.0, 0.0), TargetKind::Endpoint)], "no control points");
-            let big = lightfoundry_geom::rect_path(0.0, 0.0, 10.0, 10.0);
+            let big = laserfoundry_geom::rect_path(0.0, 0.0, 10.0, 10.0);
             assert_eq!(path_points(&big, Affine::IDENTITY, 3).len(), 3);
             assert!(path_points(&big, Affine::IDENTITY, 0).is_empty());
             assert!(path_points(&big, Affine::scale(f64::NAN), 100).is_empty(), "non-finite results are dropped");

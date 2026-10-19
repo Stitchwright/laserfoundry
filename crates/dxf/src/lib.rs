@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use kurbo::{Affine, Arc, Shape, SvgArc, Vec2};
-use lightfoundry_geom::{BezPath, Point, bounds_of_polylines, ellipse_path, flatten};
+use laserfoundry_geom::{BezPath, Point, bounds_of_polylines, ellipse_path, flatten};
 use thiserror::Error;
 
 pub const MAX_DXF_BYTES: usize = 100 * 1024 * 1024;

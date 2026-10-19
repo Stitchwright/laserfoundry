@@ -1,4 +1,4 @@
-//! LightFoundry is a clean-room project: behaviour comes from public documentation only.
+//! LaserFoundry is a clean-room project: behaviour comes from public documentation only.
 //! This check fails on files or text that suggest proprietary material was copied in.
 
 use std::fs;

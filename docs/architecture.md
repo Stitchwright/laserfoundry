@@ -2,7 +2,7 @@
 
 > **Last updated:** 2026-10-13 · **Stage:** M0, the vertical slice (import → layers → toolpath → G-code → stream)
 
-How LightFoundry is built today. Rules (clean-room, never-crash, quality gates) are in
+How LaserFoundry is built today. Rules (clean-room, never-crash, quality gates) are in
 [`AGENTS.md`](../AGENTS.md).
 
 ## Shape
@@ -26,13 +26,13 @@ and that nothing below L7 depends on a UI toolkit. The table lives in `xtask/src
 | L3    | `svg`      | SVG import (`usvg` resolves shapes, groups, transforms, units)                                   |
 | L3    | `dxf`      | ASCII DXF import written from the public reference                                               |
 | L3    | `gcode`    | `Job` to GRBL G-code with a `Placement` (absolute, or relative to a job anchor); bed-bounds and finiteness checks; framing |
-| L3    | `format`   | the native `.lightfoundry` file: versioned JSON, atomic save, validation on load                 |
+| L3    | `format`   | the native `.laserfoundry` file: versioned JSON, atomic save, validation on load                 |
 | L3    | `device`   | `Transport` trait, GRBL character-counting streamer (`JobStream`), status parsing, the persistent `Link` (worker thread: status polling, jog/home/unlock/zero, job streaming, pause/resume/stop, console), simulated controller, optional serial port (`serial` feature) |
 | L3    | `fontlib`  | downloads the font library (stitchfoundry-fonts) into the data folder: tree listing + raw files, caps, safe paths. Desktop app and CLI only (xtask layers enforces it) |
 | L5    | `engine`   | `Session` (document, selection, undo/redo), the command registry, the panic guard                |
 | L6    | `mcp`      | a Model Context Protocol server over stdio: every engine command is a tool                       |
 | L7    | `ui-egui`  | menus, tools, canvas, panels; talks to the engine only through `execute`                         |
-| L8    | `apps/lightfoundry`, `apps/lightfoundry-cli`, `xtask` | the eframe desktop app (native dialogs, serial), the CLI, build tooling |
+| L8    | `apps/laserfoundry`, `apps/laserfoundry-cli`, `xtask` | the eframe desktop app (native dialogs, serial), the CLI, build tooling |
 
 ## Everything is a command
 
@@ -42,7 +42,7 @@ step; if they return an error or panic, the document is restored. `command.batch
 one atomic undo step. The UI, the CLI's `run` script and any future control channel or MCP server
 reach the same registry, so anything a person can do, a script or agent can do.
 
-`cargo run -p lightfoundry-cli -- commands` prints the live list.
+`cargo run -p laserfoundry-cli -- commands` prints the live list.
 
 ## Coordinates and units
 

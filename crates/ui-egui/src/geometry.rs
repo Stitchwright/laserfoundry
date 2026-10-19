@@ -1,10 +1,10 @@
 //! Per-revision caches of derived data: flattened shape outlines for drawing and hit-testing,
 //! and the planned toolpath for the preview.
 
-use lightfoundry_doc::{LayerId, ShapeId};
-use lightfoundry_engine::Session;
-use lightfoundry_geom::{Point, Polyline, Rect, bounds_of_polylines};
-use lightfoundry_toolpath::{Move, Timeline, move_seconds, plan};
+use laserfoundry_doc::{LayerId, ShapeId};
+use laserfoundry_engine::Session;
+use laserfoundry_geom::{Point, Polyline, Rect, bounds_of_polylines};
+use laserfoundry_toolpath::{Move, Timeline, move_seconds, plan};
 
 /// Preview segments drawn at most; huge raster jobs are truncated for display only.
 pub const MAX_PREVIEW_SEGMENTS: usize = 400_000;
@@ -43,8 +43,8 @@ impl GeometryCache {
                     layer: sh.layer,
                     lines,
                     bounds,
-                    is_image: matches!(sh.kind, lightfoundry_doc::ShapeKind::Image { .. }),
-                    is_text: matches!(sh.kind, lightfoundry_doc::ShapeKind::Text { .. }),
+                    is_image: matches!(sh.kind, laserfoundry_doc::ShapeKind::Image { .. }),
+                    is_text: matches!(sh.kind, laserfoundry_doc::ShapeKind::Text { .. }),
                 })
             })
             .collect();
@@ -178,8 +178,8 @@ const THUMB_MAX: usize = 256;
 
 impl ImageTextures {
     /// The texture for an image shape, (re)built when needed. `None` for non-images.
-    pub fn get(&mut self, ctx: &egui::Context, shape: &lightfoundry_doc::Shape) -> Option<egui::TextureId> {
-        let lightfoundry_doc::ShapeKind::Image { image, adjust, .. } = &shape.kind else { return None };
+    pub fn get(&mut self, ctx: &egui::Context, shape: &laserfoundry_doc::Shape) -> Option<egui::TextureId> {
+        let laserfoundry_doc::ShapeKind::Image { image, adjust, .. } = &shape.kind else { return None };
         let key = ThumbKey {
             buffer: std::sync::Arc::as_ptr(image) as usize,
             adjust: [adjust.brightness.to_bits(), adjust.contrast.to_bits(), adjust.gamma.to_bits()],
@@ -220,7 +220,7 @@ fn thumb_size(w: usize, h: usize) -> (usize, usize) {
 }
 
 /// Box-average downscale with the tone adjustment applied.
-fn downscale(img: &lightfoundry_doc::RasterImage, tw: usize, th: usize, adjust: &lightfoundry_doc::ImageAdjust) -> Vec<u8> {
+fn downscale(img: &laserfoundry_doc::RasterImage, tw: usize, th: usize, adjust: &laserfoundry_doc::ImageAdjust) -> Vec<u8> {
     let (sw, sh) = (img.width as usize, img.height as usize);
     let mut out = Vec::with_capacity(tw * th);
     for ty in 0..th {

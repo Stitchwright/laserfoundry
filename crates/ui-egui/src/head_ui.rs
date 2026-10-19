@@ -4,10 +4,10 @@
 //! one case where a machine position and a point on the bed are the same thing.
 
 use crate::i18n::tr;
-use lightfoundry_doc::{Document, Machine, Origin, StartFrom};
-use lightfoundry_geom::Point;
+use laserfoundry_doc::{Document, Machine, Origin, StartFrom};
+use laserfoundry_geom::Point;
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 use crate::view::View;
 
 /// Whether machine positions can be mapped onto the bed at all.
@@ -35,7 +35,7 @@ pub fn world_to_machine(m: &Machine, p: Point) -> Option<(f64, f64)> {
 }
 
 /// Where the head is on the bed, when the link reports it and the mapping is meaningful.
-pub fn head_world(app: &LightFoundryApp) -> Option<Point> {
+pub fn head_world(app: &LaserFoundryApp) -> Option<Point> {
     if !mappable(&app.session.doc) {
         return None;
     }
@@ -47,14 +47,14 @@ pub fn head_world(app: &LightFoundryApp) -> Option<Point> {
     Some(machine_to_world(&app.session.doc.machine, x, y))
 }
 
-pub fn draw(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
+pub fn draw(app: &LaserFoundryApp, painter: &egui::Painter, view: &View) {
     if let Some(p) = head_world(app) {
         crate::timeline_ui::draw_head(painter, view.to_screen(p), app.tokens.error);
     }
 }
 
 /// Handles a canvas click while "move the laser" is on. Returns whether the click was used.
-pub fn click(app: &mut LightFoundryApp, at: Point) -> bool {
+pub fn click(app: &mut LaserFoundryApp, at: Point) -> bool {
     if !app.move_head_mode {
         return false;
     }

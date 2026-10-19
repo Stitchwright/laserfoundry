@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use lightfoundry_text::GlyphFont;
+use laserfoundry_text::GlyphFont;
 
 use crate::EngineError;
 

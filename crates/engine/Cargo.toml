@@ -1,25 +1,25 @@
 [package]
-name = "lightfoundry-engine"
+name = "laserfoundry-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry engine"
+description = "LaserFoundry engine"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-geom = { workspace = true }
-lightfoundry-doc = { workspace = true }
-lightfoundry-toolpath = { workspace = true }
-lightfoundry-text = { workspace = true }
-lightfoundry-pathops = { workspace = true }
-lightfoundry-gcode = { workspace = true }
-lightfoundry-svg = { workspace = true }
-lightfoundry-dxf = { workspace = true }
-lightfoundry-format = { workspace = true }
-lightfoundry-ai = { workspace = true }
-lightfoundry-device = { workspace = true }
+laserfoundry-geom = { workspace = true }
+laserfoundry-doc = { workspace = true }
+laserfoundry-toolpath = { workspace = true }
+laserfoundry-text = { workspace = true }
+laserfoundry-pathops = { workspace = true }
+laserfoundry-gcode = { workspace = true }
+laserfoundry-svg = { workspace = true }
+laserfoundry-dxf = { workspace = true }
+laserfoundry-format = { workspace = true }
+laserfoundry-ai = { workspace = true }
+laserfoundry-device = { workspace = true }
 kurbo = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -28,4 +28,4 @@ log = { workspace = true }
 image = { workspace = true }
 
 [dev-dependencies]
-lightfoundry-text = { workspace = true, features = ["testfont"] }
+laserfoundry-text = { workspace = true, features = ["testfont"] }

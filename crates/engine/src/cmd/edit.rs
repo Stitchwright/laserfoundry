@@ -1,5 +1,5 @@
-use lightfoundry_doc::{LayerId, ShapeId};
-use lightfoundry_geom::{Affine, Rect};
+use laserfoundry_doc::{LayerId, ShapeId};
+use laserfoundry_geom::{Affine, Rect};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -354,8 +354,8 @@ fn yes() -> bool {
 
 fn two_point(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: TwoPointParams = parse(params)?;
-    let pt = |v: [f64; 2]| lightfoundry_geom::Point::new(v[0], v[1]);
-    let r = lightfoundry_geom::register::two_point([pt(p.design[0]), pt(p.design[1])], [pt(p.actual[0]), pt(p.actual[1])], p.lock_scale)
+    let pt = |v: [f64; 2]| laserfoundry_geom::Point::new(v[0], v[1]);
+    let r = laserfoundry_geom::register::two_point([pt(p.design[0]), pt(p.design[1])], [pt(p.actual[0]), pt(p.actual[1])], p.lock_scale)
         .map_err(|e| EngineError::BadParams(e.to_string()))?;
     let ids: Vec<ShapeId> = match p.ids {
         Some(ids) => ids.into_iter().filter(|id| s.doc.shape(*id).is_some()).collect(),

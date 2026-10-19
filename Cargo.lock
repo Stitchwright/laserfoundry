@@ -1768,6 +1768,254 @@ dependencies = [
 ]
 
 [[package]]
+name = "laserfoundry"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "env_logger",
+ "laserfoundry-ai",
+ "laserfoundry-device",
+ "laserfoundry-engine",
+ "laserfoundry-fontlib",
+ "laserfoundry-i18n",
+ "laserfoundry-mcp",
+ "laserfoundry-ui-egui",
+ "log",
+ "rfd",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "laserfoundry-ai"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-cli"
+version = "0.1.0"
+dependencies = [
+ "laserfoundry-engine",
+ "laserfoundry-fontlib",
+ "laserfoundry-i18n",
+ "laserfoundry-mcp",
+ "serde_json",
+]
+
+[[package]]
+name = "laserfoundry-device"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serialport",
+ "thiserror 2.0.21",
+ "web-time",
+]
+
+[[package]]
+name = "laserfoundry-doc"
+version = "0.1.0"
+dependencies = [
+ "kurbo",
+ "laserfoundry-geom",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "laserfoundry-dxf"
+version = "0.1.0"
+dependencies = [
+ "kurbo",
+ "laserfoundry-doc",
+ "laserfoundry-geom",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-engine"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "kurbo",
+ "laserfoundry-ai",
+ "laserfoundry-device",
+ "laserfoundry-doc",
+ "laserfoundry-dxf",
+ "laserfoundry-format",
+ "laserfoundry-gcode",
+ "laserfoundry-geom",
+ "laserfoundry-pathops",
+ "laserfoundry-svg",
+ "laserfoundry-text",
+ "laserfoundry-toolpath",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-fontlib"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde_json",
+ "thiserror 2.0.21",
+ "ureq",
+]
+
+[[package]]
+name = "laserfoundry-format"
+version = "0.1.0"
+dependencies = [
+ "laserfoundry-doc",
+ "laserfoundry-geom",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-fuzzkit"
+version = "0.1.0"
+dependencies = [
+ "laserfoundry-ai",
+ "laserfoundry-device",
+ "laserfoundry-dxf",
+ "laserfoundry-engine",
+ "laserfoundry-fontlib",
+ "laserfoundry-format",
+ "laserfoundry-mcp",
+ "laserfoundry-svg",
+ "laserfoundry-text",
+ "laserfoundry-web",
+ "serde_json",
+]
+
+[[package]]
+name = "laserfoundry-gcode"
+version = "0.1.0"
+dependencies = [
+ "laserfoundry-doc",
+ "laserfoundry-geom",
+ "laserfoundry-toolpath",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-geom"
+version = "0.1.0"
+dependencies = [
+ "kurbo",
+ "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-i18n"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "laserfoundry-mcp"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.3.4",
+ "laserfoundry-engine",
+ "log",
+ "serde_json",
+]
+
+[[package]]
+name = "laserfoundry-pathops"
+version = "0.1.0"
+dependencies = [
+ "i_overlay",
+ "laserfoundry-geom",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-svg"
+version = "0.1.0"
+dependencies = [
+ "kurbo",
+ "laserfoundry-doc",
+ "laserfoundry-geom",
+ "thiserror 2.0.21",
+ "usvg",
+]
+
+[[package]]
+name = "laserfoundry-text"
+version = "0.1.0"
+dependencies = [
+ "harfrust",
+ "kurbo",
+ "laserfoundry-geom",
+ "roxmltree 0.21.1",
+ "serde_json",
+ "skrifa",
+ "thiserror 2.0.21",
+ "unicode-bidi",
+]
+
+[[package]]
+name = "laserfoundry-toolpath"
+version = "0.1.0"
+dependencies = [
+ "kurbo",
+ "laserfoundry-doc",
+ "laserfoundry-geom",
+ "laserfoundry-pathops",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "laserfoundry-ui-egui"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "image",
+ "kurbo",
+ "laserfoundry-ai",
+ "laserfoundry-device",
+ "laserfoundry-doc",
+ "laserfoundry-engine",
+ "laserfoundry-format",
+ "laserfoundry-geom",
+ "laserfoundry-i18n",
+ "laserfoundry-toolpath",
+ "log",
+ "serde_json",
+ "web-time",
+]
+
+[[package]]
+name = "laserfoundry-web"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "js-sys",
+ "laserfoundry-ai",
+ "laserfoundry-device",
+ "laserfoundry-engine",
+ "laserfoundry-ui-egui",
+ "log",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1799,254 +2047,6 @@ dependencies = [
  "libc",
  "plain",
  "redox_syscall 0.9.4",
-]
-
-[[package]]
-name = "lightfoundry"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "env_logger",
- "lightfoundry-ai",
- "lightfoundry-device",
- "lightfoundry-engine",
- "lightfoundry-fontlib",
- "lightfoundry-i18n",
- "lightfoundry-mcp",
- "lightfoundry-ui-egui",
- "log",
- "rfd",
- "serde_json",
- "ureq",
-]
-
-[[package]]
-name = "lightfoundry-ai"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-cli"
-version = "0.1.0"
-dependencies = [
- "lightfoundry-engine",
- "lightfoundry-fontlib",
- "lightfoundry-i18n",
- "lightfoundry-mcp",
- "serde_json",
-]
-
-[[package]]
-name = "lightfoundry-device"
-version = "0.1.0"
-dependencies = [
- "log",
- "serialport",
- "thiserror 2.0.21",
- "web-time",
-]
-
-[[package]]
-name = "lightfoundry-doc"
-version = "0.1.0"
-dependencies = [
- "kurbo",
- "lightfoundry-geom",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lightfoundry-dxf"
-version = "0.1.0"
-dependencies = [
- "kurbo",
- "lightfoundry-doc",
- "lightfoundry-geom",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-engine"
-version = "0.1.0"
-dependencies = [
- "image",
- "kurbo",
- "lightfoundry-ai",
- "lightfoundry-device",
- "lightfoundry-doc",
- "lightfoundry-dxf",
- "lightfoundry-format",
- "lightfoundry-gcode",
- "lightfoundry-geom",
- "lightfoundry-pathops",
- "lightfoundry-svg",
- "lightfoundry-text",
- "lightfoundry-toolpath",
- "log",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-fontlib"
-version = "0.1.0"
-dependencies = [
- "log",
- "serde_json",
- "thiserror 2.0.21",
- "ureq",
-]
-
-[[package]]
-name = "lightfoundry-format"
-version = "0.1.0"
-dependencies = [
- "lightfoundry-doc",
- "lightfoundry-geom",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-fuzzkit"
-version = "0.1.0"
-dependencies = [
- "lightfoundry-ai",
- "lightfoundry-device",
- "lightfoundry-dxf",
- "lightfoundry-engine",
- "lightfoundry-fontlib",
- "lightfoundry-format",
- "lightfoundry-mcp",
- "lightfoundry-svg",
- "lightfoundry-text",
- "lightfoundry-web",
- "serde_json",
-]
-
-[[package]]
-name = "lightfoundry-gcode"
-version = "0.1.0"
-dependencies = [
- "lightfoundry-doc",
- "lightfoundry-geom",
- "lightfoundry-toolpath",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-geom"
-version = "0.1.0"
-dependencies = [
- "kurbo",
- "serde",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-i18n"
-version = "0.1.0"
-dependencies = [
- "serde_json",
-]
-
-[[package]]
-name = "lightfoundry-mcp"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.3.4",
- "lightfoundry-engine",
- "log",
- "serde_json",
-]
-
-[[package]]
-name = "lightfoundry-pathops"
-version = "0.1.0"
-dependencies = [
- "i_overlay",
- "lightfoundry-geom",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-svg"
-version = "0.1.0"
-dependencies = [
- "kurbo",
- "lightfoundry-doc",
- "lightfoundry-geom",
- "thiserror 2.0.21",
- "usvg",
-]
-
-[[package]]
-name = "lightfoundry-text"
-version = "0.1.0"
-dependencies = [
- "harfrust",
- "kurbo",
- "lightfoundry-geom",
- "roxmltree 0.21.1",
- "serde_json",
- "skrifa",
- "thiserror 2.0.21",
- "unicode-bidi",
-]
-
-[[package]]
-name = "lightfoundry-toolpath"
-version = "0.1.0"
-dependencies = [
- "kurbo",
- "lightfoundry-doc",
- "lightfoundry-geom",
- "lightfoundry-pathops",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightfoundry-ui-egui"
-version = "0.1.0"
-dependencies = [
- "egui",
- "image",
- "kurbo",
- "lightfoundry-ai",
- "lightfoundry-device",
- "lightfoundry-doc",
- "lightfoundry-engine",
- "lightfoundry-format",
- "lightfoundry-geom",
- "lightfoundry-i18n",
- "lightfoundry-toolpath",
- "log",
- "serde_json",
- "web-time",
-]
-
-[[package]]
-name = "lightfoundry-web"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "js-sys",
- "lightfoundry-ai",
- "lightfoundry-device",
- "lightfoundry-engine",
- "lightfoundry-ui-egui",
- "log",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@ use i_overlay::float::single::SingleFloatOverlay;
 use i_overlay::mesh::float::outline::offset::OutlineOffset;
 use i_overlay::mesh::float::stroke::offset::StrokeOffset;
 use i_overlay::mesh::float::style::{LineCap, LineJoin, OutlineStyle, StrokeStyle};
-use lightfoundry_geom::{Point, Polyline};
+use laserfoundry_geom::{Point, Polyline};
 use thiserror::Error;
 
 /// Points accepted per operation.

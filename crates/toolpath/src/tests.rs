@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use lightfoundry_doc::{Document, LayerMode, RasterImage, Shape, ShapeKind};
-use lightfoundry_geom::{Affine, Point, Polyline, ellipse_path, rect_path};
+use laserfoundry_doc::{Document, LayerMode, RasterImage, Shape, ShapeKind};
+use laserfoundry_geom::{Affine, Point, Polyline, ellipse_path, rect_path};
 
 use super::*;
 
@@ -51,8 +51,8 @@ mod line_tests {
 mod kerf_tests {
     use super::*;
 
-    fn bounds(job: &Job) -> lightfoundry_geom::Rect {
-        lightfoundry_geom::bounds_of_points(job.ops.iter().flat_map(|o| o.moves.iter().map(Move::target))).unwrap()
+    fn bounds(job: &Job) -> laserfoundry_geom::Rect {
+        laserfoundry_geom::bounds_of_points(job.ops.iter().flat_map(|o| o.moves.iter().map(Move::target))).unwrap()
     }
 
     #[test]
@@ -75,7 +75,7 @@ mod kerf_tests {
     fn negative_kerf_shrinks_parts_and_open_paths_are_untouched() {
         let mut doc = Document::default();
         doc.add_shape(Shape::path("part", 0, rect_path(0.0, 0.0, 40.0, 40.0)));
-        doc.add_shape(Shape::path("line", 0, lightfoundry_geom::line_path(Point::new(100.0, 100.0), Point::new(120.0, 100.0))));
+        doc.add_shape(Shape::path("line", 0, laserfoundry_geom::line_path(Point::new(100.0, 100.0), Point::new(120.0, 100.0))));
         doc.layer_mut(0).unwrap().kerf_offset = -0.2;
         let job = plan(&doc).unwrap();
         let xs: Vec<f64> = job.ops[0].moves.iter().map(|m| m.target().x).collect();
@@ -109,7 +109,7 @@ mod kerf_tests {
 }
 
 mod override_tests {
-    use lightfoundry_doc::CutOverride;
+    use laserfoundry_doc::CutOverride;
 
     use super::*;
 
@@ -256,7 +256,7 @@ mod tab_and_lead_tests {
             let p = m.target();
             assert!(p.x >= 0.0 && p.y >= 0.0, "{p:?} is off the bed");
         }
-        doc.job_origin.start_from = lightfoundry_doc::StartFrom::CurrentPosition;
+        doc.job_origin.start_from = laserfoundry_doc::StartFrom::CurrentPosition;
         let job = plan(&doc).unwrap();
         assert!(job.ops[0].moves.iter().any(|m| m.target().y < 0.0 || m.target().x < 0.0), "relative placement keeps the full lead");
     }
@@ -264,7 +264,7 @@ mod tab_and_lead_tests {
     #[test]
     fn open_paths_and_fill_are_untouched_and_bad_values_are_rejected() {
         let mut doc = Document::default();
-        doc.add_shape(Shape::path("line", 0, lightfoundry_geom::line_path(Point::new(10.0, 10.0), Point::new(50.0, 10.0))));
+        doc.add_shape(Shape::path("line", 0, laserfoundry_geom::line_path(Point::new(10.0, 10.0), Point::new(50.0, 10.0))));
         let layer = doc.layer_mut(0).unwrap();
         layer.lead_in = 3.0;
         layer.tab_count = 3;
@@ -314,22 +314,22 @@ mod fill_tests {
 
     #[test]
     fn bidirectional_fill_alternates_direction() {
-        let segs = fill_segments(&lightfoundry_geom::flatten(&rect_path(0.0, 0.0, 10.0, 10.0), 0.1), 1.0, 0.0, true);
+        let segs = fill_segments(&laserfoundry_geom::flatten(&rect_path(0.0, 0.0, 10.0, 10.0), 0.1), 1.0, 0.0, true);
         assert!(segs[0].0.x < segs[0].1.x);
         assert!(segs[1].0.x > segs[1].1.x);
     }
 
     #[test]
     fn holes_are_not_filled() {
-        let mut lines = lightfoundry_geom::flatten(&rect_path(0.0, 0.0, 10.0, 10.0), 0.1);
-        lines.extend(lightfoundry_geom::flatten(&rect_path(4.0, 0.0, 2.0, 10.0), 0.1));
+        let mut lines = laserfoundry_geom::flatten(&rect_path(0.0, 0.0, 10.0, 10.0), 0.1);
+        lines.extend(laserfoundry_geom::flatten(&rect_path(4.0, 0.0, 2.0, 10.0), 0.1));
         let segs = fill_segments(&lines, 1.0, 0.0, false);
         assert_eq!(segs.len(), 20);
     }
 
     #[test]
     fn hostile_interval_does_not_explode() {
-        let lines = lightfoundry_geom::flatten(&rect_path(0.0, 0.0, 1e9, 1e9), 0.1);
+        let lines = laserfoundry_geom::flatten(&rect_path(0.0, 0.0, 1e9, 1e9), 0.1);
         assert!(fill_segments(&lines, 1e-9, 0.0, false).is_empty());
         assert!(fill_segments(&lines, f64::NAN, 0.0, false).is_empty());
     }
@@ -385,7 +385,7 @@ mod image_tests {
             assert!((0.0..=4.0).contains(&x), "{x} is outside the bed");
         }
         // Relative placement cannot know the room, so the full lead-in is kept.
-        doc.job_origin.start_from = lightfoundry_doc::StartFrom::UserOrigin;
+        doc.job_origin.start_from = laserfoundry_doc::StartFrom::UserOrigin;
         let job = plan(&doc).unwrap();
         assert!(job.ops[0].moves.iter().any(|m| m.target().x < 0.0), "lead-in extends past the picture");
     }
@@ -418,7 +418,7 @@ mod image_tests {
     fn brightness_lightens_a_gray_image_until_it_stops_burning() {
         let mut doc = image_doc(vec![100; 16], 4, 4);
         if let Some(l) = doc.layer_mut(0) {
-            l.dither = lightfoundry_doc::Dither::Grayscale;
+            l.dither = laserfoundry_doc::Dither::Grayscale;
         }
         let power =
             |doc: &Document| -> f64 {
@@ -453,14 +453,14 @@ mod image_tests {
     #[test]
     fn floyd_steinberg_preserves_mean_darkness() {
         let gray = vec![128.0f32; 100 * 100];
-        let out = dither(&gray, 100, 100, lightfoundry_doc::Dither::FloydSteinberg);
+        let out = dither(&gray, 100, 100, laserfoundry_doc::Dither::FloydSteinberg);
         let mean: f32 = out.iter().sum::<f32>() / out.len() as f32;
         assert!((mean - 0.5).abs() < 0.05, "{mean}");
     }
 
     #[test]
     fn every_dither_mode_keeps_the_overall_tone_and_the_extremes() {
-        use lightfoundry_doc::Dither;
+        use laserfoundry_doc::Dither;
         for mode in Dither::ALL {
             if mode == Dither::Threshold {
                 continue; // a threshold has no tone to keep, only the extremes below
@@ -480,7 +480,7 @@ mod image_tests {
 
     #[test]
     fn dithers_survive_odd_sizes_and_mismatched_buffers() {
-        use lightfoundry_doc::Dither;
+        use laserfoundry_doc::Dither;
         for mode in Dither::ALL {
             assert!(dither(&[], 0, 0, mode).is_empty());
             assert_eq!(dither(&[10.0], 1, 1, mode).len(), 1);
@@ -491,7 +491,7 @@ mod image_tests {
 
     #[test]
     fn the_bayer_ordered_pattern_is_regular_and_a_halftone_forms_dots() {
-        use lightfoundry_doc::Dither;
+        use laserfoundry_doc::Dither;
         let g = vec![128.0f32; 16 * 16];
         let out = dither(&g, 16, 16, Dither::Ordered);
         assert_eq!(out[..8], out[8..16], "the 8-pixel tile repeats");
@@ -612,7 +612,7 @@ mod timeline_tests {
 }
 
 mod order_option_tests {
-    use lightfoundry_doc::Optimize;
+    use laserfoundry_doc::Optimize;
 
     use super::*;
 
@@ -695,7 +695,7 @@ mod order_option_tests {
     fn a_lower_cut_priority_is_finished_first_whatever_the_drawing_order() {
         let mut doc = rect_doc(10.0, 10.0, LayerMode::Line);
         let mut second = doc.shapes[0].clone();
-        second.transform = lightfoundry_geom::Affine::translate((50.0, 0.0));
+        second.transform = laserfoundry_geom::Affine::translate((50.0, 0.0));
         let late = doc.add_shape(second);
         let first_x = |doc: &Document| match plan(doc).unwrap().ops[0].moves[0] {
             Move::Travel(p) => p.x,

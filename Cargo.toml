@@ -2,7 +2,7 @@
 resolver = "3"
 members = ["crates/*", "apps/*", "xtask"]
 exclude = ["fuzz"]
-default-members = ["crates/*", "apps/lightfoundry-cli", "xtask"]
+default-members = ["crates/*", "apps/laserfoundry-cli", "xtask"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,23 +13,23 @@ repository = "https://github.com/Stitchwright/lightfoundry"
 
 [workspace.dependencies]
 # internal
-lightfoundry-geom = { path = "crates/geom" }
-lightfoundry-i18n = { path = "crates/i18n" }
-lightfoundry-fontlib = { path = "crates/fontlib" }
-lightfoundry-ai = { path = "crates/ai" }
-lightfoundry-doc = { path = "crates/doc" }
-lightfoundry-toolpath = { path = "crates/toolpath" }
-lightfoundry-text = { path = "crates/text" }
-lightfoundry-pathops = { path = "crates/pathops" }
-lightfoundry-gcode = { path = "crates/gcode" }
-lightfoundry-svg = { path = "crates/svg" }
-lightfoundry-dxf = { path = "crates/dxf" }
-lightfoundry-format = { path = "crates/format" }
-lightfoundry-device = { path = "crates/device" }
-lightfoundry-engine = { path = "crates/engine" }
-lightfoundry-mcp = { path = "crates/mcp" }
-lightfoundry-fuzzkit = { path = "crates/fuzzkit" }
-lightfoundry-ui-egui = { path = "crates/ui-egui" }
+laserfoundry-geom = { path = "crates/geom" }
+laserfoundry-i18n = { path = "crates/i18n" }
+laserfoundry-fontlib = { path = "crates/fontlib" }
+laserfoundry-ai = { path = "crates/ai" }
+laserfoundry-doc = { path = "crates/doc" }
+laserfoundry-toolpath = { path = "crates/toolpath" }
+laserfoundry-text = { path = "crates/text" }
+laserfoundry-pathops = { path = "crates/pathops" }
+laserfoundry-gcode = { path = "crates/gcode" }
+laserfoundry-svg = { path = "crates/svg" }
+laserfoundry-dxf = { path = "crates/dxf" }
+laserfoundry-format = { path = "crates/format" }
+laserfoundry-device = { path = "crates/device" }
+laserfoundry-engine = { path = "crates/engine" }
+laserfoundry-mcp = { path = "crates/mcp" }
+laserfoundry-fuzzkit = { path = "crates/fuzzkit" }
+laserfoundry-ui-egui = { path = "crates/ui-egui" }
 
 # foundation
 kurbo = { version = "0.13", features = ["serde"] }
@@ -52,7 +52,7 @@ unsafe_code = "deny"
 
 [workspace.lints.clippy]
 dbg_macro = "warn"
-# LightFoundry never crashes: shipped code returns `Result`/`Option` instead of panicking (see
+# LaserFoundry never crashes: shipped code returns `Result`/`Option` instead of panicking (see
 # AGENTS.md › Robustness). Tests may unwrap (clippy.toml).
 unwrap_used = "deny"
 expect_used = "deny"

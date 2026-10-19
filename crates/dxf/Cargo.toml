@@ -1,16 +1,16 @@
 [package]
-name = "lightfoundry-dxf"
+name = "laserfoundry-dxf"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry dxf"
+description = "LaserFoundry dxf"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-geom = { workspace = true }
-lightfoundry-doc = { workspace = true }
+laserfoundry-geom = { workspace = true }
+laserfoundry-doc = { workspace = true }
 kurbo = { workspace = true }
 thiserror = { workspace = true }
 

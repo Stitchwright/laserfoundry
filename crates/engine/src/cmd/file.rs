@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use image::{DynamicImage, ImageReader, Limits};
-use lightfoundry_doc::{Document, LAYER_COLORS, LayerId, RasterImage, Shape, ShapeId, ShapeKind};
-use lightfoundry_geom::Affine;
+use laserfoundry_doc::{Document, LAYER_COLORS, LayerId, RasterImage, Shape, ShapeId, ShapeKind};
+use laserfoundry_geom::Affine;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -22,7 +22,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         label: "Open…",
         menu: "File",
         shortcut: Some("Ctrl+O"),
-        params_doc: "{path | data_base64, template?: bool}  — template opens it as a new untitled project; data_base64 is the contents of a .lightfoundry file",
+        params_doc: "{path | data_base64, template?: bool}  — template opens it as a new untitled project; data_base64 is the contents of a .laserfoundry file",
         mutates: false,
         run: open,
     },
@@ -135,8 +135,8 @@ struct OpenParams {
 fn open(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: OpenParams = parse(params)?;
     let (doc, path) = match (p.path, p.data_base64) {
-        (Some(path), _) => (lightfoundry_format::load(&path)?, Some(path)),
-        (None, Some(data)) => (lightfoundry_format::from_bytes(&decode_data(&data)?)?, None),
+        (Some(path), _) => (laserfoundry_format::load(&path)?, Some(path)),
+        (None, Some(data)) => (laserfoundry_format::from_bytes(&decode_data(&data)?)?, None),
         (None, None) => return Err(EngineError::BadParams("give either path or data_base64".into())),
     };
     let shapes = doc.shapes.len();
@@ -148,13 +148,13 @@ fn open(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 }
 
 fn project_data(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
-    let bytes = lightfoundry_format::to_bytes(&s.doc)?;
+    let bytes = laserfoundry_format::to_bytes(&s.doc)?;
     s.dirty = false;
-    Ok(json!({ "data_base64": lightfoundry_doc::base64::encode(&bytes), "bytes": bytes.len() }))
+    Ok(json!({ "data_base64": laserfoundry_doc::base64::encode(&bytes), "bytes": bytes.len() }))
 }
 
 pub(super) fn decode_data(data: &str) -> Result<Vec<u8>, EngineError> {
-    lightfoundry_doc::base64::decode(data).ok_or_else(|| EngineError::BadParams("data_base64 is not valid base64".into()))
+    laserfoundry_doc::base64::decode(data).ok_or_else(|| EngineError::BadParams("data_base64 is not valid base64".into()))
 }
 
 #[derive(Deserialize, Default)]
@@ -166,7 +166,7 @@ fn save(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: OptionalPath = parse(params)?;
     let path =
         p.path.or_else(|| s.path.clone()).ok_or_else(|| EngineError::BadParams("no path given and the document has never been saved".into()))?;
-    lightfoundry_format::save(&path, &s.doc)?;
+    laserfoundry_format::save(&path, &s.doc)?;
     s.path = Some(path.clone());
     s.dirty = false;
     Ok(json!({ "path": path }))
@@ -195,7 +195,7 @@ fn import_svg(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: ImportParams = parse(params)?;
     finite(&[p.x, p.y])?;
     let bytes = source_bytes(&p)?;
-    let svg = lightfoundry_svg::import_svg(&bytes).map_err(|e| EngineError::Import(e.to_string()))?;
+    let svg = laserfoundry_svg::import_svg(&bytes).map_err(|e| EngineError::Import(e.to_string()))?;
     let mut ids = Vec::new();
     for ip in svg.paths {
         let layer = if p.layer_by_color { ip.color.as_deref().map_or(0, layer_for_color) } else { 0 };
@@ -229,7 +229,7 @@ fn import_svg(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 /// Chains the open shapes among `ids` (per layer) into longer paths, replacing them in `ids`.
 /// Shapes that are already closed are left exactly as imported (curves stay curves).
 fn join_loose_paths(s: &mut Session, ids: &mut Vec<ShapeId>) -> Result<(), EngineError> {
-    let mut by_layer: Vec<(LayerId, Vec<ShapeId>, Vec<lightfoundry_geom::Polyline>)> = Vec::new();
+    let mut by_layer: Vec<(LayerId, Vec<ShapeId>, Vec<laserfoundry_geom::Polyline>)> = Vec::new();
     for id in ids.iter() {
         let Some(shape) = s.doc.shape(*id) else { continue };
         let open: Vec<_> = shape.world_polylines().into_iter().filter(|l| !l.closed).collect();
@@ -249,7 +249,7 @@ fn join_loose_paths(s: &mut Session, ids: &mut Vec<ShapeId>) -> Result<(), Engin
             continue;
         }
         let chains =
-            lightfoundry_pathops::join(&lines, super::pathops::DEFAULT_JOIN_TOLERANCE / 5.0).map_err(|e| EngineError::Import(e.to_string()))?;
+            laserfoundry_pathops::join(&lines, super::pathops::DEFAULT_JOIN_TOLERANCE / 5.0).map_err(|e| EngineError::Import(e.to_string()))?;
         s.doc.remove_shapes(&sources);
         ids.retain(|i| !sources.contains(i));
         for chain in chains {
@@ -264,7 +264,7 @@ fn import_dxf(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: ImportParams = parse(params)?;
     finite(&[p.x, p.y])?;
     let bytes = source_bytes(&p)?;
-    let dxf = lightfoundry_dxf::import_dxf(&bytes).map_err(|e| EngineError::Import(e.to_string()))?;
+    let dxf = laserfoundry_dxf::import_dxf(&bytes).map_err(|e| EngineError::Import(e.to_string()))?;
     // DXF layer names map to cut layers in order of first appearance.
     let mut names: Vec<String> = Vec::new();
     let mut ids = Vec::new();
@@ -306,7 +306,7 @@ fn import_image(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     finite(&[p.x, p.y])?;
     let (mut reader, name) = match (&p.path, &p.data_base64) {
         (Some(path), _) => {
-            let Some(bytes) = lightfoundry_format::read_capped(std::path::Path::new(path), MAX_IMAGE_FILE_BYTES)? else {
+            let Some(bytes) = laserfoundry_format::read_capped(std::path::Path::new(path), MAX_IMAGE_FILE_BYTES)? else {
                 return Err(EngineError::Import("the image file is too large".into()));
             };
             (ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format()?, file_name(path))
@@ -359,13 +359,13 @@ fn decode_picture(bytes: &[u8]) -> Result<RasterImage, EngineError> {
 
 fn autosave(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: PathParams = parse(params)?;
-    lightfoundry_format::save(&p.path, &s.doc)?;
+    laserfoundry_format::save(&p.path, &s.doc)?;
     Ok(json!({ "path": p.path, "revision": s.revision }))
 }
 
 fn recover(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: PathParams = parse(params)?;
-    let doc = lightfoundry_format::load(&p.path)?;
+    let doc = laserfoundry_format::load(&p.path)?;
     let shapes = doc.shapes.len();
     s.replace_document(doc, None);
     // Recovered work was never saved: keep it marked as changed so closing asks first.
@@ -406,7 +406,7 @@ fn export_gcode(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 
 fn source_bytes(p: &ImportParams) -> Result<Vec<u8>, EngineError> {
     match (&p.path, &p.data) {
-        (Some(path), _) => lightfoundry_format::read_capped(std::path::Path::new(path), MAX_IMAGE_FILE_BYTES)?
+        (Some(path), _) => laserfoundry_format::read_capped(std::path::Path::new(path), MAX_IMAGE_FILE_BYTES)?
             .ok_or_else(|| EngineError::Import("the file is too large".into())),
         (None, Some(data)) => Ok(data.clone().into_bytes()),
         (None, None) => Err(EngineError::BadParams("give either path or data".into())),

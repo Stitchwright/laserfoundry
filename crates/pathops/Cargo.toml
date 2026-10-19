@@ -1,14 +1,14 @@
 [package]
-name = "lightfoundry-pathops"
+name = "laserfoundry-pathops"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry path operations: boolean combine and offset on flattened shapes"
+description = "LaserFoundry path operations: boolean combine and offset on flattened shapes"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-geom = { workspace = true }
+laserfoundry-geom = { workspace = true }
 i_overlay = "9"
 thiserror = { workspace = true }

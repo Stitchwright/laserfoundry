@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use lightfoundry_doc::Optimize;
-use lightfoundry_geom::{Point, Polyline};
+use laserfoundry_doc::Optimize;
+use laserfoundry_geom::{Point, Polyline};
 
 /// Coordinates closer than this (mm) count as the same point when looking for duplicates.
 const SAME_POINT_MM: f64 = 1e-4;

@@ -1,16 +1,16 @@
 [package]
-name = "lightfoundry-svg"
+name = "laserfoundry-svg"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry svg"
+description = "LaserFoundry svg"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-geom = { workspace = true }
-lightfoundry-doc = { workspace = true }
+laserfoundry-geom = { workspace = true }
+laserfoundry-doc = { workspace = true }
 kurbo = { workspace = true }
 usvg = { workspace = true }
 thiserror = { workspace = true }

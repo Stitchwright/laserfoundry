@@ -1,6 +1,6 @@
-use lightfoundry_doc::{Shape, ShapeId};
-use lightfoundry_geom::{BezPath, Polyline};
-use lightfoundry_pathops::{BoolOp, Join, boolean, join, offset};
+use laserfoundry_doc::{Shape, ShapeId};
+use laserfoundry_geom::{BezPath, Polyline};
+use laserfoundry_pathops::{BoolOp, Join, boolean, join, offset};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

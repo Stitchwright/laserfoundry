@@ -9,9 +9,9 @@ use std::process::Command;
 use serde_json::Value;
 
 const TARGET: &str = "wasm32-unknown-unknown";
-const PREFIX: &str = "lightfoundry-";
+const PREFIX: &str = "laserfoundry-";
 
-/// Package names (without the `lightfoundry-` prefix) the browser build contains.
+/// Package names (without the `laserfoundry-` prefix) the browser build contains.
 pub const WASM: &[&str] =
     &["geom", "doc", "pathops", "toolpath", "text", "svg", "dxf", "gcode", "format", "device", "i18n", "ai", "engine", "ui-egui", "web"];
 
@@ -21,7 +21,7 @@ pub const NATIVE_ONLY: &[&str] = &[
     "fontlib",      // downloads over the network
     "fuzzkit",      // test drivers
     "testkit",      // test helpers
-    "lightfoundry", // the desktop app
+    "laserfoundry", // the desktop app
     "cli",          // the command line
     "xtask",        // this tool
 ];
@@ -58,9 +58,9 @@ pub fn run(root: &Path) -> Result<(), String> {
     }
 }
 
-/// `geom` is `lightfoundry-geom`; the desktop app and xtask carry no prefix of their own.
+/// `geom` is `laserfoundry-geom`; the desktop app and xtask carry no prefix of their own.
 fn package_name(short: &str) -> String {
-    if short == "lightfoundry" || short == "xtask" { short.to_string() } else { format!("{PREFIX}{short}") }
+    if short == "laserfoundry" || short == "xtask" { short.to_string() } else { format!("{PREFIX}{short}") }
 }
 
 fn short_name(package: &str) -> &str {
@@ -92,8 +92,8 @@ mod tests {
     #[test]
     fn a_new_package_must_be_classified() {
         let names = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert!(unclassified(&names(&["lightfoundry-geom", "lightfoundry-mcp", "xtask", "lightfoundry"])).is_empty());
-        assert_eq!(unclassified(&names(&["lightfoundry-mystery"])), ["lightfoundry-mystery"]);
+        assert!(unclassified(&names(&["laserfoundry-geom", "laserfoundry-mcp", "xtask", "laserfoundry"])).is_empty());
+        assert_eq!(unclassified(&names(&["laserfoundry-mystery"])), ["laserfoundry-mystery"]);
     }
 
     #[test]

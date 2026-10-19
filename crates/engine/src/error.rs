@@ -12,15 +12,15 @@ pub enum EngineError {
     #[error("nothing is selected")]
     NothingSelected,
     #[error("cannot plan the job: {0}")]
-    Plan(#[from] lightfoundry_toolpath::PlanError),
+    Plan(#[from] laserfoundry_toolpath::PlanError),
     #[error("cannot generate G-code: {0}")]
-    Gcode(#[from] lightfoundry_gcode::GcodeError),
+    Gcode(#[from] laserfoundry_gcode::GcodeError),
     #[error("file error: {0}")]
-    File(#[from] lightfoundry_format::FormatError),
+    File(#[from] laserfoundry_format::FormatError),
     #[error("could not import: {0}")]
     Import(String),
     #[error("device error: {0}")]
-    Device(#[from] lightfoundry_device::DeviceError),
+    Device(#[from] laserfoundry_device::DeviceError),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
     #[error("internal error (your document was restored): {0}")]

@@ -30,7 +30,7 @@ pub fn question(text: &str) -> Result<Turn, AiError> {
 pub fn system_prompt(context: &str) -> String {
     let context: String = context.trim().chars().take(MAX_CONTEXT).collect();
     let mut s = String::from(
-        "You are an experienced laser engraver and cutter operator helping someone use LightFoundry, a program \
+        "You are an experienced laser engraver and cutter operator helping someone use LaserFoundry, a program \
 that lays out artwork, assigns cut settings per layer and sends G-code to a GRBL laser. Answer in plain text, \
 briefly and concretely, with numbers when they help (speed in mm/min, power in percent, passes).\n\
 \n\
@@ -39,7 +39,7 @@ CO2 tube, so say what to start from and to test on a scrap first. Always mention
 matter: never leave a running laser unattended, use air assist and ventilation, and never cut PVC, vinyl or \
 anything that may contain chlorine, or materials of unknown composition.\n\
 \n\
-If you do not know, say so. Do not invent menu items: LightFoundry's layers hold mode (line, fill, image), \
+If you do not know, say so. Do not invent menu items: LaserFoundry's layers hold mode (line, fill, image), \
 speed, maximum and minimum power, passes, kerf, tabs, lead-in/out, overscan and air assist.",
     );
     if !context.is_empty() {

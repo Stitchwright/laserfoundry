@@ -59,7 +59,7 @@ The service's own documentation is the reference for what it keeps and how it is
 | Requests, replies, errors, the account API   | `crates/ai` (no network code; fuzzed: `ai_reply`)                                               |
 | Describing the document, placing artwork, preparing a picture | engine commands `ai.context`, `ai.place_art`, `ai.prepare_picture`              |
 | The AI menu and its windows                  | `crates/ui-egui/src/ai_ui.rs` (the menu appears only where the host can send requests)          |
-| Sending, and keeping the session token       | `apps/lightfoundry/src/net.rs` (no redirects, 240 s timeout, answers capped at 16 MB; the token and key live in `secrets.json` in the app's private data folder, readable by its owner only) |
+| Sending, and keeping the session token       | `apps/laserfoundry/src/net.rs` (no redirects, 240 s timeout, answers capped at 16 MB; the token and key live in `secrets.json` in the app's private data folder, readable by its owner only) |
 
 The service's address is typed in the account window, or set at build time with `LF_CLOUD_URL` (the browser
 build takes only the built-in address).
@@ -69,14 +69,14 @@ build takes only the built-in address).
 - **A real try.** Everything is tested against scripted answers and a local one-shot server, never a real
   account service or Anthropic key. The first real run may need prompt tuning (the artwork's colours, sizes and
   the line widths the importer reads).
-- **The hosted browser build** has a `fetch` client (`apps/lightfoundry-web`, no redirects, 240 s limit) and the
+- **The hosted browser build** has a `fetch` client (`apps/laserfoundry-web`, no redirects, 240 s limit) and the
   AI menu, but only for the service address it was built for: set the repository variable `LF_CLOUD_URL` (an
   https address; Settings › Secrets and variables › Actions › Variables) and the Pages build puts that origin
   in the page's content security policy and into the app. Without it the AI menu is hidden. Pictures come through the browser's
   file chooser, so all four features and the account work there. The session token is kept in the browser's local storage (the policy keeps scripts
   from elsewhere out). The service must answer cross-origin requests (the StitchFoundry service does).
 - **Terms.** StitchHub's draft terms (`legal/terms-2026-10-16-draft.md` in the `stitchhub` repository, not in
-  force, awaiting a lawyer) say they do not apply to StitchFoundry or LightFoundry, so the app does not link or
+  force, awaiting a lawyer) say they do not apply to StitchFoundry or LaserFoundry, so the app does not link or
   claim them. It follows the principles of their section on the Assistant instead: an AI only runs when a
   button is pressed; each feature has its own switch (Account window); the person is told what is sent and
   where; a log of every request and answer is kept on the person's computer (`ai-log.jsonl` in the data

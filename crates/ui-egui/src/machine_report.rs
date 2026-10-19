@@ -4,16 +4,16 @@
 
 use std::fmt::Write;
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 
 /// The most console lines kept (the newest).
 const MAX_CONSOLE_LINES: usize = 400;
 
 /// The report as text.
-pub(crate) fn report(app: &LightFoundryApp) -> String {
+pub(crate) fn report(app: &LaserFoundryApp) -> String {
     let m = &app.session.doc.machine;
     let mut out = String::new();
-    let _ = writeln!(out, "LightFoundry machine report");
+    let _ = writeln!(out, "LaserFoundry machine report");
     let _ = writeln!(out, "Version: {}  System: {} {}", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH);
     let target = match &app.target {
         crate::Target::Simulator => "simulator".to_string(),
@@ -53,15 +53,15 @@ pub(crate) fn report(app: &LightFoundryApp) -> String {
     out
 }
 
-impl LightFoundryApp {
+impl LaserFoundryApp {
     /// Saves the machine report to a file the person chooses (a download in a browser).
     pub(crate) fn save_machine_report(&mut self) {
         let text = report(self);
         if self.platform.browser_files() {
-            self.download("lightfoundry-machine-report.txt", text.as_bytes(), "text/plain");
+            self.download("laserfoundry-machine-report.txt", text.as_bytes(), "text/plain");
             return;
         }
-        let Some(path) = self.pick_save("Save machine report", "lightfoundry-machine-report.txt", &["txt"]) else { return };
+        let Some(path) = self.pick_save("Save machine report", "laserfoundry-machine-report.txt", &["txt"]) else { return };
         match std::fs::write(&path, text) {
             Ok(()) => self.say(crate::i18n::trf!("Saved the machine report to {path}", path = path.display())),
             Err(e) => self.status = Some((crate::i18n::trf!("Could not save the report: {e}", e = e), true)),

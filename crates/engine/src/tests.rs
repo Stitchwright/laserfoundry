@@ -193,7 +193,7 @@ mod override_and_test_grid_tests {
         assert_eq!(c(1, 1).max_power, Some(50.0));
         let b = cells[5].world_bounds().unwrap();
         assert_eq!((b.x0, b.y0), (30.0, 30.0), "pitch is size + gap from the origin 20,20");
-        let labels: Vec<_> = s.doc.shapes.iter().filter(|sh| matches!(sh.kind, lightfoundry_doc::ShapeKind::Text { .. })).collect();
+        let labels: Vec<_> = s.doc.shapes.iter().filter(|sh| matches!(sh.kind, laserfoundry_doc::ShapeKind::Text { .. })).collect();
         assert_eq!(labels.len(), 4 + 3, "one label per column and row");
         assert!(labels.iter().all(|l| l.layer == 1), "labels go on the next layer so they do not use the cell settings");
         s.execute("edit.undo", &Value::Null).unwrap();
@@ -247,7 +247,7 @@ mod override_and_test_grid_tests {
         let mut s = Session::new();
         let id = s.execute("shape.rectangle", &json!({"width": 5, "height": 5})).unwrap()["id"].as_u64().unwrap();
         s.execute("shape.cut_override", &json!({"speed": 123, "max_power": 45})).unwrap();
-        let back = lightfoundry_format::from_bytes(&lightfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        let back = laserfoundry_format::from_bytes(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
         assert_eq!(back.shape(id).unwrap().cut, s.doc.shape(id).unwrap().cut);
     }
 }
@@ -269,7 +269,7 @@ mod node_edit_tests {
         let before = s.doc.shape(id).unwrap().world_polylines()[0].points.clone();
         s.execute("node.move", &json!({"id": id, "index": 0, "x": 90.0, "y": 40.0})).unwrap();
         let after = s.doc.shape(id).unwrap().world_polylines()[0].points.clone();
-        assert!(after[0].distance(lightfoundry_geom::Point::new(90.0, 40.0)) < 1e-9, "{:?}", after[0]);
+        assert!(after[0].distance(laserfoundry_geom::Point::new(90.0, 40.0)) < 1e-9, "{:?}", after[0]);
         for i in 1..4 {
             assert!(after[i].distance(before[i]) < 1e-9, "the other corners did not move");
         }
@@ -288,8 +288,8 @@ mod node_edit_tests {
         let v = s.execute("node.insert", &json!({"id": id, "segment": 1, "t": 0.5})).unwrap();
         assert_eq!(v["index"], json!(2));
         let nodes = |s: &Session| {
-            let lightfoundry_doc::ShapeKind::Path { path } = &s.doc.shape(id).unwrap().kind else { panic!("not a path") };
-            lightfoundry_geom::nodes::NodePath::from_bez(path).unwrap().node_count()
+            let laserfoundry_doc::ShapeKind::Path { path } = &s.doc.shape(id).unwrap().kind else { panic!("not a path") };
+            laserfoundry_geom::nodes::NodePath::from_bez(path).unwrap().node_count()
         };
         assert_eq!(nodes(&s), 5);
         s.execute("node.delete", &json!({"id": id, "index": 2})).unwrap();
@@ -328,7 +328,7 @@ mod node_edit_tests {
         let id = s.execute("text.create", &json!({"text": "AB", "height": 10})).unwrap()["id"].as_u64().unwrap();
         assert!(s.execute("node.move", &json!({"id": id, "index": 0, "x": 1, "y": 1})).is_err());
         s.execute("edit.convert_to_path", &json!({})).unwrap();
-        assert!(matches!(s.doc.shape(id).unwrap().kind, lightfoundry_doc::ShapeKind::Path { .. }));
+        assert!(matches!(s.doc.shape(id).unwrap().kind, laserfoundry_doc::ShapeKind::Path { .. }));
         let b = s.doc.shape(id).unwrap().world_bounds().unwrap();
         s.execute("node.move", &json!({"id": id, "index": 0, "x": b.x0 + 5.0, "y": b.y0 + 5.0})).unwrap();
         assert!(s.execute("edit.convert_to_path", &json!({})).is_err(), "nothing left to convert");
@@ -442,7 +442,7 @@ mod group_and_layer_tests {
         let mut s = Session::new();
         let ids = rects(&mut s, 2);
         s.execute("edit.group", &json!({"ids": ids})).unwrap();
-        let back = lightfoundry_format::from_bytes(&lightfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        let back = laserfoundry_format::from_bytes(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
         assert_eq!(back.expand_groups(&[ids[0]]).len(), 2);
     }
 
@@ -507,7 +507,7 @@ mod array_tests {
         s.execute("arrange.circular", &json!({"count": 4, "radius": 50})).unwrap();
         assert_eq!(s.doc.shapes.len(), 4);
         // Array centre is 50 mm below the square's centre (5,5): (5,55). Every copy's centre is 50 mm from it.
-        let centre = lightfoundry_geom::Point::new(5.0, 55.0);
+        let centre = laserfoundry_geom::Point::new(5.0, 55.0);
         for sh in &s.doc.shapes {
             let c = sh.world_bounds().unwrap().center();
             assert!((c.distance(centre) - 50.0).abs() < 1e-6, "{c:?}");
@@ -522,7 +522,7 @@ mod array_tests {
         square(&mut s);
         s.execute("arrange.circular", &json!({"count": 3, "radius": 40, "angle": 90})).unwrap();
         let centres: Vec<_> = s.doc.shapes.iter().map(|sh| sh.world_bounds().unwrap().center()).collect();
-        let array_centre = lightfoundry_geom::Point::new(5.0, 45.0);
+        let array_centre = laserfoundry_geom::Point::new(5.0, 45.0);
         let last = centres[2];
         let angle = (centres[0] - array_centre).atan2() - (last - array_centre).atan2();
         assert!((angle.abs() - std::f64::consts::FRAC_PI_2).abs() < 1e-6, "{angle}");
@@ -575,7 +575,7 @@ mod path_ops_tests {
         (a, b)
     }
 
-    fn bounds_of_selection(s: &Session) -> lightfoundry_geom::Rect {
+    fn bounds_of_selection(s: &Session) -> laserfoundry_geom::Rect {
         s.doc.bounds_of(&s.selection).unwrap()
     }
 
@@ -725,7 +725,7 @@ mod text_tests {
     fn text_survives_save_and_load() {
         let mut s = Session::new();
         s.execute("text.create", &json!({"text": "SAVE ME", "align": "center"})).unwrap();
-        let back = lightfoundry_format::from_bytes(&lightfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        let back = laserfoundry_format::from_bytes(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
         assert_eq!(back.shapes, s.doc.shapes);
     }
 }
@@ -828,7 +828,7 @@ mod import_tests {
         s.execute("layer.set", &json!({"id": 0, "speed": 100})).unwrap();
         let v = s.execute("preset.save", &json!({"name": "Birch 3 mm", "layer": 0})).unwrap();
         assert_eq!(v["count"], json!(1), "same name replaces");
-        let back = lightfoundry_format::from_bytes(&lightfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        let back = laserfoundry_format::from_bytes(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
         assert_eq!(back.presets.len(), 1);
         assert_eq!(back.presets[0].settings.speed, 100.0);
 
@@ -858,7 +858,7 @@ mod import_tests {
         assert_eq!(s.execute("preset.add_starters", &Value::Null).unwrap()["added"], json!(1), "only what is missing comes back");
         s.execute("preset.apply", &json!({"name": "Starter: thin cut", "layer": 3})).unwrap();
         let l = s.doc.layer(3).unwrap();
-        assert_eq!((l.mode, l.speed, l.max_power), (lightfoundry_doc::LayerMode::Line, 600.0, 90.0));
+        assert_eq!((l.mode, l.speed, l.max_power), (laserfoundry_doc::LayerMode::Line, 600.0, 90.0));
         for p in &s.doc.presets {
             let l = &p.settings;
             assert!(
@@ -896,7 +896,7 @@ mod import_tests {
     #[test]
     fn the_number_of_presets_is_capped() {
         let mut s = Session::new();
-        for i in 0..lightfoundry_doc::MAX_PRESETS {
+        for i in 0..laserfoundry_doc::MAX_PRESETS {
             s.execute("preset.save", &json!({"name": format!("p{i}"), "layer": 0})).unwrap();
         }
         assert!(s.execute("preset.save", &json!({"name": "one too many", "layer": 0})).is_err());
@@ -953,7 +953,7 @@ mod import_tests {
             .shapes
             .iter()
             .filter_map(|sh| sh.world_bounds())
-            .fold(None, |a: Option<lightfoundry_geom::Rect>, b| Some(a.map_or(b, |a| a.union(b))))
+            .fold(None, |a: Option<laserfoundry_geom::Rect>, b| Some(a.map_or(b, |a| a.union(b))))
             .unwrap();
         let mut t = Session::new();
         t.execute("file.import_svg", &json!({"data": svg})).unwrap();
@@ -962,7 +962,7 @@ mod import_tests {
             .shapes
             .iter()
             .filter_map(|sh| sh.world_bounds())
-            .fold(None, |a: Option<lightfoundry_geom::Rect>, b| Some(a.map_or(b, |a| a.union(b))))
+            .fold(None, |a: Option<laserfoundry_geom::Rect>, b| Some(a.map_or(b, |a| a.union(b))))
             .unwrap();
         assert!((before.width() - after.width()).abs() < 0.5 && (before.height() - after.height()).abs() < 0.5, "{before:?} vs {after:?}");
     }
@@ -1032,8 +1032,8 @@ mod import_tests {
         assert!(s.execute("image.trace", &json!({"id": pic, "colors": 99})).is_err());
         // The colour survives crop and is saved in the project.
         s.execute("image.crop", &json!({"id": pic, "x": 0, "y": 0, "width": 10, "height": 10})).ok();
-        let back = lightfoundry_format::from_bytes(&lightfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
-        assert!(matches!(&back.shape(pic).unwrap().kind, lightfoundry_doc::ShapeKind::Image { image, .. } if image.rgb.is_some()));
+        let back = laserfoundry_format::from_bytes(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        assert!(matches!(&back.shape(pic).unwrap().kind, laserfoundry_doc::ShapeKind::Image { image, .. } if image.rgb.is_some()));
 
         let grey_pic = s.execute("file.import_image", &json!({"path": grey, "width": 40})).unwrap()["id"].as_u64().unwrap();
         assert!(s.execute("image.trace", &json!({"id": grey_pic, "colors": 2})).is_err(), "a grey picture has no colours");
@@ -1054,7 +1054,7 @@ mod import_tests {
         let mut s = Session::new();
         let pic = s.execute("file.import_image", &json!({"path": path, "width": 100})).unwrap()["id"].as_u64().unwrap();
         let nodes = |s: &Session, id: u64| match &s.doc.shape(id).unwrap().kind {
-            lightfoundry_doc::ShapeKind::Path { path } => path.elements().len(),
+            laserfoundry_doc::ShapeKind::Path { path } => path.elements().len(),
             _ => 0,
         };
         let smooth = s.execute("image.trace", &json!({"id": pic, "smooth": true, "tolerance": 1.0})).unwrap()["id"].as_u64().unwrap();
@@ -1223,7 +1223,7 @@ mod import_tests {
         let r = s.execute("job.resume", &json!({"line": mid, "include": true})).unwrap();
         let text = r["gcode"].as_str().unwrap();
         assert_eq!(r["summary"]["total_lines"], json!(total));
-        assert!(text.starts_with("; LightFoundry resume"), "{text}");
+        assert!(text.starts_with("; LaserFoundry resume"), "{text}");
         assert!(text.contains("\nG0 X"), "it first moves to where the head would be: {text}");
         assert!(text.trim_end().ends_with(full.lines().last().unwrap()), "same shutdown");
         // The resumed program still passes the streamer and the simulator.
@@ -1258,8 +1258,8 @@ mod import_tests {
         let dir = std::env::temp_dir().join(format!("lf-engine-fallback-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let (main, other) = (dir.join("main.ttf"), dir.join("other.ttf"));
-        std::fs::write(&main, lightfoundry_text::testfont::tiny_font()).unwrap();
-        std::fs::write(&other, lightfoundry_text::testfont::tiny_font_for_cd()).unwrap();
+        std::fs::write(&main, laserfoundry_text::testfont::tiny_font()).unwrap();
+        std::fs::write(&other, laserfoundry_text::testfont::tiny_font_for_cd()).unwrap();
         let mut s = Session::new();
         let v = s.execute("text.create", &json!({"text": "AC", "font": main})).unwrap();
         assert_eq!(v["unsupported"], json!(["C"]));
@@ -1277,7 +1277,7 @@ mod import_tests {
         let dir = std::env::temp_dir().join(format!("lf-engine-font-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let font = dir.join("tiny.ttf");
-        std::fs::write(&font, lightfoundry_text::testfont::tiny_font()).unwrap();
+        std::fs::write(&font, laserfoundry_text::testfont::tiny_font()).unwrap();
         let mut s = Session::new();
         let v = s.execute("text.create", &json!({"text": "AB", "x": 20, "y": 30, "height": 14, "font": font})).unwrap();
         let id = v["id"].as_u64().unwrap();
@@ -1291,7 +1291,7 @@ mod import_tests {
 
         // The project keeps the shapes; opening it needs no font.
         std::fs::remove_file(&font).unwrap();
-        let back = lightfoundry_format::from_bytes(&lightfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        let back = laserfoundry_format::from_bytes(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
         assert!(back.shape(id).unwrap().world_bounds().is_some());
         assert!(s.execute("text.edit", &json!({"id": id, "text": "BA"})).is_err(), "editing the text needs the font again");
         let r = s.execute("text.edit", &json!({"id": id, "text": "BA", "font": ""})).unwrap();
@@ -1410,7 +1410,7 @@ mod import_tests {
         let v = s.execute("text.create", &json!({"text": "HZ", "font": folder})).unwrap();
         assert_eq!(v["unsupported"], json!(["Z"]));
         let other = dir.join("tiny.ttf");
-        std::fs::write(&other, lightfoundry_text::testfont::tiny_font()).unwrap();
+        std::fs::write(&other, laserfoundry_text::testfont::tiny_font()).unwrap();
         assert!(s.execute("text.create", &json!({"text": "H", "font": other, "fallback_font": folder})).is_err());
         std::fs::write(folder.join("glyphs.stitchfoundry"), b"{ broken").unwrap();
         assert!(s.execute("text.create", &json!({"text": "H", "font": folder})).is_err());
@@ -1472,7 +1472,7 @@ mod import_tests {
             .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
         let v = other
-            .execute("file.import_image", &json!({"data_base64": lightfoundry_doc::base64::encode(&png), "name": "dot.png", "width": 16}))
+            .execute("file.import_image", &json!({"data_base64": laserfoundry_doc::base64::encode(&png), "name": "dot.png", "width": 16}))
             .unwrap();
         assert_eq!(v["height_mm"], json!(8.0));
         assert_eq!(other.doc.shape(v["id"].as_u64().unwrap()).unwrap().name, "dot.png");
@@ -1512,7 +1512,7 @@ mod import_tests {
         }
         s.execute("edit.undo", &Value::Null).unwrap();
         s.execute("edit.undo", &Value::Null).unwrap();
-        let lightfoundry_doc::ShapeKind::Image { image, .. } = &s.doc.shape(id).unwrap().kind else { panic!("not an image") };
+        let laserfoundry_doc::ShapeKind::Image { image, .. } = &s.doc.shape(id).unwrap().kind else { panic!("not an image") };
         assert_eq!(image.width, 40);
     }
 
@@ -1528,7 +1528,7 @@ mod import_tests {
         // Every point of the bent text lies between the circle and 10 mm outside it (the letters stand on the line).
         for pl in bent.world_polylines() {
             for p in &pl.points {
-                let r = p.distance(lightfoundry_geom::Point::new(100.0, 100.0));
+                let r = p.distance(laserfoundry_geom::Point::new(100.0, 100.0));
                 assert!(r > 39.0 && r < 50.5, "radius {r}");
             }
         }
@@ -1579,7 +1579,7 @@ mod import_tests {
         let mut s = Session::new();
         let pic = s.execute("file.import_image", &json!({"path": path, "width": 60})).unwrap()["id"].as_u64().unwrap();
         let count = |s: &Session, id: u64| match &s.doc.shape(id).unwrap().kind {
-            lightfoundry_doc::ShapeKind::Path { path } => path.elements().iter().filter(|e| matches!(e, kurbo::PathEl::CurveTo(..))).count(),
+            laserfoundry_doc::ShapeKind::Path { path } => path.elements().iter().filter(|e| matches!(e, kurbo::PathEl::CurveTo(..))).count(),
             other => panic!("{other:?}"),
         };
         let plain = s.execute("image.trace", &json!({"id": pic, "tolerance": 1.0})).unwrap()["id"].as_u64().unwrap();
@@ -1597,7 +1597,7 @@ mod import_tests {
         image::DynamicImage::ImageLuma8(image::GrayImage::from_pixel(10, 5, image::Luma([0])))
             .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
-        let b64 = lightfoundry_doc::base64::encode(&png);
+        let b64 = laserfoundry_doc::base64::encode(&png);
         // 96 px per inch: 96 px = 25.4 mm. The picture is 48 x 24 px at (96, 48), a rectangle sits beside it.
         let svg = format!(
             r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="150" viewBox="0 0 300 150"><rect x="0" y="0" width="20" height="20"/><image x="96" y="48" width="48" height="24" xlink:href="data:image/png;base64,{b64}"/><text x="10" y="100" font-size="20">Hi</text></svg>"#
@@ -1605,7 +1605,7 @@ mod import_tests {
         let mut s = Session::new();
         let v = s.execute("file.import_svg", &json!({"data": svg, "x": 10, "y": 20})).unwrap();
         assert_eq!(v["skipped_images"], json!(0));
-        let pic = s.doc.shapes.iter().find(|sh| matches!(sh.kind, lightfoundry_doc::ShapeKind::Image { .. })).expect("the picture was imported");
+        let pic = s.doc.shapes.iter().find(|sh| matches!(sh.kind, laserfoundry_doc::ShapeKind::Image { .. })).expect("the picture was imported");
         let b = pic.world_bounds().unwrap();
         let mm = 25.4 / 96.0;
         assert!((b.x0 - (10.0 + 96.0 * mm)).abs() < 1e-6 && (b.y0 - (20.0 + 48.0 * mm)).abs() < 1e-6, "{b:?}");
@@ -1678,7 +1678,7 @@ mod import_tests {
     fn opening_a_file_as_a_template_leaves_an_untitled_unsaved_project() {
         let dir = std::env::temp_dir().join(format!("lf-engine-template-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("t.lightfoundry");
+        let file = dir.join("t.laserfoundry");
         let mut a = Session::new();
         a.execute("shape.rectangle", &json!({"width": 5, "height": 5})).unwrap();
         a.execute("file.save", &json!({"path": file})).unwrap();
@@ -1697,7 +1697,7 @@ mod import_tests {
         for name in ["threshold", "floyd_steinberg", "grayscale", "atkinson", "jarvis", "ordered", "halftone"] {
             s.execute("layer.set", &json!({"id": 0, "dither": name})).unwrap();
         }
-        assert_eq!(s.doc.layer(0).unwrap().dither, lightfoundry_doc::Dither::Halftone);
+        assert_eq!(s.doc.layer(0).unwrap().dither, laserfoundry_doc::Dither::Halftone);
         assert!(s.execute("layer.set", &json!({"id": 0, "dither": "stucki"})).is_err());
     }
 
@@ -1712,7 +1712,7 @@ mod import_tests {
         let bounds = |s: &Session| s.doc.shape(id).unwrap().world_bounds().unwrap();
         let before = bounds(&s);
         let pixel_at = |s: &Session, col: u32, row: u32| match &s.doc.shape(id).unwrap().kind {
-            lightfoundry_doc::ShapeKind::Image { image, .. } => image.gray[(row * image.width + col) as usize],
+            laserfoundry_doc::ShapeKind::Image { image, .. } => image.gray[(row * image.width + col) as usize],
             other => panic!("{other:?}"),
         };
         let marker = pixel_at(&s, 10, 5);
@@ -1756,9 +1756,9 @@ mod import_tests {
         for bad in [json!({"brightness": 2}), json!({"contrast": -3}), json!({"gamma": 0}), json!({"gamma": "x"})] {
             assert!(s.execute("image.adjust", &bad).is_err(), "{bad}");
         }
-        let back = lightfoundry_format::from_bytes(&lightfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        let back = laserfoundry_format::from_bytes(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
         match &back.shape(id).unwrap().kind {
-            lightfoundry_doc::ShapeKind::Image { adjust, .. } => assert!(adjust.negative && adjust.brightness == 0.25 && adjust.gamma == 1.8),
+            laserfoundry_doc::ShapeKind::Image { adjust, .. } => assert!(adjust.negative && adjust.brightness == 0.25 && adjust.gamma == 1.8),
             other => panic!("{other:?}"),
         }
         s.execute("edit.undo", &Value::Null).unwrap();
@@ -1856,10 +1856,10 @@ mod job_tests {
     fn job_origin_is_undoable_and_saved() {
         let mut s = square_session();
         s.execute("job.set_origin", &json!({"anchor": "bottom_right"})).unwrap();
-        let bytes = lightfoundry_format::to_bytes(&s.doc).unwrap();
-        assert_eq!(lightfoundry_format::from_bytes(&bytes).unwrap().job_origin.anchor, lightfoundry_doc::Anchor::BottomRight);
+        let bytes = laserfoundry_format::to_bytes(&s.doc).unwrap();
+        assert_eq!(laserfoundry_format::from_bytes(&bytes).unwrap().job_origin.anchor, laserfoundry_doc::Anchor::BottomRight);
         s.execute("edit.undo", &Value::Null).unwrap();
-        assert_eq!(s.doc.job_origin.anchor, lightfoundry_doc::Anchor::TopLeft);
+        assert_eq!(s.doc.job_origin.anchor, laserfoundry_doc::Anchor::TopLeft);
     }
 
     #[test]
@@ -1927,7 +1927,7 @@ mod file_tests {
     fn save_and_open_round_trip() {
         let dir = std::env::temp_dir().join(format!("lf-engine-file-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("p.lightfoundry");
+        let path = dir.join("p.laserfoundry");
         let mut s = Session::new();
         rect(&mut s);
         s.execute("file.save", &json!({"path": path})).unwrap();
@@ -1943,7 +1943,7 @@ mod file_tests {
     fn autosave_leaves_the_document_state_alone_and_recover_reopens_it_as_unsaved() {
         let dir = std::env::temp_dir().join(format!("lf-engine-recover-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let (saved, recovery) = (dir.join("real.lightfoundry"), dir.join("recovery.lightfoundry"));
+        let (saved, recovery) = (dir.join("real.laserfoundry"), dir.join("recovery.laserfoundry"));
         let mut s = Session::new();
         rect(&mut s);
         s.execute("file.save", &json!({"path": saved})).unwrap();
@@ -2027,8 +2027,8 @@ mod robustness_tests {
         let bed = (s.doc.machine.bed_width, s.doc.machine.bed_height);
         let b = s.doc.bounds_of(&s.selection).unwrap();
         assert!((b.center().x - bed.0 / 2.0).abs() < 0.5 && (b.center().y - bed.1 / 2.0).abs() < 0.5, "centred on the bed");
-        assert_eq!(s.doc.layer(0).unwrap().mode, lightfoundry_doc::LayerMode::Fill, "an untouched layer of filled art engraves");
-        assert_eq!(s.doc.layer(2).unwrap().mode, lightfoundry_doc::LayerMode::Line);
+        assert_eq!(s.doc.layer(0).unwrap().mode, laserfoundry_doc::LayerMode::Fill, "an untouched layer of filled art engraves");
+        assert_eq!(s.doc.layer(2).unwrap().mode, laserfoundry_doc::LayerMode::Line);
         let groups: std::collections::BTreeSet<_> = s.doc.shapes.iter().map(|sh| sh.group).collect();
         assert_eq!(groups.len(), 1, "one group");
         // one undo step takes all of it away
@@ -2078,11 +2078,11 @@ mod robustness_tests {
             }
         }
         image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
-        let v = s.execute("ai.prepare_picture", &json!({ "data_base64": lightfoundry_doc::base64::encode(&png) })).unwrap();
+        let v = s.execute("ai.prepare_picture", &json!({ "data_base64": laserfoundry_doc::base64::encode(&png) })).unwrap();
         assert_eq!(v["media_type"], "image/jpeg");
         assert_eq!(v["width"], 1568);
         assert!((v["height"].as_u64().unwrap() as i64 - 523).abs() <= 1, "{v}");
-        let jpeg = lightfoundry_doc::base64::decode(v["data_base64"].as_str().unwrap()).unwrap();
+        let jpeg = laserfoundry_doc::base64::decode(v["data_base64"].as_str().unwrap()).unwrap();
         let out = image::load_from_memory(&jpeg).unwrap().to_rgb8();
         assert!(out.get_pixel(1000, 400).0.iter().all(|c| *c > 240), "transparent became white");
         assert!(out.get_pixel(75, 75).0.iter().all(|c| *c < 40), "the black square stayed black");

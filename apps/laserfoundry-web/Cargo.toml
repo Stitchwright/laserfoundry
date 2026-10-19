@@ -1,10 +1,10 @@
 [package]
-name = "lightfoundry-web"
+name = "laserfoundry-web"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
-description = "LightFoundry in the browser (WebAssembly)"
+description = "LaserFoundry in the browser (WebAssembly)"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -16,13 +16,13 @@ workspace = true
 serde_json = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-lightfoundry-engine = { workspace = true }
-lightfoundry-ui-egui = { workspace = true }
-lightfoundry-device = { workspace = true }
+laserfoundry-engine = { workspace = true }
+laserfoundry-ui-egui = { workspace = true }
+laserfoundry-device = { workspace = true }
 eframe = { workspace = true, features = ["default_fonts", "glow"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "Element", "Node", "File", "FileList", "FileReader", "Blob", "BlobPropertyBag", "Url", "Event", "EventTarget", "ProgressEvent", "Storage", "Response", "Request", "RequestInit", "RequestRedirect", "Headers", "AbortController", "AbortSignal"] }
 log = { workspace = true }
-lightfoundry-ai = { workspace = true }
+laserfoundry-ai = { workspace = true }

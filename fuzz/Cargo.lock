@@ -1170,7 +1170,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lightfoundry-ai"
+name = "laserfoundry-ai"
 version = "0.1.0"
 dependencies = [
  "serde_json",
@@ -1178,7 +1178,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lightfoundry-device"
+name = "laserfoundry-device"
 version = "0.1.0"
 dependencies = [
  "log",
@@ -1187,40 +1187,40 @@ dependencies = [
 ]
 
 [[package]]
-name = "lightfoundry-doc"
+name = "laserfoundry-doc"
 version = "0.1.0"
 dependencies = [
  "kurbo",
- "lightfoundry-geom",
+ "laserfoundry-geom",
  "serde",
 ]
 
 [[package]]
-name = "lightfoundry-dxf"
+name = "laserfoundry-dxf"
 version = "0.1.0"
 dependencies = [
  "kurbo",
- "lightfoundry-doc",
- "lightfoundry-geom",
+ "laserfoundry-doc",
+ "laserfoundry-geom",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "lightfoundry-engine"
+name = "laserfoundry-engine"
 version = "0.1.0"
 dependencies = [
  "image",
  "kurbo",
- "lightfoundry-device",
- "lightfoundry-doc",
- "lightfoundry-dxf",
- "lightfoundry-format",
- "lightfoundry-gcode",
- "lightfoundry-geom",
- "lightfoundry-pathops",
- "lightfoundry-svg",
- "lightfoundry-text",
- "lightfoundry-toolpath",
+ "laserfoundry-device",
+ "laserfoundry-doc",
+ "laserfoundry-dxf",
+ "laserfoundry-format",
+ "laserfoundry-gcode",
+ "laserfoundry-geom",
+ "laserfoundry-pathops",
+ "laserfoundry-svg",
+ "laserfoundry-text",
+ "laserfoundry-toolpath",
  "log",
  "serde",
  "serde_json",
@@ -1228,7 +1228,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lightfoundry-fontlib"
+name = "laserfoundry-fontlib"
 version = "0.1.0"
 dependencies = [
  "log",
@@ -1238,52 +1238,52 @@ dependencies = [
 ]
 
 [[package]]
-name = "lightfoundry-format"
+name = "laserfoundry-format"
 version = "0.1.0"
 dependencies = [
- "lightfoundry-doc",
+ "laserfoundry-doc",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "lightfoundry-fuzz"
+name = "laserfoundry-fuzz"
 version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
- "lightfoundry-fuzzkit",
+ "laserfoundry-fuzzkit",
 ]
 
 [[package]]
-name = "lightfoundry-fuzzkit"
+name = "laserfoundry-fuzzkit"
 version = "0.1.0"
 dependencies = [
- "lightfoundry-ai",
- "lightfoundry-device",
- "lightfoundry-dxf",
- "lightfoundry-engine",
- "lightfoundry-fontlib",
- "lightfoundry-format",
- "lightfoundry-mcp",
- "lightfoundry-svg",
- "lightfoundry-text",
- "lightfoundry-web",
+ "laserfoundry-ai",
+ "laserfoundry-device",
+ "laserfoundry-dxf",
+ "laserfoundry-engine",
+ "laserfoundry-fontlib",
+ "laserfoundry-format",
+ "laserfoundry-mcp",
+ "laserfoundry-svg",
+ "laserfoundry-text",
+ "laserfoundry-web",
  "serde_json",
 ]
 
 [[package]]
-name = "lightfoundry-gcode"
+name = "laserfoundry-gcode"
 version = "0.1.0"
 dependencies = [
- "lightfoundry-doc",
- "lightfoundry-geom",
- "lightfoundry-toolpath",
+ "laserfoundry-doc",
+ "laserfoundry-geom",
+ "laserfoundry-toolpath",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "lightfoundry-geom"
+name = "laserfoundry-geom"
 version = "0.1.0"
 dependencies = [
  "kurbo",
@@ -1292,49 +1292,49 @@ dependencies = [
 ]
 
 [[package]]
-name = "lightfoundry-i18n"
+name = "laserfoundry-i18n"
 version = "0.1.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
-name = "lightfoundry-mcp"
+name = "laserfoundry-mcp"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
- "lightfoundry-engine",
+ "laserfoundry-engine",
  "log",
  "serde_json",
 ]
 
 [[package]]
-name = "lightfoundry-pathops"
+name = "laserfoundry-pathops"
 version = "0.1.0"
 dependencies = [
  "i_overlay",
- "lightfoundry-geom",
+ "laserfoundry-geom",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "lightfoundry-svg"
+name = "laserfoundry-svg"
 version = "0.1.0"
 dependencies = [
  "kurbo",
- "lightfoundry-doc",
- "lightfoundry-geom",
+ "laserfoundry-doc",
+ "laserfoundry-geom",
  "thiserror 2.0.21",
  "usvg",
 ]
 
 [[package]]
-name = "lightfoundry-text"
+name = "laserfoundry-text"
 version = "0.1.0"
 dependencies = [
  "harfrust",
  "kurbo",
- "lightfoundry-geom",
+ "laserfoundry-geom",
  "roxmltree 0.21.1",
  "serde_json",
  "skrifa",
@@ -1343,43 +1343,43 @@ dependencies = [
 ]
 
 [[package]]
-name = "lightfoundry-toolpath"
+name = "laserfoundry-toolpath"
 version = "0.1.0"
 dependencies = [
  "kurbo",
- "lightfoundry-doc",
- "lightfoundry-geom",
- "lightfoundry-pathops",
+ "laserfoundry-doc",
+ "laserfoundry-geom",
+ "laserfoundry-pathops",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "lightfoundry-ui-egui"
+name = "laserfoundry-ui-egui"
 version = "0.1.0"
 dependencies = [
  "egui",
  "kurbo",
- "lightfoundry-device",
- "lightfoundry-doc",
- "lightfoundry-engine",
- "lightfoundry-format",
- "lightfoundry-geom",
- "lightfoundry-i18n",
- "lightfoundry-toolpath",
+ "laserfoundry-device",
+ "laserfoundry-doc",
+ "laserfoundry-engine",
+ "laserfoundry-format",
+ "laserfoundry-geom",
+ "laserfoundry-i18n",
+ "laserfoundry-toolpath",
  "log",
  "serde_json",
  "web-time",
 ]
 
 [[package]]
-name = "lightfoundry-web"
+name = "laserfoundry-web"
 version = "0.1.0"
 dependencies = [
  "eframe",
  "js-sys",
- "lightfoundry-device",
- "lightfoundry-engine",
- "lightfoundry-ui-egui",
+ "laserfoundry-device",
+ "laserfoundry-engine",
+ "laserfoundry-ui-egui",
  "log",
  "serde_json",
  "wasm-bindgen",

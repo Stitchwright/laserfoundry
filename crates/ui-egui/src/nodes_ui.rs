@@ -1,15 +1,15 @@
 //! The Nodes and Pen tools: gestures that turn into `node.*` and `path.create` commands.
 //!
-//! Node geometry lives in `lightfoundry_geom::nodes` (shared with the engine), so a drag preview
+//! Node geometry lives in `laserfoundry_geom::nodes` (shared with the engine), so a drag preview
 //! here is computed with the very same code that will be applied when the mouse is released.
 
 use egui::{Color32, PointerButton, Pos2, Shape, Stroke, vec2};
-use lightfoundry_doc::{ShapeId, ShapeKind};
-use lightfoundry_geom::nodes::{Node, NodePath, Side, SubPath};
-use lightfoundry_geom::{Point, Vec2};
+use laserfoundry_doc::{ShapeId, ShapeKind};
+use laserfoundry_geom::nodes::{Node, NodePath, Side, SubPath};
+use laserfoundry_geom::{Point, Vec2};
 use serde_json::json;
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 use crate::canvas::Snapper;
 use crate::view::View;
 
@@ -46,7 +46,7 @@ pub struct Pen {
 }
 
 /// The selected path's nodes in workspace coordinates, when exactly one editable path is selected.
-pub fn world_nodes(app: &LightFoundryApp) -> Option<(ShapeId, NodePath)> {
+pub fn world_nodes(app: &LaserFoundryApp) -> Option<(ShapeId, NodePath)> {
     let [id] = app.session.selection.as_slice() else { return None };
     let shape = app.session.doc.shape(*id)?;
     let ShapeKind::Path { path } = &shape.kind else { return None };
@@ -57,7 +57,7 @@ pub fn world_nodes(app: &LightFoundryApp) -> Option<(ShapeId, NodePath)> {
 
 // ---- Nodes tool ----------------------------------------------------------------------------
 
-pub fn interact(app: &mut LightFoundryApp, ui: &egui::Ui, resp: &egui::Response, view: &View, pointer: Option<Point>, snapper: &Snapper) {
+pub fn interact(app: &mut LaserFoundryApp, ui: &egui::Ui, resp: &egui::Response, view: &View, pointer: Option<Point>, snapper: &Snapper) {
     if app.tool == crate::Tool::Pen {
         return pen_interact(app, ui, resp, view, pointer, snapper);
     }
@@ -94,7 +94,7 @@ pub fn interact(app: &mut LightFoundryApp, ui: &egui::Ui, resp: &egui::Response,
 
 /// The node or handle under `p`: `(subpath, index, what)`. Handles belong to the selected node
 /// only, and win over nodes (they can sit on top of a neighbour).
-fn hit(app: &LightFoundryApp, np: &NodePath, p: Point, tol: f64) -> Option<(usize, usize, DragTarget)> {
+fn hit(app: &LaserFoundryApp, np: &NodePath, p: Point, tol: f64) -> Option<(usize, usize, DragTarget)> {
     if let Some(sel) = app.node_sel
         && let Some(node) = np.subpaths.get(sel.subpath).and_then(|s| s.nodes.get(sel.index))
     {
@@ -109,7 +109,7 @@ fn hit(app: &LightFoundryApp, np: &NodePath, p: Point, tol: f64) -> Option<(usiz
     np.subpaths.iter().enumerate().find_map(|(si, sp)| sp.nodes.iter().position(|n| n.p.distance(p) <= tol).map(|i| (si, i, DragTarget::Node)))
 }
 
-fn click(app: &mut LightFoundryApp, p: Point, tol: f64) {
+fn click(app: &mut LaserFoundryApp, p: Point, tol: f64) {
     if let Some((shape, np)) = world_nodes(app)
         && let Some((subpath, index, _)) = hit(app, &np, p, tol)
     {
@@ -123,7 +123,7 @@ fn click(app: &mut LightFoundryApp, p: Point, tol: f64) {
     }
 }
 
-fn insert_at(app: &mut LightFoundryApp, p: Point, tol: f64) {
+fn insert_at(app: &mut LaserFoundryApp, p: Point, tol: f64) {
     let Some((shape, np)) = world_nodes(app) else { return };
     if hit(app, &np, p, tol).is_some() {
         return;
@@ -135,7 +135,7 @@ fn insert_at(app: &mut LightFoundryApp, p: Point, tol: f64) {
     }
 }
 
-fn commit_drag(app: &mut LightFoundryApp, d: NodeDrag) {
+fn commit_drag(app: &mut LaserFoundryApp, d: NodeDrag) {
     let (id, sub, idx, x, y) = (d.shape, d.subpath, d.index, d.to.x, d.to.y);
     match d.target {
         DragTarget::Node => app.run("node.move", json!({ "id": id, "subpath": sub, "index": idx, "x": x, "y": y })),
@@ -147,7 +147,7 @@ fn commit_drag(app: &mut LightFoundryApp, d: NodeDrag) {
 }
 
 /// Deletes the selected node (the Delete key while the Nodes tool is active).
-pub fn delete_selected(app: &mut LightFoundryApp) {
+pub fn delete_selected(app: &mut LaserFoundryApp) {
     let Some(sel) = app.node_sel else { return };
     if app.run("node.delete", json!({ "id": sel.shape, "subpath": sel.subpath, "index": sel.index })).is_some() {
         app.node_sel = Some(NodeSel { index: sel.index.saturating_sub(1), ..sel });
@@ -169,7 +169,7 @@ fn preview(np: &NodePath, d: &NodeDrag) -> NodePath {
 /// Distance (screen points) within which clicking the first node closes the path.
 const CLOSE_PX: f64 = 9.0;
 
-fn pen_interact(app: &mut LightFoundryApp, ui: &egui::Ui, resp: &egui::Response, view: &View, pointer: Option<Point>, snapper: &Snapper) {
+fn pen_interact(app: &mut LaserFoundryApp, ui: &egui::Ui, resp: &egui::Response, view: &View, pointer: Option<Point>, snapper: &Snapper) {
     let close_tol = CLOSE_PX / f64::from(view.zoom);
     let pressed = ui.input(|i| i.pointer.press_origin()).map(|p| view.to_world(p));
 
@@ -227,7 +227,7 @@ fn closes(pen: &Pen, p: Point, tol: f64) -> bool {
 }
 
 /// Turns the pen's nodes into a path (closed or open). Fewer than two nodes just cancels.
-pub fn finish(app: &mut LightFoundryApp, closed: bool) {
+pub fn finish(app: &mut LaserFoundryApp, closed: bool) {
     let Some(pen) = app.pen.take() else { return };
     if pen.nodes.len() < 2 {
         return;
@@ -244,14 +244,14 @@ pub fn finish(app: &mut LightFoundryApp, closed: bool) {
     app.run("path.create", json!({ "nodes": nodes, "closed": closed && pen.nodes.len() >= 3, "layer": layer }));
 }
 
-pub fn cancel(app: &mut LightFoundryApp) {
+pub fn cancel(app: &mut LaserFoundryApp) {
     app.pen = None;
     app.node_drag = None;
 }
 
 // ---- drawing -------------------------------------------------------------------------------
 
-pub fn draw(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
+pub fn draw(app: &LaserFoundryApp, painter: &egui::Painter, view: &View) {
     let accent = app.tokens.selection;
     match app.tool {
         crate::Tool::Nodes => draw_nodes(app, painter, view, accent),
@@ -260,12 +260,12 @@ pub fn draw(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
     }
 }
 
-fn draw_nodes(app: &LightFoundryApp, painter: &egui::Painter, view: &View, accent: Color32) {
+fn draw_nodes(app: &LaserFoundryApp, painter: &egui::Painter, view: &View, accent: Color32) {
     let Some((_, np)) = world_nodes(app) else { return };
     let shown = match &app.node_drag {
         Some(d) => {
             let p = preview(&np, d);
-            let lines = lightfoundry_geom::flatten(&p.to_bez(), 0.05);
+            let lines = laserfoundry_geom::flatten(&p.to_bez(), 0.05);
             for l in &lines {
                 let pts: Vec<Pos2> = l.points.iter().map(|q| view.to_screen(*q)).collect();
                 painter.add(if l.closed { Shape::closed_line(pts, Stroke::new(1.5, accent)) } else { Shape::line(pts, Stroke::new(1.5, accent)) });
@@ -299,7 +299,7 @@ fn draw_nodes(app: &LightFoundryApp, painter: &egui::Painter, view: &View, accen
     }
 }
 
-fn draw_pen(app: &LightFoundryApp, painter: &egui::Painter, view: &View, accent: Color32) {
+fn draw_pen(app: &LaserFoundryApp, painter: &egui::Painter, view: &View, accent: Color32) {
     let Some(pen) = app.pen.as_ref() else { return };
     // The path so far, plus a segment to the cursor.
     let mut nodes = pen.nodes.clone();
@@ -308,7 +308,7 @@ fn draw_pen(app: &LightFoundryApp, painter: &egui::Painter, view: &View, accent:
     }
     if nodes.len() >= 2 {
         let np = NodePath { subpaths: vec![SubPath { nodes, closed: false }] };
-        for l in lightfoundry_geom::flatten(&np.to_bez(), 0.05) {
+        for l in laserfoundry_geom::flatten(&np.to_bez(), 0.05) {
             let pts: Vec<Pos2> = l.points.iter().map(|q| view.to_screen(*q)).collect();
             painter.add(Shape::line(pts, Stroke::new(1.5, accent)));
         }

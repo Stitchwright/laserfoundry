@@ -1,7 +1,7 @@
-//! LightFoundry in the browser: the same engine and egui interface, compiled to WebAssembly.
+//! LaserFoundry in the browser: the same engine and egui interface, compiled to WebAssembly.
 //!
 //! Files open through the browser's file chooser and save as downloads. There is no machine link
-//! yet (the browser's Web Serial API is the way to add one). Build it with `apps/lightfoundry-web/build.sh`.
+//! yet (the browser's Web Serial API is the way to add one). Build it with `apps/laserfoundry-web/build.sh`.
 //!
 //! The wasm-bindgen glue is generated code, so the workspace's `unsafe_code` lint is relaxed here.
 #![allow(unsafe_code)]
@@ -12,12 +12,12 @@ pub mod service;
 #[cfg(target_arch = "wasm32")]
 mod web {
     use eframe::wasm_bindgen::JsCast;
-    use lightfoundry_engine::Session;
+    use laserfoundry_engine::Session;
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
 
-    use lightfoundry_device::Transport;
-    use lightfoundry_ui_egui::{LightFoundryApp, Platform, Upload};
+    use laserfoundry_device::Transport;
+    use laserfoundry_ui_egui::{LaserFoundryApp, Platform, Upload};
     use wasm_bindgen::prelude::*;
     use wasm_bindgen_futures::{JsFuture, spawn_local};
 
@@ -39,7 +39,7 @@ mod web {
                 eframe::WebOptions::default(),
                 Box::new(|_cc| {
                     Ok(Box::new(Host {
-                        app: LightFoundryApp::new(
+                        app: LaserFoundryApp::new(
                             Session::new(),
                             Box::new(WebPlatform {
                                 inbox: Rc::new(RefCell::new(None)),
@@ -124,7 +124,7 @@ mod web {
             BUILT_IN_SERVICE.is_some_and(|s| crate::service::origin(s).is_some())
         }
 
-        fn start_http(&self, request: lightfoundry_ai::HttpRequest) -> bool {
+        fn start_http(&self, request: laserfoundry_ai::HttpRequest) -> bool {
             {
                 let mut job = self.http_job.borrow_mut();
                 if job.running {
@@ -171,7 +171,7 @@ mod web {
         }
 
         fn library_fonts(&self) -> Vec<(String, String)> {
-            lightfoundry_engine::fontlib::list().into_iter().map(|(name, display)| (display, name)).collect()
+            laserfoundry_engine::fontlib::list().into_iter().map(|(name, display)| (display, name)).collect()
         }
 
         fn start_font_library_download(&self, _everything: bool) -> bool {
@@ -429,7 +429,7 @@ mod web {
     }
 
     /// Where the installed font folders are remembered between visits.
-    const FONTS_KEY: &str = "lightfoundry.fonts";
+    const FONTS_KEY: &str = "laserfoundry.fonts";
 
     /// The font library download in progress (or its result, not yet taken).
     #[derive(Default)]
@@ -452,7 +452,7 @@ mod web {
     const MAX_ANSWER: usize = 16 * 1024 * 1024;
 
     /// Sends `request` with `fetch` (no redirects, a time limit) and returns the status and body.
-    async fn post(request: &lightfoundry_ai::HttpRequest) -> Result<(u16, String), String> {
+    async fn post(request: &laserfoundry_ai::HttpRequest) -> Result<(u16, String), String> {
         let window = web_sys::window().ok_or("no window")?;
         let headers = web_sys::Headers::new().map_err(describe)?;
         for (name, value) in &request.headers {
@@ -521,7 +521,7 @@ mod web {
             let base = format!("fonts/{}/", entry.folder);
             let info = fetch_text(&format!("{base}font.json"), entry.font_json_bytes as usize + 1024).await?;
             let glyphs = fetch_text(&format!("{base}glyphs.stitchfoundry"), entry.glyphs_bytes as usize + 1024).await?;
-            match lightfoundry_engine::fontlib::register(&entry.folder, &info, &glyphs) {
+            match laserfoundry_engine::fontlib::register(&entry.folder, &info, &glyphs) {
                 Ok(()) => loaded.push(entry.folder),
                 Err(e) => log::warn!("skipping the font {}: {e}", entry.folder),
             }
@@ -547,7 +547,7 @@ mod web {
     }
 
     struct Host {
-        app: LightFoundryApp,
+        app: LaserFoundryApp,
     }
 
     impl eframe::App for Host {

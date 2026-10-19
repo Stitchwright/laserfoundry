@@ -1,7 +1,7 @@
 //! Perforation: cutting an outline as a row of dashes with uncut gaps between them, which makes a
 //! tear-off line or a part that can be snapped out.
 
-use lightfoundry_geom::Point;
+use laserfoundry_geom::Point;
 
 use crate::tabs::Piece;
 

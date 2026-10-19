@@ -4,42 +4,42 @@
 //! Two drivers call them: the `cargo-fuzz` targets in `/fuzz` (coverage-guided, needs nightly), and
 //! the deterministic mutation tests below, which run with `cargo test` on stable.
 
-use lightfoundry_engine::{Session, commands};
+use laserfoundry_engine::{Session, commands};
 use serde_json::Value;
 
 /// Untrusted SVG text.
 pub fn svg(data: &[u8]) {
-    let _ = lightfoundry_svg::import_svg(data);
+    let _ = laserfoundry_svg::import_svg(data);
 }
 
 /// Untrusted DXF text.
 pub fn dxf(data: &[u8]) {
-    let _ = lightfoundry_dxf::import_dxf(data);
+    let _ = laserfoundry_dxf::import_dxf(data);
 }
 
-/// An untrusted `.lightfoundry` file.
+/// An untrusted `.laserfoundry` file.
 pub fn project(data: &[u8]) {
-    let _ = lightfoundry_format::from_bytes(data);
+    let _ = laserfoundry_format::from_bytes(data);
 }
 
 /// Lines a controller (or something pretending to be one) sends back.
 pub fn controller_line(data: &[u8]) {
     let text = String::from_utf8_lossy(data);
     for line in text.lines() {
-        let _ = lightfoundry_device::parse_status(line);
-        let _ = lightfoundry_device::settings::parse_setting(line);
+        let _ = laserfoundry_device::parse_status(line);
+        let _ = laserfoundry_device::settings::parse_setting(line);
     }
 }
 
 /// A G-code program offered to the streamer.
 pub fn gcode_program(data: &[u8]) {
     let text = String::from_utf8_lossy(data);
-    let _ = lightfoundry_device::jog_to_line(f64::from(data.first().copied().unwrap_or(0)) * 1e3, 0.0, 1000.0);
-    let mut sim = lightfoundry_device::SimulatedGrbl::new();
-    let _ = lightfoundry_device::stream_program(
+    let _ = laserfoundry_device::jog_to_line(f64::from(data.first().copied().unwrap_or(0)) * 1e3, 0.0, 1000.0);
+    let mut sim = laserfoundry_device::SimulatedGrbl::new();
+    let _ = laserfoundry_device::stream_program(
         &mut sim,
         &text,
-        &lightfoundry_device::StreamOptions::default(),
+        &laserfoundry_device::StreamOptions::default(),
         &std::sync::atomic::AtomicBool::new(false),
         |_| {},
     );
@@ -50,14 +50,14 @@ pub fn mcp_message(data: &[u8]) {
     let mut session = Session::new();
     let text = String::from_utf8_lossy(data);
     for line in text.lines() {
-        let _ = lightfoundry_mcp::handle_line(&mut session, line);
+        let _ = laserfoundry_mcp::handle_line(&mut session, line);
     }
 }
 
 /// Text to lay out in the stroke font.
 pub fn text_layout(data: &[u8]) {
     let text = String::from_utf8_lossy(data);
-    let _ = lightfoundry_text::layout(&text, &lightfoundry_text::TextStyle::default());
+    let _ = laserfoundry_text::layout(&text, &laserfoundry_text::TextStyle::default());
 }
 
 /// A font library glyph font: the first two bytes say where `font.json` ends and the glyph file starts.
@@ -67,18 +67,18 @@ pub fn glyph_font(data: &[u8]) {
     let at = (usize::from(head[0]) << 8 | usize::from(head[1])) % (rest.len() + 1);
     let (info, glyphs) = rest.split_at(at);
     let (info, glyphs) = (String::from_utf8_lossy(info), String::from_utf8_lossy(glyphs));
-    if let Ok(font) = lightfoundry_text::GlyphFont::parse(&info, &glyphs) {
+    if let Ok(font) = laserfoundry_text::GlyphFont::parse(&info, &glyphs) {
         let styles = [
-            lightfoundry_text::TextStyle::default(),
-            lightfoundry_text::TextStyle { height: 0.1, ..Default::default() },
-            lightfoundry_text::TextStyle { height: 1000.0, letter_spacing: 10.0, line_spacing: 10.0, ..Default::default() },
-            lightfoundry_text::TextStyle { align: lightfoundry_text::Align::Right, ..Default::default() },
+            laserfoundry_text::TextStyle::default(),
+            laserfoundry_text::TextStyle { height: 0.1, ..Default::default() },
+            laserfoundry_text::TextStyle { height: 1000.0, letter_spacing: 10.0, line_spacing: 10.0, ..Default::default() },
+            laserfoundry_text::TextStyle { align: laserfoundry_text::Align::Right, ..Default::default() },
         ];
         for style in &styles {
-            let _ = lightfoundry_text::layout_glyph_font(&font, "Hello World\nÄ? abc 123", style);
+            let _ = laserfoundry_text::layout_glyph_font(&font, "Hello World\nÄ? abc 123", style);
         }
     }
-    if lightfoundry_engine::fontlib::register("fuzz", &info, &glyphs).is_ok() {
+    if laserfoundry_engine::fontlib::register("fuzz", &info, &glyphs).is_ok() {
         let mut session = Session::new();
         let _ = session.execute("text.create", &serde_json::json!({"text": "Hi there", "height": 10, "font": "library:fuzz"}));
     }
@@ -90,12 +90,12 @@ pub fn inkstitch_font(data: &[u8]) {
     let at = (usize::from(head[0]) << 8 | usize::from(head[1])) % (rest.len() + 1);
     let (info, svg) = rest.split_at(at);
     let (info, svg) = (String::from_utf8_lossy(info), String::from_utf8_lossy(svg));
-    if let Ok(font) = lightfoundry_text::GlyphFont::parse_inkstitch(&info, &svg) {
+    if let Ok(font) = laserfoundry_text::GlyphFont::parse_inkstitch(&info, &svg) {
         for style in [
-            lightfoundry_text::TextStyle::default(),
-            lightfoundry_text::TextStyle { height: 1000.0, letter_spacing: 10.0, line_spacing: 10.0, ..Default::default() },
+            laserfoundry_text::TextStyle::default(),
+            laserfoundry_text::TextStyle { height: 1000.0, letter_spacing: 10.0, line_spacing: 10.0, ..Default::default() },
         ] {
-            let _ = lightfoundry_text::layout_glyph_font(&font, "Hello World\nÄ? abc 123", &style);
+            let _ = laserfoundry_text::layout_glyph_font(&font, "Hello World\nÄ? abc 123", &style);
         }
     }
 }
@@ -103,16 +103,16 @@ pub fn inkstitch_font(data: &[u8]) {
 /// The hosted site's font index and the list of fonts remembered from an earlier visit.
 pub fn font_index(data: &[u8]) {
     let text = String::from_utf8_lossy(data);
-    let _ = lightfoundry_web::fontindex::parse_index(&text);
-    let _ = lightfoundry_web::fontindex::parse_remembered(&text);
+    let _ = laserfoundry_web::fontindex::parse_index(&text);
+    let _ = laserfoundry_web::fontindex::parse_remembered(&text);
 }
 
 /// A repository tree listing from the network, and a path taken from it.
 pub fn font_listing(data: &[u8]) {
     let text = String::from_utf8_lossy(data);
-    let _ = lightfoundry_fontlib::plan(&text, lightfoundry_fontlib::Set::Foundry);
-    let _ = lightfoundry_fontlib::plan(&text, lightfoundry_fontlib::Set::Everything);
-    let _ = lightfoundry_fontlib::safe_path(&text);
+    let _ = laserfoundry_fontlib::plan(&text, laserfoundry_fontlib::Set::Foundry);
+    let _ = laserfoundry_fontlib::plan(&text, laserfoundry_fontlib::Set::Everything);
+    let _ = laserfoundry_fontlib::safe_path(&text);
 }
 
 /// Replies from the AI service and the account service, in every parser: the first byte picks the HTTP
@@ -122,18 +122,18 @@ pub fn ai_reply(data: &[u8]) {
     let text = String::from_utf8_lossy(rest);
     let status = [200u16, 200, 200, 401, 402, 429, 500, 503, 529, 404][usize::from(*first >> 1) % 10];
     let session = first & 1 == 1;
-    let _ = lightfoundry_ai::art::parse_reply(status, &text, session);
-    let _ = lightfoundry_ai::ask::parse_reply(status, &text, session);
-    let _ = lightfoundry_ai::check::parse_reply(status, &text, session);
-    let _ = lightfoundry_ai::check::read_check(&text);
-    let _ = lightfoundry_ai::art::extract_svg(&text);
-    let _ = lightfoundry_ai::cloud::clean_server(&text);
+    let _ = laserfoundry_ai::art::parse_reply(status, &text, session);
+    let _ = laserfoundry_ai::ask::parse_reply(status, &text, session);
+    let _ = laserfoundry_ai::check::parse_reply(status, &text, session);
+    let _ = laserfoundry_ai::check::read_check(&text);
+    let _ = laserfoundry_ai::art::extract_svg(&text);
+    let _ = laserfoundry_ai::cloud::clean_server(&text);
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-        let _ = lightfoundry_ai::cloud::session(&v);
-        let _ = lightfoundry_ai::cloud::read_account(&v);
-        let _ = lightfoundry_ai::cloud::checkout_url(&v);
+        let _ = laserfoundry_ai::cloud::session(&v);
+        let _ = laserfoundry_ai::cloud::read_account(&v);
+        let _ = laserfoundry_ai::cloud::checkout_url(&v);
     }
-    let _ = lightfoundry_ai::cloud::parse(status, &text);
+    let _ = laserfoundry_ai::cloud::parse(status, &text);
 }
 
 /// A command and its parameters: the first byte picks the command, the rest is JSON.
@@ -241,7 +241,7 @@ mod tests {
         let mut s = Session::new();
         s.execute("shape.rectangle", &serde_json::json!({"width": 10, "height": 5})).unwrap();
         s.execute("preset.save", &serde_json::json!({"name": "p", "layer": 0})).unwrap();
-        let bytes = lightfoundry_format::to_bytes(&s.doc).unwrap();
+        let bytes = laserfoundry_format::to_bytes(&s.doc).unwrap();
         let text = String::from_utf8(bytes).unwrap();
         drive(&text, project, 1500);
     }
@@ -278,7 +278,7 @@ mod tests {
         }
         // The seed itself is a working font.
         assert!(
-            lightfoundry_text::GlyphFont::parse(
+            laserfoundry_text::GlyphFont::parse(
                 &String::from_utf8_lossy(&seed[2..2 + seed[1] as usize]),
                 &String::from_utf8_lossy(&seed[2 + seed[1] as usize..])
             )
@@ -297,7 +297,7 @@ mod tests {
         for input in mutations(&seed, &mut rng, 4000) {
             inkstitch_font(&input);
         }
-        assert!(lightfoundry_text::GlyphFont::parse_inkstitch(info, svg).is_ok(), "the seed is a working font");
+        assert!(laserfoundry_text::GlyphFont::parse_inkstitch(info, svg).is_ok(), "the seed is a working font");
     }
 
     #[test]

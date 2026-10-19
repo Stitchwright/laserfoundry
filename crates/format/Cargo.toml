@@ -1,18 +1,18 @@
 [package]
-name = "lightfoundry-format"
+name = "laserfoundry-format"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry format"
+description = "LaserFoundry format"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-doc = { workspace = true }
+laserfoundry-doc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-lightfoundry-geom = { workspace = true }
+laserfoundry-geom = { workspace = true }

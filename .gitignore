@@ -3,7 +3,7 @@
 /plan/
 /dist
 .DS_Store
-/apps/lightfoundry-web/pkg
+/apps/laserfoundry-web/pkg
 /fuzz/target
 /fuzz/corpus
 /fuzz/artifacts

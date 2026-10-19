@@ -5,8 +5,8 @@
 use std::fmt::Write as _;
 use std::io::Cursor;
 
-use lightfoundry_doc::{Document, LayerMode, ShapeId, ShapeKind, base64};
-use lightfoundry_geom::Rect;
+use laserfoundry_doc::{Document, LayerMode, ShapeId, ShapeKind, base64};
+use laserfoundry_geom::Rect;
 
 use crate::EngineError;
 

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use lightfoundry_device::Transport;
+use laserfoundry_device::Transport;
 
 /// A file the person picked in a browser-style host: its name and contents.
 #[derive(Debug, Clone, PartialEq)]
@@ -37,7 +37,7 @@ pub trait Platform {
         None
     }
 
-    /// A folder of project templates (`.lightfoundry` files), if this platform has one.
+    /// A folder of project templates (`.laserfoundry` files), if this platform has one.
     fn templates_dir(&self) -> Option<PathBuf> {
         None
     }
@@ -60,7 +60,7 @@ pub trait Platform {
     }
 
     /// Starts sending `request` in the background. False when this host cannot, or one is already running.
-    fn start_http(&self, _request: lightfoundry_ai::HttpRequest) -> bool {
+    fn start_http(&self, _request: laserfoundry_ai::HttpRequest) -> bool {
         false
     }
 

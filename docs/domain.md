@@ -1,7 +1,7 @@
-# The `lightfoundry.app` domain
+# The `laserfoundry.app` domain
 
 The hosted browser build is at `https://stitchwright.github.io/lightfoundry/` (GitHub Pages, built by
-`.github/workflows/pages.yml`). This is how to serve it from `https://lightfoundry.app/` as well. Nothing in the
+`.github/workflows/pages.yml`). This is how to serve it from `https://laserfoundry.app/` as well. Nothing in the
 program depends on the address: the page uses relative paths, so it works at either.
 
 `.app` domains are on the browsers' HTTPS-only list, which suits this page (its content security policy already
@@ -35,22 +35,22 @@ site" page before adding them, in case they have changed.)
 
 ## 3. Verify the domain with GitHub (stops anyone else claiming it)
 
-Organisation settings → Pages → Add a domain → `lightfoundry.app`. GitHub shows a `_github-pages-challenge-…`
+Organisation settings → Pages → Add a domain → `laserfoundry.app`. GitHub shows a `_github-pages-challenge-…`
 **TXT** record name and value: add it in Cloudflare, then press Verify. Do this *before* step 4.
 
 ## 4. Tell the repository
 
-Repository Settings → Pages → Custom domain → `lightfoundry.app` → Save, wait for the certificate (a few
-minutes, up to an hour), then tick **Enforce HTTPS**. `www.lightfoundry.app` then redirects to the apex.
+Repository Settings → Pages → Custom domain → `laserfoundry.app` → Save, wait for the certificate (a few
+minutes, up to an hour), then tick **Enforce HTTPS**. `www.laserfoundry.app` then redirects to the apex.
 
 ## 5. Then, in the repository (ask the agent to do this once the above works)
 
-- Point the README, the docs and the repository's website field at `https://lightfoundry.app/`.
+- Point the README, the docs and the repository's website field at `https://laserfoundry.app/`.
 - Keep the old `stitchwright.github.io/lightfoundry` address working (GitHub redirects it by itself).
-- If the account service gets a name such as `api.lightfoundry.app`, set the `LF_CLOUD_URL` repository variable
+- If the account service gets a name such as `api.laserfoundry.app`, set the `LF_CLOUD_URL` repository variable
   to it (see `ai.md`): the browser build's content security policy is generated from that variable.
 
 ## Checking it
 
-`dig +short lightfoundry.app` lists the four addresses; `curl -sI https://lightfoundry.app/` answers `200` with a
-certificate for `lightfoundry.app`; opening the page shows the app.
+`dig +short laserfoundry.app` lists the four addresses; `curl -sI https://laserfoundry.app/` answers `200` with a
+certificate for `laserfoundry.app`; opening the page shows the app.

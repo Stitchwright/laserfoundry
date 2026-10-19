@@ -15,7 +15,7 @@ mod bidi_tests {
 
     /// The x ranges of the holes (the smaller contour of each glyph with one), left to right.
     fn holes(l: &TextLayout) -> Vec<(f64, f64)> {
-        let mut found: Vec<(f64, f64)> = lightfoundry_geom::flatten(&l.path, 0.01)
+        let mut found: Vec<(f64, f64)> = laserfoundry_geom::flatten(&l.path, 0.01)
             .iter()
             .map(|c| {
                 let xs = c.points.iter().map(|p| p.x);
@@ -77,7 +77,7 @@ mod fallback_tests {
         assert!(with.unsupported.is_empty(), "{:?}", with.unsupported);
         // At 0.01 mm per unit: C starts after A's 700-unit advance and is itself 600 units wide.
         assert!((with.path.bounding_box().width() - 13.0).abs() < 1e-3, "{:?}", with.path.bounding_box());
-        assert_eq!(lightfoundry_geom::flatten(&with.path, 0.01).len(), 4, "A and C both have a hole");
+        assert_eq!(laserfoundry_geom::flatten(&with.path, 0.01).len(), 4, "A and C both have a hole");
     }
 
     #[test]
@@ -111,7 +111,7 @@ mod layout_tests {
     #[test]
     fn the_hole_in_a_glyph_is_a_second_closed_contour() {
         let l = layout_outline(&tiny_font(), "A", &style(7.0)).unwrap();
-        let contours = lightfoundry_geom::flatten(&l.path, 0.01);
+        let contours = laserfoundry_geom::flatten(&l.path, 0.01);
         assert_eq!(contours.len(), 2);
         assert!(contours.iter().all(|c| c.closed));
     }

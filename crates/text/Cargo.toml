@@ -1,15 +1,15 @@
 [package]
-name = "lightfoundry-text"
+name = "laserfoundry-text"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry text: an original single-line stroke font and layout"
+description = "LaserFoundry text: an original single-line stroke font and layout"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-geom = { workspace = true }
+laserfoundry-geom = { workspace = true }
 kurbo = { workspace = true }
 thiserror = { workspace = true }
 skrifa = { workspace = true }

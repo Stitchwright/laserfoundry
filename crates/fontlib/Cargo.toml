@@ -1,5 +1,5 @@
 [package]
-name = "lightfoundry-fontlib"
+name = "laserfoundry-fontlib"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

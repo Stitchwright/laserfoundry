@@ -1,16 +1,16 @@
-//! The native `.lightfoundry` file: versioned JSON, validated on load, saved atomically.
+//! The native `.laserfoundry` file: versioned JSON, validated on load, saved atomically.
 
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-use lightfoundry_doc::{Document, ShapeKind};
+use laserfoundry_doc::{Document, ShapeKind};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub const FORMAT_NAME: &str = "lightfoundry";
+pub const FORMAT_NAME: &str = "laserfoundry";
 pub const FORMAT_VERSION: u32 = 1;
-pub const EXTENSION: &str = "lightfoundry";
+pub const EXTENSION: &str = "laserfoundry";
 pub const MAX_FILE_BYTES: usize = 512 * 1024 * 1024;
 
 #[derive(Debug, Error)]
@@ -19,11 +19,11 @@ pub enum FormatError {
     Io(#[from] std::io::Error),
     #[error("file is larger than {} MB", MAX_FILE_BYTES / 1024 / 1024)]
     TooLarge,
-    #[error("not a LightFoundry file: {0}")]
+    #[error("not a LaserFoundry file: {0}")]
     Parse(String),
-    #[error("this file was saved by a newer LightFoundry (format v{0}); update to open it")]
+    #[error("this file was saved by a newer LaserFoundry (format v{0}); update to open it")]
     NewerVersion(u32),
-    #[error("file is not a LightFoundry document")]
+    #[error("file is not a LaserFoundry document")]
     WrongFormat,
     #[error("invalid document: {0}")]
     Invalid(&'static str),
@@ -130,8 +130,8 @@ fn validate(doc: &mut Document) -> Result<(), FormatError> {
 
 #[cfg(test)]
 mod tests {
-    use lightfoundry_doc::Shape;
-    use lightfoundry_geom::rect_path;
+    use laserfoundry_doc::Shape;
+    use laserfoundry_geom::rect_path;
 
     use super::*;
 
@@ -157,14 +157,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let victim = dir.join("victim.txt");
         std::fs::write(&victim, "precious").unwrap();
-        let path = dir.join("x.lightfoundry");
-        std::os::unix::fs::symlink(&victim, dir.join("x.lightfoundry.tmp")).unwrap();
+        let path = dir.join("x.laserfoundry");
+        std::os::unix::fs::symlink(&victim, dir.join("x.laserfoundry.tmp")).unwrap();
         save(&path, &sample()).unwrap();
         assert_eq!(std::fs::read_to_string(&victim).unwrap(), "precious");
         assert_eq!(load(&path).unwrap().shapes.len(), 1);
         let leftovers: Vec<_> =
             std::fs::read_dir(&dir).unwrap().filter_map(Result::ok).map(|e| e.file_name().to_string_lossy().into_owned()).collect();
-        assert!(leftovers.iter().all(|n| !n.ends_with(".tmp") || n == "x.lightfoundry.tmp"), "{leftovers:?}");
+        assert!(leftovers.iter().all(|n| !n.ends_with(".tmp") || n == "x.laserfoundry.tmp"), "{leftovers:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -176,9 +176,9 @@ mod tests {
 
     #[test]
     fn a_picture_whose_colour_data_does_not_fit_is_refused() {
-        use lightfoundry_doc::{ImageAdjust, RasterImage, Shape, ShapeKind};
+        use laserfoundry_doc::{ImageAdjust, RasterImage, Shape, ShapeKind};
         let mut doc = sample();
-        let mut shape = Shape::path("p", 0, lightfoundry_geom::rect_path(0.0, 0.0, 1.0, 1.0));
+        let mut shape = Shape::path("p", 0, laserfoundry_geom::rect_path(0.0, 0.0, 1.0, 1.0));
         let image = RasterImage::new(2, 1, vec![1, 2]).unwrap();
         shape.kind = ShapeKind::Image {
             image: std::sync::Arc::new(image.clone().with_rgb(vec![0; 6]).unwrap()),
@@ -205,16 +205,16 @@ mod tests {
     fn save_and_load_are_atomic_and_leave_no_temp_file() {
         let dir = std::env::temp_dir().join(format!("lf-format-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("a.lightfoundry");
+        let path = dir.join("a.laserfoundry");
         save(&path, &sample()).unwrap();
         assert_eq!(load(&path).unwrap(), sample());
-        assert!(!dir.join("a.lightfoundry.tmp").exists());
+        assert!(!dir.join("a.laserfoundry.tmp").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn newer_and_foreign_files_are_rejected_politely() {
-        assert!(matches!(from_bytes(br#"{"format":"lightfoundry","version":99,"document":{}}"#), Err(FormatError::NewerVersion(99))));
+        assert!(matches!(from_bytes(br#"{"format":"laserfoundry","version":99,"document":{}}"#), Err(FormatError::NewerVersion(99))));
         assert!(matches!(from_bytes(br#"{"format":"other","version":1}"#), Err(FormatError::WrongFormat)));
         assert!(from_bytes(b"not json").is_err());
         assert!(from_bytes(b"").is_err());

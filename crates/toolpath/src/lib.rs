@@ -20,8 +20,8 @@ pub use raster::{Grid, dither, sample_grid};
 pub use timeline::{LayerTime, Moment, OpTime, Timeline, move_seconds};
 pub use trace::{MAX_TRACE_PIXELS, trace};
 
-use lightfoundry_doc::{Document, Layer, LayerId, LayerMode, Shape, ShapeKind};
-use lightfoundry_geom::{Point, Polyline, Rect, bounds_of_polylines};
+use laserfoundry_doc::{Document, Layer, LayerId, LayerMode, Shape, ShapeKind};
+use laserfoundry_geom::{Point, Polyline, Rect, bounds_of_polylines};
 use thiserror::Error;
 
 /// Cap on raster cells per image, so a hostile document cannot exhaust memory.
@@ -113,7 +113,7 @@ pub fn plan(doc: &Document) -> Result<Job, PlanError> {
             let shapes: Vec<&Shape> = all.iter().copied().filter(|s| s.order == tier).collect();
             // Shapes with their own cut settings are planned separately, in order of first appearance;
             // everything else uses the layer as it is.
-            let mut groups: Vec<(Option<lightfoundry_doc::CutOverride>, Vec<&Shape>)> = Vec::new();
+            let mut groups: Vec<(Option<laserfoundry_doc::CutOverride>, Vec<&Shape>)> = Vec::new();
             for shape in shapes {
                 let key = shape.cut.filter(|c| !c.is_empty());
                 match groups.iter_mut().find(|(k, _)| *k == key) {
@@ -154,7 +154,7 @@ pub fn plan(doc: &Document) -> Result<Job, PlanError> {
 
 /// Shapes bucketed by group, buckets in order of first appearance; ungrouped shapes share one bucket.
 fn split_by_group<'a>(shapes: &[&'a Shape]) -> Vec<Vec<&'a Shape>> {
-    let mut buckets: Vec<(Option<lightfoundry_doc::GroupId>, Vec<&'a Shape>)> = Vec::new();
+    let mut buckets: Vec<(Option<laserfoundry_doc::GroupId>, Vec<&'a Shape>)> = Vec::new();
     for shape in shapes {
         match buckets.iter_mut().find(|(g, _)| *g == shape.group) {
             Some((_, v)) => v.push(shape),
@@ -269,7 +269,7 @@ fn emit_dashes(moves: &mut Vec<Move>, pieces: &[tabs::Piece], power: f64) {
 
 /// With absolute placement the bed edges are known: shorten a lead that would leave the bed.
 fn keep_in_bed(doc: &Document, from: Point, to: Point) -> Point {
-    if doc.job_origin.start_from != lightfoundry_doc::StartFrom::Absolute {
+    if doc.job_origin.start_from != laserfoundry_doc::StartFrom::Absolute {
         return to;
     }
     let (w, h) = (doc.machine.bed_width, doc.machine.bed_height);
@@ -291,7 +291,7 @@ fn apply_kerf(layer: &Layer, lines: &[Polyline]) -> Result<Vec<Polyline>, PlanEr
     }
     let (closed, open): (Vec<&Polyline>, Vec<&Polyline>) = lines.iter().partition(|l| l.closed);
     let closed: Vec<Polyline> = closed.into_iter().cloned().collect();
-    let mut out = lightfoundry_pathops::offset(&closed, layer.kerf_offset, lightfoundry_pathops::Join::Round)
+    let mut out = laserfoundry_pathops::offset(&closed, layer.kerf_offset, laserfoundry_pathops::Join::Round)
         .map_err(|e| PlanError::Kerf { name: layer.name.clone(), reason: e.to_string() })?;
     out.extend(open.into_iter().cloned());
     Ok(out)

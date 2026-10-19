@@ -27,6 +27,6 @@ low power, and stay present.
 ## Evidence of what ships
 
 - 473 tests across the workspace (`cargo test --workspace`); gates in `cargo xtask ci`.
-- End-to-end: `lightfoundry-cli gcode demo.svg` → G-code; the desktop app was driven under Xvfb
+- End-to-end: `laserfoundry-cli gcode demo.svg` → G-code; the desktop app was driven under Xvfb
   (draw with each tool, generate, start on the simulator, progress and completion shown; jog pad
   clicks moved the simulated head the expected way and the console logged each `$J=` line).

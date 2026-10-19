@@ -1,6 +1,6 @@
 # Translations
 
-LightFoundry ships in English only, with no translation or font files (the assets rule). You can
+LaserFoundry ships in English only, with no translation or font files (the assets rule). You can
 supply your own.
 
 A translation is a JSON file:
@@ -64,9 +64,9 @@ a font path), so scripts the built-in font lacks are not available in the browse
 
 ## The command line
 
-`lightfoundry-cli` prints through the same catalogs: its usage text, `info` labels, option errors and
+`laserfoundry-cli` prints through the same catalogs: its usage text, `info` labels, option errors and
 engine errors. It uses `--translation FILE` (a file that cannot be read is an error), else
-`$LIGHTFOUNDRY_TRANSLATION`, else the desktop app's own file (`translation.json` in the LightFoundry data
-folder; a broken one is ignored). `lightfoundry-cli translation-template` prints a catalog with every
-text the tool shows plus the engine messages, to start from. The shared code is the `lightfoundry-i18n`
+`$LASERFOUNDRY_TRANSLATION`, else the desktop app's own file (`translation.json` in the LaserFoundry data
+folder; a broken one is ignored). `laserfoundry-cli translation-template` prints a catalog with every
+text the tool shows plus the engine messages, to start from. The shared code is the `laserfoundry-i18n`
 crate.

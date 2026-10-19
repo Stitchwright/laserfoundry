@@ -1,4 +1,4 @@
-use lightfoundry_doc::{Layer, LayerId, LayerMode, MAX_PRESETS, Preset};
+use laserfoundry_doc::{Layer, LayerId, LayerMode, MAX_PRESETS, Preset};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

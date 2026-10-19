@@ -1,11 +1,11 @@
 //! The desktop app's network client for the AI and account requests, and the small private file that keeps
-//! an account's session token and an API key. The requests and replies are `lightfoundry-ai`'s.
+//! an account's session token and an API key. The requests and replies are `laserfoundry-ai`'s.
 
 use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
-use lightfoundry_ai::HttpRequest;
+use laserfoundry_ai::HttpRequest;
 
 /// How long a request may take (the model can think for a while).
 const TIMEOUT: Duration = Duration::from_secs(240);
@@ -18,7 +18,7 @@ const MAX_SECRETS: u64 = 64 * 1024;
 /// not followed, so a credential in a header never goes anywhere but where the request names.
 pub fn send(request: &HttpRequest) -> Result<(u16, String), String> {
     let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(TIMEOUT)).max_redirects(0).http_status_as_error(false).build().into();
-    let mut call = agent.post(&request.url).header("User-Agent", "lightfoundry");
+    let mut call = agent.post(&request.url).header("User-Agent", "laserfoundry");
     for (name, value) in &request.headers {
         call = call.header(*name, value);
     }

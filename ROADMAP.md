@@ -134,11 +134,11 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   or closed, are cut as dashes with rapid moves over the gaps (laser off), replacing tabs when
   both are set. Lengths below 0.05 mm, non-finite values and absurd piece counts fall back to a
   solid line (or a plan error for bad settings).
-- **2026-10-14 — MCP server.** New crate `lightfoundry-mcp` (layer 6; the UI layer moved to 7): a
+- **2026-10-14 — MCP server.** New crate `laserfoundry-mcp` (layer 6; the UI layer moved to 7): a
   newline-delimited JSON-RPC 2.0 server implementing initialize, ping, tools/list and tools/call,
   where every engine command is a tool (`shape.rectangle` becomes `shape_rectangle`) plus a
   read-only `document_summary`. Engine failures are tool errors; messages over 64 MB are skipped
-  without being buffered. `lightfoundry-cli mcp` serves it on stdin/stdout. Note for operators: the
+  without being buffered. `laserfoundry-cli mcp` serves it on stdin/stdout. Note for operators: the
   file.* tools read and write paths the agent names, so only attach it to agents you trust.
 - **2026-10-14 — trace to vectors.** `toolpath::trace` follows the boundaries of dark pixels along
   pixel edges (outer loops clockwise, holes the other way, diagonal neighbours joined), then
@@ -184,8 +184,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   the design marks (by clicking, or the centres of two selected shapes) and the real ones (by
   clicking on a photo of the bed, or From laser using the head position) and draws them on the
   canvas. Live camera capture is OS- and hardware-specific and is not built.
-- **2026-10-14 — browser build.** `apps/lightfoundry-web` compiles the engine and the egui
-  interface to WebAssembly (`apps/lightfoundry-web/build.sh`, then serve the folder and open
+- **2026-10-14 — browser build.** `apps/laserfoundry-web` compiles the engine and the egui
+  interface to WebAssembly (`apps/laserfoundry-web/build.sh`, then serve the folder and open
   `index.html`); checked in headless Chromium: it draws, creates shapes and handles drags. It has
   no file dialogs or machine link yet (`Platform::machine_available` is false there, since the
   link needs threads). Clocks use `web-time`, which is `std::time` on desktop and works in the
@@ -254,7 +254,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   so short segments cost realistically; used by `job.estimate` and the preview timeline.
 - **2026-10-14 — preview colours.** View > Preview colours: by layer (as before), by power, or by
   speed (blue to red; slow is hot), scaled to the ranges present in the job.
-- **2026-10-14 — project templates.** File > New from Template lists `.lightfoundry` files in the
+- **2026-10-14 — project templates.** File > New from Template lists `.laserfoundry` files in the
   per-user templates folder (`Platform::templates_dir`), opens one as a new untitled unsaved project
   (`file.open` with `template: true`), and saves the current project there under a sanitised name
   without touching its own saved state.
@@ -339,9 +339,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   outlines, pictures embedded as PNG with their tone adjustments. `selection_only` and
   `include_hidden` narrow or widen it. Written so work designed here can go into software that takes SVG
   but not G-code (such as a cloud-driven laser's own app); reading it back gives the same size.
-- **2026-10-14 — live MCP link.** `lightfoundry --agent-link` (or `LIGHTFOUNDRY_AGENT_LINK=1`; off by
+- **2026-10-14 — live MCP link.** `laserfoundry --agent-link` (or `LASERFOUNDRY_AGENT_LINK=1`; off by
   default) opens a loopback-only port and writes `agent-link.json` (port + random token, owner-only
-  permissions) to the per-user data folder; `lightfoundry-cli mcp --connect` then bridges an agent's
+  permissions) to the per-user data folder; `laserfoundry-cli mcp --connect` then bridges an agent's
   stdio to it, so the agent edits the drawing in the open window and the person watches it change.
   Decisions: loopback TCP with a token (portable, no new dependencies); opt-in per launch with a
   warning logged; commands run on the app's thread once per frame (no shared locking), at most 16
@@ -401,33 +401,33 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   (`spacing::edge_spacing`, both axes and both directions, hostile-input tests, plus a frame test).
   Checked by the headless frame tests and by eye under Xvfb (gap tags while sizing, the 45° line, the menu).
 - **2026-10-15 — CLI translations.** The catalog code moved out of `ui-egui` into a new layer-0 crate,
-  `lightfoundry-i18n` (the UI re-exports it, so nothing there changed), so the command line can use it.
-  `lightfoundry-cli` now translates its usage text, `info` labels, option errors and engine errors with
-  `--translation FILE`, `$LIGHTFOUNDRY_TRANSLATION` or the desktop app's catalog, and
+  `laserfoundry-i18n` (the UI re-exports it, so nothing there changed), so the command line can use it.
+  `laserfoundry-cli` now translates its usage text, `info` labels, option errors and engine errors with
+  `--translation FILE`, `$LASERFOUNDRY_TRANSLATION` or the desktop app's catalog, and
   `translation-template` lists every text it shows. Process-level tests cover each way of choosing a
   catalog, the template, and broken or missing catalogs. Also: a Windows build workflow
   (`.github/workflows/desktop.yml`, now a Windows/Linux/macOS matrix with serial ports, attached to `v*` releases).
 - **2026-10-15 — recent projects in the browser.** A browser has no file paths, so "Open Recent" keeps the
   projects' contents instead: up to 8, at most 1 MB (base64) each and 3 MB together, in the page's local
-  storage under `lightfoundry.recent` (`browser_recent.rs`; the oldest entries go first when the budget is
+  storage under `laserfoundry.recent` (`browser_recent.rs`; the oldest entries go first when the budget is
   exceeded, a project too large to keep is simply not remembered). A project is remembered when it is
   opened from an upload or saved (downloaded); choosing an entry opens it, and a damaged one is dropped from
   the list. The host provides two new `Platform` hooks, `storage_get` / `storage_set` (the web build wraps
   `localStorage` and tolerates it being blocked or full). Unit tests cover ordering, budget, round trip and
   hostile stored text; a frame test covers save, restart, reopen and a damaged entry. The wasm build compiles; not
   yet tried in a real browser.
-- **2026-10-15 — browser favicon.** `apps/lightfoundry-web/index.html` carries an inline SVG icon (a beam
+- **2026-10-15 — browser favicon.** `apps/laserfoundry-web/index.html` carries an inline SVG icon (a beam
   hitting a cut line on a dark tile), drawn here, so there is no asset file and no ATTRIBUTION row.
-- **2026-10-15 — font library download (desktop and CLI only).** New layer-3 crate `lightfoundry-fontlib`
-  fetches `Stitchwright/stitchfoundry-fonts` into `LightFoundry/fonts` in the data folder: the file list
+- **2026-10-15 — font library download (desktop and CLI only).** New layer-3 crate `laserfoundry-fontlib`
+  fetches `Stitchwright/stitchfoundry-fonts` into `LaserFoundry/fonts` in the data folder: the file list
   from GitHub's tree API, each file from its raw address, previews skipped (the repository is ~290 MB,
   almost all of it the Ink/Stitch collection), files kept when already present at the listed size, paths
-  validated, counts/sizes capped, writes atomic, cancellable. `lightfoundry-cli fonts download [--all]
+  validated, counts/sizes capped, writes atomic, cancellable. `laserfoundry-cli fonts download [--all]
   [--to DIR]` and `fonts path`; the desktop app's View > Font library offers the Foundry fonts (~1 MB) or
   everything. Checked against the real raw host (15 files, identical to the repository) and against a
   local server in tests. **The hosted browser build never downloads:** `Platform::font_library_available`
   defaults to false (only the desktop host turns it on), the menu is absent there, and `cargo xtask layers`
-  now fails if anything but `lightfoundry` and `lightfoundry-cli` depends on `fontlib` or `ureq`. Caveat
+  now fails if anything but `laserfoundry` and `laserfoundry-cli` depends on `fontlib` or `ureq`. Caveat
   at that point: the library holds embroidery fonts, not TTF/OTF (see the next entry).
 - **2026-10-15 — library fonts usable for text.** The Foundry fonts' `glyphs.stitchfoundry` turn out to hold
   ready-drawn vector glyphs (anchors with absolute in/out Bézier handles, y down, baseline y = 0) and
@@ -446,7 +446,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   `index.json`; nothing is committed here and nothing is fetched from a third party at run time. View >
   Font library > "Download the Foundry fonts" fetches them from the site into the engine's new in-memory
   font registry (`engine::fontlib`, fonts named `library:<folder>`, accepted wherever a font path was), the
-  browser remembers which are installed (`lightfoundry.fonts` in local storage) and re-fetches them on later
+  browser remembers which are installed (`laserfoundry.fonts` in local storage) and re-fetches them on later
   visits (the HTTP cache makes that cheap), and the text inspector's Library fonts list shows them.
   The index and the remembered list are parsed with bounds (`fontindex.rs`, native tests); the registry is
   capped. The large Ink/Stitch set is not offered on the web. Tried in headless Chromium against a local copy
@@ -519,7 +519,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   below our minimum 1.95); the full gate now passes locally on 1.99.1. Lesson: run the gate on current
   stable before relying on a green local result.
 - **2026-10-16 — browser translations.** The browser build's View > Language menu now works: *Load translation…*
-  picks a JSON catalog through the upload path and keeps its text in local storage (`lightfoundry.translation`),
+  picks a JSON catalog through the upload path and keeps its text in local storage (`laserfoundry.translation`),
   so it is used again at the next visit; *Use English* clears it; *Save translation template…* downloads the
   template. A catalog's `font` is ignored in the browser (it names a file the page cannot read). Checked by a
   headless frame test (load, restart, damaged catalog, English, template download); not yet clicked through in a
@@ -631,7 +631,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   plain text with nothing private) and `docs/hardware-bringup.md`: safety, reading and fixing the settings the
   program checks, a laser-off motion test, first marks on scrap, and exactly what to bring back for a fix.
   Checked by a frame test against the simulator. Not done: any of it on real hardware (that is the next step).
-- **2026-10-19 — the `lightfoundry.app` domain, prepared.** `docs/domain.md`: registering through Cloudflare, the
+- **2026-10-19 — the `laserfoundry.app` domain, prepared.** `docs/domain.md`: registering through Cloudflare, the
   DNS records for GitHub Pages (DNS only), verifying the domain with GitHub, setting it in the repository, and
   what to change in the repository afterwards. The program needs no change (the page uses relative paths). Not
   done: the registration and the DNS (the owner's), and the links in the README and docs, which wait for the
@@ -644,3 +644,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   program holding it, a loose cable). Checked by unit tests (code table, messages, the console line against the
   simulator, the port hints) and a frame test for the idle check; the first-run checklist is updated. Not done:
   any of it on real hardware.
+- **2026-10-19 — Renamed LightFoundry → LaserFoundry.** The name sits too close to another vendor's product, so
+  every crate, app folder, binary, `LASERFOUNDRY_*` environment variable, the `.laserfoundry` project extension,
+  the data folder and all docs now say LaserFoundry; the domain `laserfoundry.app` is bought (setup steps in
+  `docs/domain.md`). Checked with `cargo xtask ci` (all checks passed). Not done: the GitHub repository is still
+  `Stitchwright/lightfoundry` (renaming it is a settings change; URLs in `Cargo.toml`, the README and
+  `help.rs` keep the old name until then, and GitHub redirects the old one); files saved by an earlier build with
+  the `.lightfoundry` extension are not recognised by name.

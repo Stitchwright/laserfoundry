@@ -1,4 +1,4 @@
-use lightfoundry_geom::{Point, Polyline};
+use laserfoundry_geom::{Point, Polyline};
 
 use super::*;
 

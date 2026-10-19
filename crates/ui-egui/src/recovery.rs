@@ -51,7 +51,7 @@ pub fn remove_all(base: &Path) {
 
 /// Whether the file reads back as a project.
 pub fn is_readable(path: &Path) -> bool {
-    lightfoundry_format::load(path).is_ok()
+    laserfoundry_format::load(path).is_ok()
 }
 
 /// The newest copy that reads back as a project, if any exist.

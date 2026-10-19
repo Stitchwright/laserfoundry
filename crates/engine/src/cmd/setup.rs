@@ -1,4 +1,4 @@
-use lightfoundry_doc::{Dither, LayerId, LayerMode, Origin};
+use laserfoundry_doc::{Dither, LayerId, LayerMode, Origin};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -172,7 +172,7 @@ struct MachineParams {
     dynamic_power: Option<bool>,
     rapid_speed: Option<f64>,
     overscan: Option<f64>,
-    dialect: Option<lightfoundry_doc::Dialect>,
+    dialect: Option<laserfoundry_doc::Dialect>,
     acceleration: Option<f64>,
     overscan_by_speed: Option<bool>,
     rotary_enabled: Option<bool>,

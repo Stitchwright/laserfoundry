@@ -1,13 +1,13 @@
 use crate::i18n::{tr, trf};
-use lightfoundry_device::{JobState, Link};
-use lightfoundry_doc::{Anchor, Dither, LayerMode, Origin, ShapeKind, StartFrom, TextAlign};
+use laserfoundry_device::{JobState, Link};
+use laserfoundry_doc::{Anchor, Dither, LayerMode, Origin, ShapeKind, StartFrom, TextAlign};
 use serde_json::{Value, json};
 
 use crate::menus::format_duration;
 
-use crate::{LightFoundryApp, Target, Tool};
+use crate::{LaserFoundryApp, Target, Tool};
 
-pub fn toolbar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub fn toolbar(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.add_space(4.0);
     for (tool, label) in [
         (Tool::Select, "Select"),
@@ -42,7 +42,7 @@ pub fn toolbar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-pub fn inspector(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub fn inspector(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         egui::CollapsingHeader::new("Cuts / Layers").default_open(true).show(ui, |ui| layers(app, ui));
         egui::CollapsingHeader::new("Selection").default_open(true).show(ui, |ui| {
@@ -58,7 +58,7 @@ pub fn inspector(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     });
 }
 
-fn layers(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn layers(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let used: Vec<u32> = app.session.doc.shapes.iter().map(|s| s.layer).collect();
     let layer_list = app.session.doc.layers.clone();
     // Chips are laid out in rows of eight, like a palette.
@@ -177,7 +177,7 @@ fn layers(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Named cut settings kept in the project: apply one to this layer, or save this layer's as one.
-fn presets_section(app: &mut LightFoundryApp, ui: &mut egui::Ui, layer: u32) {
+fn presets_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui, layer: u32) {
     ui.collapsing(tr("Presets"), |ui| {
         let names: Vec<String> = app.session.doc.presets.iter().map(|p| p.name.clone()).collect();
         if names.is_empty() {
@@ -222,7 +222,7 @@ fn presets_section(app: &mut LightFoundryApp, ui: &mut egui::Ui, layer: u32) {
 }
 
 /// Rectangles and ellipses from typed positions and sizes, for when dragging is not precise enough.
-fn create_by_numbers(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn create_by_numbers(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.separator();
     ui.label(egui::RichText::new(tr("Create by numbers")).strong());
     egui::Grid::new("create_numbers").num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
@@ -253,7 +253,7 @@ fn create_by_numbers(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     });
 }
 
-fn properties(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn properties(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let sel = app.session.selection.clone();
     let Some(b) = app.session.doc.bounds_of(&sel) else {
         ui.weak(tr("Nothing selected"));
@@ -299,7 +299,7 @@ fn properties(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn laser(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn laser(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let m = app.session.doc.machine.clone();
     ui.collapsing(tr("Device"), |ui| {
         egui::Grid::new("device").num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
@@ -350,7 +350,7 @@ fn laser(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(tr("G-code"));
             egui::ComboBox::from_id_salt("dialect").selected_text(tr(dialect.label())).show_ui(ui, |ui| {
-                for d in lightfoundry_doc::Dialect::ALL {
+                for d in laserfoundry_doc::Dialect::ALL {
                     ui.selectable_value(&mut dialect, d, tr(d.label()));
                 }
             });
@@ -358,7 +358,7 @@ fn laser(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
         if dialect != m.dialect {
             app.run("machine.set", json!({ "dialect": dialect }));
         }
-        if dialect != lightfoundry_doc::Dialect::Grbl {
+        if dialect != laserfoundry_doc::Dialect::Grbl {
             ui.weak(tr("Written from the firmware's public documentation and untested on a machine. Use Frame at 0% power first. The controller-link features ($$, jog) are GRBL only."));
         }
         rotary_section(app, ui, &m);
@@ -400,7 +400,7 @@ fn laser(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn generate(app: &mut LightFoundryApp) {
+fn generate(app: &mut LaserFoundryApp) {
     if app.run("job.gcode", Value::Null).is_none() {
         return;
     }
@@ -431,7 +431,7 @@ pub(crate) fn machine_delta(origin: Origin, dx: f64, dy: f64) -> (f64, f64) {
     }
 }
 
-fn cut_order(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn cut_order(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let o = app.session.doc.optimize;
     ui.collapsing(tr("Cut order"), |ui| {
         for (key, label, tip, on) in [
@@ -463,7 +463,7 @@ fn cut_order(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     });
 }
 
-fn rotary_section(app: &mut LightFoundryApp, ui: &mut egui::Ui, m: &lightfoundry_doc::Machine) {
+fn rotary_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui, m: &laserfoundry_doc::Machine) {
     let mut on = m.rotary.enabled;
     if ui
         .checkbox(&mut on, tr("Rotary attachment"))
@@ -494,7 +494,7 @@ fn rotary_section(app: &mut LightFoundryApp, ui: &mut egui::Ui, m: &lightfoundry
     }
 }
 
-fn job_origin(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn job_origin(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let o = app.session.doc.job_origin;
     ui.horizontal(|ui| {
         ui.label(tr("Start from"));
@@ -537,7 +537,7 @@ fn job_origin(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Offers to pick up a job that an earlier session (or a power cut) left unfinished.
-fn interrupted_job(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn interrupted_job(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let Some(pos) = app.interrupted.clone() else { return };
     ui.group(|ui| {
         ui.label(trf!("A job was interrupted. It can restart from line {line} of {total}.", line = pos.line, total = pos.total_lines));
@@ -561,7 +561,7 @@ fn interrupted_job(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Start the job part-way through: the head goes to where it would have been, with the beam off.
-fn resume_controls(app: &mut LightFoundryApp, ui: &mut egui::Ui, gcode: &str, lines: usize) {
+fn resume_controls(app: &mut LaserFoundryApp, ui: &mut egui::Ui, gcode: &str, lines: usize) {
     app.resume_line = app.resume_line.clamp(1, lines.max(1));
     ui.horizontal(|ui| {
         ui.label(tr("Run from line"));
@@ -582,7 +582,7 @@ fn resume_controls(app: &mut LightFoundryApp, ui: &mut egui::Ui, gcode: &str, li
     }
 }
 
-fn connection(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn connection(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if !app.platform.machine_available() {
         ui.weak(tr("Machine connections are not available in this build; generate G-code and run it with the desktop app or another sender."));
         return;
@@ -625,7 +625,7 @@ fn connection(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn job_controls(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn job_controls(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let connected = app.link.is_some();
     let active = app.job_active();
     let paused = app.snap.as_ref().is_some_and(|s| s.job == JobState::Paused);
@@ -668,7 +668,7 @@ fn job_controls(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn jog_pad(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn jog_pad(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let enabled = !app.job_active();
     let origin = app.session.doc.machine.origin;
     ui.add_enabled_ui(enabled, |ui| {
@@ -687,7 +687,7 @@ fn jog_pad(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
             app.move_head_mode = here;
         }
         let step = app.jog_step;
-        let jog = |app: &mut LightFoundryApp, wx: f64, wy: f64| {
+        let jog = |app: &mut LaserFoundryApp, wx: f64, wy: f64| {
             let (dx, dy) = machine_delta(origin, wx * step, wy * step);
             let feed = app.jog_feed;
             app.link_do(|l| l.jog(dx, dy, feed));
@@ -726,7 +726,7 @@ fn jog_pad(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     });
 }
 
-fn console(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn console(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.collapsing(tr("Console"), |ui| {
         let lines = app.snap.as_ref().map(|s| s.console.clone()).unwrap_or_default();
         egui::ScrollArea::vertical().max_height(140.0).stick_to_bottom(true).show(ui, |ui| {
@@ -787,7 +787,7 @@ fn anchor_button(ui: &mut egui::Ui, selected: bool, name: &str) -> egui::Respons
 }
 
 /// The editor for a single selected text object.
-fn text_properties(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn text_properties(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let [id] = app.session.selection.as_slice() else {
         app.text_buffer = None;
         return;
@@ -925,7 +925,7 @@ fn text_properties(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Boolean combine and offset for the current selection.
-fn shape_operations(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn shape_operations(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let count = app.session.selection.len();
     if count == 0 {
         return;
@@ -972,7 +972,7 @@ fn shape_operations(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Tone adjustments for a single selected image.
-fn image_properties(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn image_properties(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let [id] = app.session.selection.as_slice() else { return };
     let id = *id;
     let Some(adjust) = app.session.doc.shape(id).and_then(|s| match &s.kind {
@@ -1015,7 +1015,7 @@ fn image_properties(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     ui.weak(tr("The dither mode for engraving is set on the layer (Cuts / Layers)."));
 }
 
-fn crop_and_sharpen(app: &mut LightFoundryApp, ui: &mut egui::Ui, id: u64) {
+fn crop_and_sharpen(app: &mut LaserFoundryApp, ui: &mut egui::Ui, id: u64) {
     ui.collapsing(tr("Crop and sharpen"), |ui| {
         ui.checkbox(&mut app.crop_mode, tr("Drag the edges on the canvas")).on_hover_text(tr("Escape leaves this mode"));
         egui::Grid::new("image_crop").num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
@@ -1065,7 +1065,7 @@ fn crop_and_sharpen(app: &mut LightFoundryApp, ui: &mut egui::Ui, id: u64) {
 }
 
 /// Grid and circular arrays of the current selection.
-fn array_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn array_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if app.session.selection.is_empty() {
         return;
     }
@@ -1091,7 +1091,7 @@ fn array_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Per-shape cut settings that replace the layer's.
-fn override_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn override_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let sel = app.session.selection.clone();
     let Some(first) = sel.first().and_then(|id| app.session.doc.shape(*id)) else { return };
     let layer = app.session.doc.layer(first.layer).cloned();
@@ -1148,7 +1148,7 @@ fn override_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// A speed × power matrix of squares for finding settings on a new material.
-fn test_grid_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn test_grid_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.collapsing(tr("Material test grid"), |ui| {
         ui.horizontal(|ui| {
             ui.add(egui::DragValue::new(&mut app.grid_cols).range(1..=20).prefix("speeds "));
@@ -1179,7 +1179,7 @@ fn test_grid_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Name, and position in the cut order (layers are cut top to bottom of this list).
-fn layer_header(app: &mut LightFoundryApp, ui: &mut egui::Ui, layer: &lightfoundry_doc::Layer) {
+fn layer_header(app: &mut LaserFoundryApp, ui: &mut egui::Ui, layer: &laserfoundry_doc::Layer) {
     let position = app.session.doc.layers.iter().position(|l| l.id == layer.id).unwrap_or(0);
     let last = app.session.doc.layers.len().saturating_sub(1);
     ui.horizontal(|ui| {
@@ -1199,7 +1199,7 @@ fn layer_header(app: &mut LightFoundryApp, ui: &mut egui::Ui, layer: &lightfound
 }
 
 /// Buttons for the selected node while the Nodes tool is active.
-fn node_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn node_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if app.tool != Tool::Nodes {
         return;
     }
@@ -1228,7 +1228,7 @@ fn node_section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     let segment_is_curve = {
         let sp = &np.subpaths[sel.subpath];
         let next = &sp.nodes[(sel.index + 1) % sp.nodes.len()];
-        lightfoundry_geom::nodes::controls(node, next).is_some()
+        laserfoundry_geom::nodes::controls(node, next).is_some()
     };
     ui.label(trf!("Node {index} of {total}", index = sel.index + 1, total = np.subpaths[sel.subpath].nodes.len()));
     ui.horizontal_wrapped(|ui| {

@@ -43,18 +43,18 @@ mod download_tests {
         assert!(String::from_utf8_lossy(&out.stderr).contains("could not reach"), "{}", String::from_utf8_lossy(&out.stderr));
         let out = cli(&["fonts", "path"]);
         assert!(out.status.success());
-        assert!(String::from_utf8_lossy(&out.stdout).contains("LightFoundry"));
+        assert!(String::from_utf8_lossy(&out.stdout).contains("LaserFoundry"));
     }
 }
 
 fn cli(args: &[&str]) -> Output {
     let home = temp_dir("home");
-    Command::new(env!("CARGO_BIN_EXE_lightfoundry-cli"))
+    Command::new(env!("CARGO_BIN_EXE_laserfoundry-cli"))
         .args(args)
         .env("HOME", &home)
         .env("XDG_DATA_HOME", &home)
         .env("APPDATA", &home)
-        .env_remove("LIGHTFOUNDRY_TRANSLATION")
+        .env_remove("LASERFOUNDRY_TRANSLATION")
         .output()
         .unwrap()
 }
@@ -93,7 +93,7 @@ fn serve(files: &[(&str, &[u8])]) -> (String, String) {
 }
 
 fn temp_dir(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("lightfoundry-cli-fonts-{tag}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("laserfoundry-cli-fonts-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir

@@ -1,5 +1,5 @@
 use egui::{Pos2, Rect, Vec2, pos2, vec2};
-use lightfoundry_geom::Point;
+use laserfoundry_geom::Point;
 
 pub const MIN_ZOOM: f32 = 0.2;
 pub const MAX_ZOOM: f32 = 400.0;

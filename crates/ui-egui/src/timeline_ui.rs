@@ -3,10 +3,10 @@
 
 use crate::i18n::tr;
 use egui::{Color32, Stroke, pos2, vec2};
-use lightfoundry_geom::Point;
-use lightfoundry_toolpath::Moment;
+use laserfoundry_geom::Point;
+use laserfoundry_toolpath::Moment;
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 use crate::geometry::PreviewSegment;
 use crate::menus::format_duration;
 
@@ -98,7 +98,7 @@ pub fn head_position(segments: &[PreviewSegment], now: Moment) -> Option<Point> 
     last
 }
 
-pub fn bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub fn bar(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let total = app.preview.timeline.total;
     if app.preview.error.is_some() || app.preview.timeline.ops.is_empty() {
         ui.label(tr("Nothing to preview: no layer with output has any shapes."));
@@ -146,7 +146,7 @@ pub fn bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Moves the playhead along while playing, and asks for repaints so it keeps moving.
-fn advance(app: &mut LightFoundryApp, ui: &egui::Ui, total: f64) {
+fn advance(app: &mut LaserFoundryApp, ui: &egui::Ui, total: f64) {
     if !app.player.playing {
         return;
     }

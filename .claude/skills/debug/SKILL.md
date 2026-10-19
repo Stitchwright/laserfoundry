@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Systematic debugging workflow (reproduce, probe, examine, fix) for LightFoundry. Use when a test fails and the cause is not obvious, a G-code or toolpath result is wrong, the UI misbehaves, a crash or hang is reported, a change "should have helped" and did not, or any bug resists the obvious approaches. Adapted from Kuhlmann, The Book of Debugging (No Starch Press); chapter numbers refer to it.
+description: Systematic debugging workflow (reproduce, probe, examine, fix) for LaserFoundry. Use when a test fails and the cause is not obvious, a G-code or toolpath result is wrong, the UI misbehaves, a crash or hang is reported, a change "should have helped" and did not, or any bug resists the obvious approaches. Adapted from Kuhlmann, The Book of Debugging (No Starch Press); chapter numbers refer to it.
 ---
 
 # Debugging workflow
@@ -9,7 +9,7 @@ Use this when something fails and the cause is not obvious. The core idea: a com
 every bug has a cause that can be found. A workflow keeps effort from scattering. Loop through the four
 steps until the bug can no longer be reproduced; always start with Reproduce.
 
-LightFoundry drives a laser, so a bug that can leave the beam on, ignore the bed limits, or lose work comes
+LaserFoundry drives a laser, so a bug that can leave the beam on, ignore the bed limits, or lose work comes
 first: stop, make it safe (refuse, not clamp), then investigate.
 
 ## 0. Before anything else
@@ -24,7 +24,7 @@ first: stop, make it safe (refuse, not clamp), then investigate.
 
 ## 1. Reproduce (ch. 1-3)
 
-- **Make it happen on demand** from a named input: a JSON command script (`lightfoundry-cli run`), a test, an
+- **Make it happen on demand** from a named input: a JSON command script (`laserfoundry-cli run`), a test, an
   SVG/DXF file, or numbered steps in the app. If you cannot reproduce it you are missing a factor (platform,
   data, order, timing, a stale build): keep looking, do not guess a fix.
 - **Do it the way the reporter did**, in the real app, before reading code. A frame test or a command is
@@ -60,7 +60,7 @@ first: stop, make it safe (refuse, not clamp), then investigate.
   thread. A "random" failure has a cause: time, uninitialised data, threads (the machine link and its
   worker), an RNG, external input, or a stale file. Replay recorded input where you can.
 - **Do not trust a build you have not seen change.** Make an *obvious* change and confirm it shows up before
-  believing a result: stale `target/`, a stale `apps/lightfoundry-web/pkg` (rebuild with `build.sh`), the
+  believing a result: stale `target/`, a stale `apps/laserfoundry-web/pkg` (rebuild with `build.sh`), the
   wrong data folder (`XDG_DATA_HOME`), a cached font or autosave, the wrong branch.
 
 ## 3. Examine: find the root cause (ch. 13-19)

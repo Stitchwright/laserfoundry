@@ -1,7 +1,7 @@
 //! Headless frame tests: real egui input events through the real layout, no window.
 
 use egui::{Event, Modifiers, PointerButton, RawInput, pos2, vec2};
-use lightfoundry_geom::Point;
+use laserfoundry_geom::Point;
 use serde_json::json;
 
 use super::*;
@@ -10,7 +10,7 @@ const SCREEN: egui::Vec2 = vec2(1280.0, 800.0);
 
 struct Harness {
     ctx: egui::Context,
-    app: LightFoundryApp,
+    app: LaserFoundryApp,
     time: f64,
     /// Modifier keys held during the frames that follow (announced to egui when they change).
     modifiers: Modifiers,
@@ -21,7 +21,7 @@ impl Harness {
     fn new() -> Self {
         let mut h = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), Box::new(NoPlatform)),
+            app: LaserFoundryApp::new(Session::new(), Box::new(NoPlatform)),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,
@@ -111,7 +111,7 @@ impl Platform for RecoveryPlatform {
         Vec::new()
     }
 
-    fn open_serial(&self, _: &str) -> Result<Box<dyn lightfoundry_device::Transport + Send>, String> {
+    fn open_serial(&self, _: &str) -> Result<Box<dyn laserfoundry_device::Transport + Send>, String> {
         Err("none".into())
     }
 }
@@ -126,7 +126,7 @@ fn temp_dir(tag: &str) -> std::path::PathBuf {
 fn harness_with(platform: RecoveryPlatform) -> Harness {
     let mut h = Harness {
         ctx: egui::Context::default(),
-        app: LightFoundryApp::new(Session::new(), Box::new(platform)),
+        app: LaserFoundryApp::new(Session::new(), Box::new(platform)),
         time: 0.0,
         modifiers: Modifiers::NONE,
         sent_modifiers: Modifiers::NONE,
@@ -146,7 +146,7 @@ mod translation_tests {
         let catalog = dir.join("de.json");
         std::fs::write(&catalog, r#"{"name":"Testsprache","strings":{"i18n-ui-test-key":"Übersetzt"}}"#).unwrap();
         let kept = dir.join("translation.json");
-        let platform = RecoveryPlatform { file: dir.join("recovery.lightfoundry"), open_answer: Some(catalog.clone()), recent: None };
+        let platform = RecoveryPlatform { file: dir.join("recovery.laserfoundry"), open_answer: Some(catalog.clone()), recent: None };
         let mut h = harness_with(platform);
         h.app.choose_translation();
         assert_eq!(i18n::tr("i18n-ui-test-key"), "Übersetzt");
@@ -155,7 +155,7 @@ mod translation_tests {
         h.frame(vec![]);
         h.frame(vec![]); // the menus and panels draw with a translation active
 
-        let h2 = harness_with(RecoveryPlatform { file: dir.join("recovery.lightfoundry"), open_answer: None, recent: None });
+        let h2 = harness_with(RecoveryPlatform { file: dir.join("recovery.laserfoundry"), open_answer: None, recent: None });
         assert_eq!(i18n::tr("i18n-ui-test-key"), "Übersetzt", "loaded at start");
         drop(h2);
 
@@ -194,7 +194,7 @@ mod engine_message_tests {
             json!({"path": "/nonexistent/x", "data": "abc"}),
         ];
         let mut unmatched = std::collections::BTreeSet::new();
-        for spec in lightfoundry_engine::commands() {
+        for spec in laserfoundry_engine::commands() {
             for params in &hostile {
                 let mut session = Session::new();
                 session.execute("shape.rectangle", &json!({"x": 10, "y": 10, "width": 20, "height": 20})).unwrap();
@@ -218,7 +218,7 @@ mod engine_message_tests {
             r#"{"name":"Testsprache","strings":{"layer {} does not exist":"Ebene {1} fehlt (i18n-engine-test)","bad parameters: {0}":"falsch: {0}","nothing is selected":"nichts gewaehlt (i18n-engine-test)"}}"#,
         )
         .unwrap();
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("recovery.lightfoundry"), open_answer: Some(catalog), recent: None });
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("recovery.laserfoundry"), open_answer: Some(catalog), recent: None });
         h.app.choose_translation();
         h.app.run("edit.delete", json!({}));
         assert!(matches!(&h.app.status, Some((m, true)) if m == "nichts gewaehlt (i18n-engine-test)"), "{:?}", h.app.status);
@@ -235,7 +235,7 @@ mod job_position_tests {
     use crate::job_position::{self, JobPosition};
 
     fn platform(dir: &std::path::Path) -> RecoveryPlatform {
-        RecoveryPlatform { file: dir.join("recovery.lightfoundry"), open_answer: None, recent: None }
+        RecoveryPlatform { file: dir.join("recovery.laserfoundry"), open_answer: None, recent: None }
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod job_position_tests {
         let program = h.app.session.last_gcode.clone().unwrap();
         h.app.start_job(program);
         assert!(h.app.interrupted.is_none() && !file.exists(), "a new job supersedes the old position");
-        while !matches!(h.app.snap.as_ref().map(|s| &s.job), Some(lightfoundry_device::JobState::Finished(_))) {
+        while !matches!(h.app.snap.as_ref().map(|s| &s.job), Some(laserfoundry_device::JobState::Finished(_))) {
             h.frame(vec![]);
             assert!(start.elapsed() < Duration::from_secs(20), "job did not finish");
             std::thread::sleep(Duration::from_millis(5));
@@ -286,7 +286,7 @@ mod recovery_tests {
     #[test]
     fn changes_are_autosaved_and_the_copy_is_removed_once_saved() {
         let dir = temp_dir("autosave");
-        let file = dir.join("recovery.lightfoundry");
+        let file = dir.join("recovery.laserfoundry");
         let mut h = harness_with(RecoveryPlatform { file: file.clone(), open_answer: None, recent: None });
         h.app.autosave_interval = Duration::ZERO;
         h.frame(vec![]);
@@ -294,12 +294,12 @@ mod recovery_tests {
         h.app.run("shape.rectangle", json!({"width": 20, "height": 10}));
         h.frame(vec![]);
         assert!(file.exists(), "a changed document is written to the recovery file");
-        let copy = lightfoundry_format::load(&file).unwrap();
+        let copy = laserfoundry_format::load(&file).unwrap();
         assert_eq!(copy.shapes.len(), 1);
         h.app.run("shape.ellipse", json!({"cx": 50, "cy": 50, "rx": 5, "ry": 5}));
         h.frame(vec![]);
-        assert_eq!(lightfoundry_format::load(&file).unwrap().shapes.len(), 2, "it follows later edits");
-        let saved = dir.join("saved.lightfoundry");
+        assert_eq!(laserfoundry_format::load(&file).unwrap().shapes.len(), 2, "it follows later edits");
+        let saved = dir.join("saved.laserfoundry");
         h.app.run("file.save", json!({"path": saved}));
         h.frame(vec![]);
         assert!(!file.exists(), "saving removes the recovery copy");
@@ -309,7 +309,7 @@ mod recovery_tests {
     #[test]
     fn an_idle_window_still_gets_a_repaint_scheduled_so_autosave_can_fire() {
         let dir = temp_dir("repaint");
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("recovery.lightfoundry"), open_answer: None, recent: None });
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("recovery.laserfoundry"), open_answer: None, recent: None });
         h.app.run("shape.rectangle", json!({"width": 10, "height": 10}));
         h.app.last_autosave = Instant::now(); // pretend we just autosaved: the next one is due in the future
         h.time += 0.016;
@@ -325,7 +325,7 @@ mod recovery_tests {
     #[test]
     fn a_leftover_copy_is_offered_and_recovered_as_unsaved_work() {
         let dir = temp_dir("recover");
-        let file = dir.join("recovery.lightfoundry");
+        let file = dir.join("recovery.laserfoundry");
         let mut previous = Session::new();
         previous.execute("shape.rectangle", &json!({"width": 30, "height": 30})).unwrap();
         previous.execute("file.autosave", &json!({"path": file})).unwrap();
@@ -335,7 +335,7 @@ mod recovery_tests {
         h.app.autosave_interval = Duration::ZERO;
         h.app.run("shape.line", json!({"x1": 0, "y1": 0, "x2": 5, "y2": 5})); // typing behind the prompt must not clobber the copy
         h.frame(vec![]);
-        assert_eq!(lightfoundry_format::load(&file).unwrap().shapes.len(), 1, "the previous session's copy is untouched");
+        assert_eq!(laserfoundry_format::load(&file).unwrap().shapes.len(), 1, "the previous session's copy is untouched");
 
         h.app.answer_recovery(true);
         assert!(h.app.pending_recovery.is_none());
@@ -347,7 +347,7 @@ mod recovery_tests {
     #[test]
     fn discarding_the_offer_removes_the_copy() {
         let dir = temp_dir("discard");
-        let file = dir.join("recovery.lightfoundry");
+        let file = dir.join("recovery.laserfoundry");
         Session::new().execute("file.autosave", &json!({"path": file})).unwrap();
         let mut h = harness_with(RecoveryPlatform { file: file.clone(), open_answer: None, recent: None });
         assert!(h.app.pending_recovery.is_some());
@@ -360,7 +360,7 @@ mod recovery_tests {
     #[test]
     fn corrupt_recovery_files_are_reported_not_fatal() {
         let dir = temp_dir("corrupt");
-        let file = dir.join("recovery.lightfoundry");
+        let file = dir.join("recovery.laserfoundry");
         std::fs::write(&file, b"half a project").unwrap();
         let mut h = harness_with(RecoveryPlatform { file: file.clone(), open_answer: None, recent: None });
         h.app.answer_recovery(true);
@@ -376,7 +376,7 @@ mod unsaved_changes_tests {
     #[test]
     fn new_on_a_clean_document_just_happens_but_a_dirty_one_asks() {
         let dir = temp_dir("confirm");
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.lightfoundry"), open_answer: None, recent: None });
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.laserfoundry"), open_answer: None, recent: None });
         h.app.request(PendingAction::New);
         assert!(h.app.pending_action.is_none(), "nothing to lose");
         h.app.run("shape.rectangle", json!({"width": 10, "height": 10}));
@@ -399,22 +399,22 @@ mod unsaved_changes_tests {
     #[test]
     fn saving_first_then_continuing_works_when_the_document_has_a_path() {
         let dir = temp_dir("savefirst");
-        let target = dir.join("work.lightfoundry");
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.lightfoundry"), open_answer: None, recent: None });
+        let target = dir.join("work.laserfoundry");
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.laserfoundry"), open_answer: None, recent: None });
         h.app.run("shape.rectangle", json!({"width": 10, "height": 10}));
         h.app.run("file.save", json!({"path": target}));
         h.app.run("shape.rectangle", json!({"width": 4, "height": 4}));
         h.app.request(PendingAction::New);
         h.app.answer_unsaved(Answer::Save);
         assert!(h.app.session.doc.shapes.is_empty(), "the new document replaced it");
-        assert_eq!(lightfoundry_format::load(&target).unwrap().shapes.len(), 2, "after the changes were saved");
+        assert_eq!(laserfoundry_format::load(&target).unwrap().shapes.len(), 2, "after the changes were saved");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn shortcuts_are_blocked_while_a_question_is_open() {
         let dir = temp_dir("modal");
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.lightfoundry"), open_answer: None, recent: None });
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.laserfoundry"), open_answer: None, recent: None });
         h.app.run("shape.rectangle", json!({"width": 10, "height": 10}));
         h.app.request(PendingAction::New);
         h.frame(vec![Event::Key { key: egui::Key::Delete, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::NONE }]);
@@ -425,18 +425,18 @@ mod unsaved_changes_tests {
     #[test]
     fn the_title_shows_the_name_and_an_unsaved_marker() {
         let mut s = Session::new();
-        assert_eq!(window_title(&s), "Untitled — LightFoundry");
+        assert_eq!(window_title(&s), "Untitled — LaserFoundry");
         s.execute("shape.rectangle", &json!({"width": 5, "height": 5})).unwrap();
-        assert_eq!(window_title(&s), "*Untitled — LightFoundry");
-        s.path = Some("/tmp/boxes.lightfoundry".into());
+        assert_eq!(window_title(&s), "*Untitled — LaserFoundry");
+        s.path = Some("/tmp/boxes.laserfoundry".into());
         s.dirty = false;
-        assert_eq!(window_title(&s), "boxes.lightfoundry — LightFoundry");
+        assert_eq!(window_title(&s), "boxes.laserfoundry — LaserFoundry");
     }
 
     #[test]
     fn a_close_request_on_unsaved_work_becomes_a_question() {
         let dir = temp_dir("close");
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.lightfoundry"), open_answer: None, recent: None });
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.laserfoundry"), open_answer: None, recent: None });
         h.app.run("shape.rectangle", json!({"width": 10, "height": 10}));
         h.time += 0.016;
         let mut input = RawInput { screen_rect: Some(egui::Rect::from_min_size(pos2(0.0, 0.0), SCREEN)), time: Some(h.time), ..Default::default() };
@@ -536,7 +536,7 @@ mod text_tool_tests {
         assert_eq!(h.app.session.doc.shapes.len(), 1, "{:?}", h.app.status);
         let shape = &h.app.session.doc.shapes[0];
         assert_eq!(shape.layer, 3);
-        assert!(matches!(&shape.kind, lightfoundry_doc::ShapeKind::Text { content, .. } if content == "Text"));
+        assert!(matches!(&shape.kind, laserfoundry_doc::ShapeKind::Text { content, .. } if content == "Text"));
         let b = shape.world_bounds().unwrap();
         assert!((b.x0 - 60.0).abs() < 1.5 && (b.y0 - 70.0).abs() < 1.5, "{b:?}");
         assert_eq!(h.app.tool, Tool::Select);
@@ -588,8 +588,8 @@ mod text_tool_tests {
 mod image_tests {
     use std::sync::Arc;
 
-    use lightfoundry_doc::{ImageAdjust, RasterImage, Shape, ShapeKind};
-    use lightfoundry_geom::Affine;
+    use laserfoundry_doc::{ImageAdjust, RasterImage, Shape, ShapeKind};
+    use laserfoundry_geom::Affine;
 
     use super::*;
 
@@ -723,9 +723,9 @@ mod image_tests {
 mod node_tool_tests {
     use super::*;
 
-    fn nodes_of(h: &Harness, id: u64) -> lightfoundry_geom::nodes::NodePath {
+    fn nodes_of(h: &Harness, id: u64) -> laserfoundry_geom::nodes::NodePath {
         match &h.app.session.doc.shape(id).unwrap().kind {
-            lightfoundry_doc::ShapeKind::Path { path } => lightfoundry_geom::nodes::NodePath::from_bez(path).unwrap(),
+            laserfoundry_doc::ShapeKind::Path { path } => laserfoundry_geom::nodes::NodePath::from_bez(path).unwrap(),
             other => panic!("{other:?}"),
         }
     }
@@ -867,8 +867,8 @@ mod pen_tool_tests {
         h.click(h.at(220.0, 100.0));
         h.frame(vec![key(egui::Key::Enter)]);
         let shape = &h.app.session.doc.shapes[0];
-        let lightfoundry_doc::ShapeKind::Path { path } = &shape.kind else { panic!() };
-        let np = lightfoundry_geom::nodes::NodePath::from_bez(path).unwrap();
+        let laserfoundry_doc::ShapeKind::Path { path } = &shape.kind else { panic!() };
+        let np = laserfoundry_geom::nodes::NodePath::from_bez(path).unwrap();
         let n = &np.subpaths[0].nodes[1];
         assert!(n.p.distance(Point::new(150.0, 100.0)) < 0.5);
         let (i, o) = (n.in_h.unwrap(), n.out_h.unwrap());
@@ -939,7 +939,7 @@ mod pen_tool_tests {
 mod snapping_tests {
     use super::*;
 
-    fn last_bounds(h: &Harness) -> lightfoundry_geom::Rect {
+    fn last_bounds(h: &Harness) -> laserfoundry_geom::Rect {
         h.app.session.doc.shapes.last().unwrap().world_bounds().unwrap()
     }
 
@@ -1521,8 +1521,8 @@ mod accessibility_tests {
 mod machine_tests {
     use std::time::{Duration, Instant};
 
-    use lightfoundry_device::JobState;
-    use lightfoundry_doc::Origin;
+    use laserfoundry_device::JobState;
+    use laserfoundry_doc::Origin;
 
     use super::*;
 
@@ -1623,12 +1623,12 @@ mod machine_tests {
         assert!(r.contains("Connection: simulator  Connected: true"), "{r}");
         assert!(r.contains("$32=1") && r.contains("Controller settings ($$):") && r.contains("G0 X1"), "{r}");
         assert!(r.contains("Document machine: bed 400 x 400 mm"), "{r}");
-        assert!(!r.contains("lightfoundry-ai") && !r.contains("token"), "nothing private");
+        assert!(!r.contains("laserfoundry-ai") && !r.contains("token"), "nothing private");
     }
 
     #[test]
     fn a_job_waits_for_a_controller_that_is_idle() {
-        use lightfoundry_device::{MachineState, Status};
+        use laserfoundry_device::{MachineState, Status};
         let mut h = connected();
         for (state, word) in [
             (MachineState::Alarm, "alarm"),
@@ -1670,7 +1670,7 @@ mod machine_tests {
         use std::collections::BTreeMap;
 
         use crate::settings_ui::{Advice, advice};
-        let machine = lightfoundry_doc::Machine::default();
+        let machine = laserfoundry_doc::Machine::default();
         assert!(advice(&BTreeMap::new(), &machine).is_empty());
         let junk: BTreeMap<u32, String> = [(30, "NaN"), (32, "x"), (130, "inf"), (131, "-5")].into_iter().map(|(k, v)| (k, v.to_string())).collect();
         assert!(advice(&junk, &machine).is_empty());
@@ -1763,7 +1763,7 @@ mod machine_tests {
         let mut h = Harness::new();
         h.app.run("job.set_origin", json!({"start_from": "user_origin", "anchor": "center"}));
         h.frame(vec![]);
-        assert_eq!(h.app.session.doc.job_origin.anchor, lightfoundry_doc::Anchor::Center);
+        assert_eq!(h.app.session.doc.job_origin.anchor, laserfoundry_doc::Anchor::Center);
     }
 
     #[test]
@@ -1778,8 +1778,8 @@ mod machine_tests {
 }
 
 mod timeline_ui_tests {
-    use lightfoundry_doc::LayerId;
-    use lightfoundry_toolpath::Moment;
+    use laserfoundry_doc::LayerId;
+    use laserfoundry_toolpath::Moment;
 
     use super::*;
     use crate::geometry::PreviewSegment;
@@ -1916,14 +1916,14 @@ mod recent_files_tests {
     fn the_list_is_most_recent_first_without_duplicates_and_capped() {
         let mut r = Recent::default();
         for i in 0..15 {
-            r.push(format!("/p/{i}.lightfoundry").into());
+            r.push(format!("/p/{i}.laserfoundry").into());
         }
         assert_eq!(r.files.len(), MAX_RECENT);
-        assert_eq!(r.files[0], std::path::PathBuf::from("/p/14.lightfoundry"));
-        r.push("/p/10.lightfoundry".into());
-        assert_eq!(r.files[0], std::path::PathBuf::from("/p/10.lightfoundry"));
-        assert_eq!(r.files.iter().filter(|p| p.ends_with("10.lightfoundry")).count(), 1);
-        r.remove(std::path::Path::new("/p/10.lightfoundry"));
+        assert_eq!(r.files[0], std::path::PathBuf::from("/p/14.laserfoundry"));
+        r.push("/p/10.laserfoundry".into());
+        assert_eq!(r.files[0], std::path::PathBuf::from("/p/10.laserfoundry"));
+        assert_eq!(r.files.iter().filter(|p| p.ends_with("10.laserfoundry")).count(), 1);
+        r.remove(std::path::Path::new("/p/10.laserfoundry"));
         assert_eq!(r.files.len(), MAX_RECENT - 1);
     }
 
@@ -1932,8 +1932,8 @@ mod recent_files_tests {
         let dir = temp_dir("recent-file");
         let file = dir.join("deep").join("recent.json");
         let mut r = Recent::default();
-        r.push("/a.lightfoundry".into());
-        r.push("/b.lightfoundry".into());
+        r.push("/a.laserfoundry".into());
+        r.push("/b.laserfoundry".into());
         r.save(&file);
         assert_eq!(Recent::load(&file), r);
         for (name, bytes) in [("garbage", b"\x00\xff not json".to_vec()), ("object", br#"{"a": 1}"#.to_vec()), ("huge", vec![b' '; 300 * 1024])] {
@@ -1941,7 +1941,7 @@ mod recent_files_tests {
             std::fs::write(&bad, bytes).unwrap();
             assert!(Recent::load(&bad).files.is_empty(), "{name}");
         }
-        std::fs::write(dir.join("mixed"), br#"["/x.lightfoundry", 5, null, "", "/y.lightfoundry"]"#).unwrap();
+        std::fs::write(dir.join("mixed"), br#"["/x.laserfoundry", 5, null, "", "/y.laserfoundry"]"#).unwrap();
         assert_eq!(Recent::load(&dir.join("mixed")).files.len(), 2, "non-strings and empty entries are skipped");
         assert!(Recent::load(&dir.join("missing")).files.is_empty());
     }
@@ -1950,21 +1950,21 @@ mod recent_files_tests {
     fn saving_and_opening_projects_updates_the_list_and_a_missing_file_is_forgotten() {
         let dir = temp_dir("recent-app");
         let list = dir.join("recent.json");
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.lightfoundry"), open_answer: None, recent: Some(list.clone()) });
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.laserfoundry"), open_answer: None, recent: Some(list.clone()) });
         assert!(h.app.recent.files.is_empty());
         h.app.run("shape.rectangle", json!({"width": 20, "height": 10}));
-        let project = dir.join("one.lightfoundry");
+        let project = dir.join("one.laserfoundry");
         h.app.run("file.save", json!({"path": project}));
         h.frame(vec![]);
         assert_eq!(h.app.recent.files, vec![project.clone()]);
         assert_eq!(Recent::load(&list).files, vec![project.clone()], "written to disk");
 
-        h.app.request(PendingAction::OpenPath(dir.join("gone.lightfoundry")));
+        h.app.request(PendingAction::OpenPath(dir.join("gone.laserfoundry")));
         h.frame(vec![]);
         assert!(h.app.status.as_ref().is_some_and(|s| s.1), "the failure is reported");
 
-        h.app.recent.push(dir.join("gone.lightfoundry"));
-        h.app.request(PendingAction::OpenPath(dir.join("gone.lightfoundry")));
+        h.app.recent.push(dir.join("gone.laserfoundry"));
+        h.app.request(PendingAction::OpenPath(dir.join("gone.laserfoundry")));
         assert_eq!(h.app.recent.files, vec![project.clone()], "an unreadable entry is dropped from the list");
 
         h.app.run("file.new", serde_json::Value::Null);
@@ -1977,10 +1977,10 @@ mod recent_files_tests {
     #[test]
     fn opening_a_recent_project_over_unsaved_work_asks_first() {
         let dir = temp_dir("recent-ask");
-        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.lightfoundry"), open_answer: None, recent: None });
+        let mut h = harness_with(RecoveryPlatform { file: dir.join("r.laserfoundry"), open_answer: None, recent: None });
         h.app.run("shape.rectangle", json!({"width": 20, "height": 10}));
-        h.app.request(PendingAction::OpenPath(dir.join("x.lightfoundry")));
-        assert_eq!(h.app.pending_action, Some(PendingAction::OpenPath(dir.join("x.lightfoundry"))), "the prompt is raised, nothing is opened yet");
+        h.app.request(PendingAction::OpenPath(dir.join("x.laserfoundry")));
+        assert_eq!(h.app.pending_action, Some(PendingAction::OpenPath(dir.join("x.laserfoundry"))), "the prompt is raised, nothing is opened yet");
         assert_eq!(h.app.session.doc.shapes.len(), 1);
     }
 }
@@ -2348,7 +2348,7 @@ mod reconnect_tests {
     use std::rc::Rc;
     use std::time::{Duration, Instant};
 
-    use lightfoundry_device::{Link, SimulatedGrbl, Transport};
+    use laserfoundry_device::{Link, SimulatedGrbl, Transport};
 
     use super::*;
 
@@ -2393,7 +2393,7 @@ mod reconnect_tests {
         let opens = Rc::new(Cell::new(0));
         let mut h = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), Box::new(FlakyPort { fail_times, opens: Rc::clone(&opens) })),
+            app: LaserFoundryApp::new(Session::new(), Box::new(FlakyPort { fail_times, opens: Rc::clone(&opens) })),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,
@@ -2496,7 +2496,7 @@ mod browser_file_tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use lightfoundry_device::Transport;
+    use laserfoundry_device::Transport;
 
     use super::*;
     use crate::{PendingAction, Upload};
@@ -2558,7 +2558,7 @@ mod browser_file_tests {
         let shared = Rc::new(RefCell::new(Shared::default()));
         let mut h = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), Box::new(Browser(Rc::clone(&shared)))),
+            app: LaserFoundryApp::new(Session::new(), Box::new(Browser(Rc::clone(&shared)))),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,
@@ -2573,15 +2573,15 @@ mod browser_file_tests {
         h.app.run("shape.rectangle", json!({"x": 5, "y": 6, "width": 20, "height": 10}));
         assert!(crate::menus::save(&mut h.app, false));
         let (name, bytes) = shared.borrow().downloads[0].clone();
-        assert_eq!(name, "project.lightfoundry");
+        assert_eq!(name, "project.laserfoundry");
         assert!(!h.app.session.dirty, "a downloaded project counts as saved");
-        let doc = lightfoundry_format::from_bytes(&bytes).unwrap();
+        let doc = laserfoundry_format::from_bytes(&bytes).unwrap();
         assert_eq!(doc.shapes.len(), 1);
 
         h.app.run("file.new", serde_json::Value::Null);
-        shared.borrow_mut().next = Some(Upload { name: "x.lightfoundry".into(), bytes });
+        shared.borrow_mut().next = Some(Upload { name: "x.laserfoundry".into(), bytes });
         h.app.request(PendingAction::Open);
-        assert_eq!(shared.borrow().requested.last().unwrap(), &vec!["lightfoundry".to_string()]);
+        assert_eq!(shared.borrow().requested.last().unwrap(), &vec!["laserfoundry".to_string()]);
         h.frame(vec![]);
         assert_eq!(h.app.session.doc.shapes.len(), 1);
         assert!(h.app.awaiting_upload.is_none());
@@ -2593,12 +2593,12 @@ mod browser_file_tests {
         h.app.run("shape.rectangle", json!({"x": 5, "y": 6, "width": 20, "height": 10}));
         assert!(crate::menus::save(&mut h.app, false));
         let stored = shared.borrow().storage.get(crate::browser_recent::STORAGE_KEY).cloned().unwrap();
-        assert!(stored.contains("project.lightfoundry"), "{stored}");
+        assert!(stored.contains("project.laserfoundry"), "{stored}");
 
         // A new page load reads the list back, and choosing an entry opens that project.
         let mut again = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), Box::new(Browser(Rc::clone(&shared)))),
+            app: LaserFoundryApp::new(Session::new(), Box::new(Browser(Rc::clone(&shared)))),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,
@@ -2606,20 +2606,20 @@ mod browser_file_tests {
         again.frame(vec![]);
         assert_eq!(again.app.browser_recent.entries.len(), 1);
         assert_eq!(again.app.session.doc.shapes.len(), 0);
-        again.app.request(PendingAction::OpenStored("project.lightfoundry".into()));
+        again.app.request(PendingAction::OpenStored("project.laserfoundry".into()));
         assert_eq!(again.app.session.doc.shapes.len(), 1);
 
         // An uploaded project is remembered too, once; a vanished or damaged entry is dropped from the list.
         let bytes = shared.borrow().downloads[0].1.clone();
         again.app.begin_upload(crate::UploadKind::Project);
-        shared.borrow_mut().next = Some(Upload { name: "other.lightfoundry".into(), bytes });
+        shared.borrow_mut().next = Some(Upload { name: "other.laserfoundry".into(), bytes });
         again.frame(vec![]);
         assert_eq!(
             again.app.browser_recent.entries.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
-            ["other.lightfoundry", "project.lightfoundry"]
+            ["other.laserfoundry", "project.laserfoundry"]
         );
         again.app.browser_recent.entries[0].data = "!!!".into();
-        again.app.request(PendingAction::OpenStored("other.lightfoundry".into()));
+        again.app.request(PendingAction::OpenStored("other.laserfoundry".into()));
         assert_eq!(again.app.browser_recent.entries.len(), 1);
         assert!(!shared.borrow().storage[crate::browser_recent::STORAGE_KEY].contains("other"), "the stored list follows");
         again.app.request(PendingAction::OpenStored("never-existed".into()));
@@ -2652,7 +2652,7 @@ mod browser_file_tests {
         let flag = Rc::new(std::cell::Cell::new(true));
         let mut h = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), Box::new(Watch(Rc::clone(&flag)))),
+            app: LaserFoundryApp::new(Session::new(), Box::new(Watch(Rc::clone(&flag)))),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,
@@ -2692,7 +2692,7 @@ mod browser_file_tests {
         h.frame(vec![]);
         assert!(h.app.awaiting_upload.is_none());
         h.app.begin_upload(crate::UploadKind::Project);
-        shared.borrow_mut().next = Some(Upload { name: "bad.lightfoundry".into(), bytes: b"{}".to_vec() });
+        shared.borrow_mut().next = Some(Upload { name: "bad.laserfoundry".into(), bytes: b"{}".to_vec() });
         h.frame(vec![]);
         assert!(matches!(&h.app.status, Some((_, true))), "{:?}", h.app.status);
         assert_eq!(h.app.session.doc.shapes.len(), 2, "a failed open leaves the document alone");
@@ -2709,11 +2709,11 @@ mod browser_file_tests {
         assert_eq!(crate::i18n::tr("Rulers"), "Lineale");
         assert_eq!(crate::i18n::active_font(), None, "the browser cannot read a font path");
         assert!(matches!(&h.app.status, Some((_, false))), "{:?}", h.app.status);
-        assert!(shared.borrow().storage["lightfoundry.translation"].contains("Lineale"));
+        assert!(shared.borrow().storage["laserfoundry.translation"].contains("Lineale"));
 
         // The next page load picks it up again.
         crate::i18n::set_active(None);
-        let again = LightFoundryApp::new(Session::new(), Box::new(Browser(Rc::clone(&shared))));
+        let again = LaserFoundryApp::new(Session::new(), Box::new(Browser(Rc::clone(&shared))));
         assert_eq!(crate::i18n::tr("Rulers"), "Lineale");
         drop(again);
 
@@ -2725,7 +2725,7 @@ mod browser_file_tests {
         assert_eq!(crate::i18n::tr("Rulers"), "Lineale");
         h.app.use_english();
         assert_eq!(crate::i18n::tr("Rulers"), "Rulers");
-        assert!(shared.borrow().storage["lightfoundry.translation"].is_empty());
+        assert!(shared.borrow().storage["laserfoundry.translation"].is_empty());
 
         h.app.save_translation_template();
         let downloads = shared.borrow().downloads.clone();
@@ -2738,7 +2738,7 @@ mod font_library_tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use lightfoundry_device::Transport;
+    use laserfoundry_device::Transport;
 
     use super::*;
 
@@ -2779,7 +2779,7 @@ mod font_library_tests {
     fn app_on(platform: Box<dyn Platform>) -> Harness {
         let mut h = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), platform),
+            app: LaserFoundryApp::new(Session::new(), platform),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,
@@ -2864,7 +2864,7 @@ mod async_serial_tests {
     use std::rc::Rc;
     use std::time::{Duration, Instant};
 
-    use lightfoundry_device::{JobState, SimulatedGrbl, Transport};
+    use laserfoundry_device::{JobState, SimulatedGrbl, Transport};
 
     use super::*;
 
@@ -2915,7 +2915,7 @@ mod async_serial_tests {
         let requests = Rc::new(RefCell::new(0));
         let mut h = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), Box::new(AsyncHost { ready: Rc::clone(&ready), requests: Rc::clone(&requests) })),
+            app: LaserFoundryApp::new(Session::new(), Box::new(AsyncHost { ready: Rc::clone(&ready), requests: Rc::clone(&requests) })),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,
@@ -2978,7 +2978,7 @@ mod autosave_generation_tests {
     #[test]
     fn rotation_keeps_a_few_copies_newest_first_and_drops_the_oldest() {
         let dir = temp_dir("generations");
-        let base = dir.join("recovery.lightfoundry");
+        let base = dir.join("recovery.laserfoundry");
         for i in 0..5 {
             rotate(&base);
             std::fs::write(&base, format!("copy {i}")).unwrap();
@@ -2986,17 +2986,17 @@ mod autosave_generation_tests {
         let read = |n| std::fs::read_to_string(generation_path(&base, n)).unwrap();
         assert_eq!((read(0), read(1), read(2)), ("copy 4".to_string(), "copy 3".to_string(), "copy 2".to_string()));
         assert!(!generation_path(&base, GENERATIONS).exists(), "no copy beyond the limit");
-        assert_eq!(generation_path(&base, 1).file_name().unwrap(), "recovery.1.lightfoundry");
-        rotate(&dir.join("nothing-here.lightfoundry")); // nothing to rotate is fine
+        assert_eq!(generation_path(&base, 1).file_name().unwrap(), "recovery.1.laserfoundry");
+        rotate(&dir.join("nothing-here.laserfoundry")); // nothing to rotate is fine
     }
 
     #[test]
     fn a_damaged_newest_copy_falls_back_to_an_older_readable_one_and_all_copies_are_cleared_when_saved() {
         let dir = temp_dir("fallback");
-        let base = dir.join("recovery.lightfoundry");
-        let mut good = lightfoundry_doc::Document::default();
-        good.add_shape(lightfoundry_doc::Shape::path("r", 0, lightfoundry_geom::rect_path(0.0, 0.0, 5.0, 5.0)));
-        lightfoundry_format::save(&generation_path(&base, 1), &good).unwrap();
+        let base = dir.join("recovery.laserfoundry");
+        let mut good = laserfoundry_doc::Document::default();
+        good.add_shape(laserfoundry_doc::Shape::path("r", 0, laserfoundry_geom::rect_path(0.0, 0.0, 5.0, 5.0)));
+        laserfoundry_format::save(&generation_path(&base, 1), &good).unwrap();
         std::fs::write(&base, b"{ truncated").unwrap();
         assert_eq!(newest_readable(&base), Some(generation_path(&base, 1)));
 
@@ -3005,7 +3005,7 @@ mod autosave_generation_tests {
         h.app.answer_recovery(true);
         assert_eq!(h.app.session.doc.shapes.len(), 1);
         assert!(h.app.session.dirty);
-        h.app.run("file.save", json!({"path": dir.join("saved.lightfoundry")}));
+        h.app.run("file.save", json!({"path": dir.join("saved.laserfoundry")}));
         h.frame(vec![]);
         h.frame(vec![]);
         assert!(!base.exists() && !generation_path(&base, 1).exists(), "saved work leaves no stale backups");
@@ -3014,7 +3014,7 @@ mod autosave_generation_tests {
     #[test]
     fn autosaves_rotate_in_the_running_app_and_every_write_is_checked() {
         let dir = temp_dir("running");
-        let base = dir.join("recovery.lightfoundry");
+        let base = dir.join("recovery.laserfoundry");
         let mut h = harness_with(RecoveryPlatform { file: base.clone(), open_answer: None, recent: None });
         h.app.autosave_interval = Duration::ZERO;
         for i in 0..3 {
@@ -3022,7 +3022,7 @@ mod autosave_generation_tests {
             h.frame(vec![]);
         }
         assert!(base.exists() && generation_path(&base, 1).exists() && generation_path(&base, 2).exists());
-        let counts: Vec<usize> = (0..3).map(|n| lightfoundry_format::load(&generation_path(&base, n)).unwrap().shapes.len()).collect();
+        let counts: Vec<usize> = (0..3).map(|n| laserfoundry_format::load(&generation_path(&base, n)).unwrap().shapes.len()).collect();
         assert_eq!(counts, vec![3, 2, 1]);
         assert!(!matches!(&h.app.status, Some((m, true)) if m.contains("backup")));
     }
@@ -3062,7 +3062,7 @@ mod preset_library_tests {
 }
 
 mod template_tests {
-    use lightfoundry_device::Transport;
+    use laserfoundry_device::Transport;
 
     use super::*;
     use crate::PendingAction;
@@ -3094,7 +3094,7 @@ mod template_tests {
     fn harness(dir: &std::path::Path) -> Harness {
         let mut h = Harness {
             ctx: egui::Context::default(),
-            app: LightFoundryApp::new(Session::new(), Box::new(Templates(dir.to_path_buf()))),
+            app: LaserFoundryApp::new(Session::new(), Box::new(Templates(dir.to_path_buf()))),
             time: 0.0,
             modifiers: Modifiers::NONE,
             sent_modifiers: Modifiers::NONE,

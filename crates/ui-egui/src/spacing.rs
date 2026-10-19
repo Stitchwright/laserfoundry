@@ -3,7 +3,7 @@
 //! Along one axis the moving box snaps when its gaps match: centred between two neighbours, or
 //! repeating the gap between two shapes already in a row. Everything is in millimetres.
 
-use lightfoundry_geom::{Point, Rect};
+use laserfoundry_geom::{Point, Rect};
 
 /// Most neighbours considered, so a drawing with thousands of shapes cannot slow a drag.
 pub const MAX_NEIGHBOURS: usize = 5000;

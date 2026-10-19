@@ -2,7 +2,7 @@
 //! Text is turned into outlines with the fonts installed on the machine (when there are any), and
 //! embedded raster pictures are returned as encoded bytes for the caller to decode.
 
-use lightfoundry_geom::{Affine, BezPath};
+use laserfoundry_geom::{Affine, BezPath};
 use thiserror::Error;
 use usvg::tiny_skia_path::PathSegment;
 
@@ -161,7 +161,7 @@ fn paint_hex(paint: &usvg::Paint) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use lightfoundry_geom::{bounds_of_polylines, flatten};
+    use laserfoundry_geom::{bounds_of_polylines, flatten};
 
     use super::*;
 

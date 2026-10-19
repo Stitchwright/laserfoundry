@@ -1,4 +1,4 @@
-use lightfoundry_doc::ShapeId;
+use laserfoundry_doc::ShapeId;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 

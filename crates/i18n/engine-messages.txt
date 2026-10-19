@@ -64,7 +64,7 @@ empty image
 feed rate {0} is not a finite positive number
 file error: {0}
 file is larger than {1} MB
-file is not a LightFoundry document
+file is not a LaserFoundry document
 gap must be a finite number
 give a path, or include: true to get the text
 give either path or data
@@ -95,7 +95,7 @@ no path given and the document has never been saved
 no preset called {name}
 no response from the controller for {0} s
 none of the selected shapes is grouped
-not a LightFoundry file: {0}
+not a LaserFoundry file: {0}
 not an ASCII DXF file (binary DXF and DWG are not supported)
 not connected
 nothing in the picture is darker than the threshold
@@ -164,7 +164,7 @@ there is no sub-path {0}
 there is nothing to export
 there is nothing to frame
 there is nothing to output
-this file was saved by a newer LightFoundry (format v{0}); update to open it
+this file was saved by a newer LaserFoundry (format v{0}); update to open it
 too many nodes (limit {MAX_NODES})
 too many points (limit {MAX_POINTS})
 unknown command {0}

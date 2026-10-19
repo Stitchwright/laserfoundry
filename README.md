@@ -1,4 +1,4 @@
-# LightFoundry
+# LaserFoundry
 
 **An open-source, clean-room laser engraver/cutter application in pure Rust, aiming at a
 LightBurn-class workflow.** Lay out artwork, give each colour layer its own speed, power, passes and
@@ -8,7 +8,7 @@ simulator when nothing is plugged in.
 > **Status: early.** The core pipeline works end to end and is well tested, but this is a small
 > fraction of what LightBurn does. See [`ROADMAP.md`](ROADMAP.md) and
 > [`docs/target-app-parity.md`](docs/target-app-parity.md) for an honest list of what exists and what
-> doesn't. LightFoundry is independent of and unaffiliated with LightBurn Software.
+> doesn't. LaserFoundry is independent of and unaffiliated with LightBurn Software.
 
 ## What works today
 
@@ -24,21 +24,21 @@ simulator when nothing is plugged in.
 - **Job origin:** Absolute coordinates, User origin, or Current position, with a 9-point anchor on the job bounds, so work can be placed on material wherever the head is (`G92` for current position).
 - **G-code:** GRBL (tested against the simulator) plus Marlin-laser and Smoothieware dialects written from their public docs (untested on hardware).
 - **Machine control:** a persistent GRBL connection with live status and position, jog pad (direction follows the machine's origin corner), home, unlock, set origin here, go to origin, pause/resume (feed hold), stop (soft reset, laser off), a console with a command line, a controller settings (`$$`) editor that flags laser mode off and S max or travel that disagree with the document, and character-counting job streaming with progress. Serial ports are behind the `serial` feature (on by default in the desktop app); a built-in simulated controller needs no hardware and checks the 128-byte RX buffer is never overrun.
-- **Files:** native `.lightfoundry` (versioned JSON, atomic saves, validated on load). Unsaved work is autosaved every 20 s to a per-user recovery file and offered back after a crash; New, Open (and File > Open Recent) and closing the window ask before discarding changes; the title shows `*` while there are unsaved changes.
+- **Files:** native `.laserfoundry` (versioned JSON, atomic saves, validated on load). Unsaved work is autosaved every 20 s to a per-user recovery file and offered back after a crash; New, Open (and File > Open Recent) and closing the window ask before discarding changes; the title shows `*` while there are unsaved changes.
 - **AI (desktop and browser):** Design from Prompt and Redraw Image draw vector artwork whose colours say what the laser does (red cut, blue score, black engrave); Ask About Lasering answers with your machine and layers as context; Check My Cut reads photos of a test cut and suggests speed, power and pass changes you can apply. Requests go to your own Anthropic key or to an account service that takes credits (the same account as StitchFoundry's), after a first-use question saying what is sent. Written and tested against scripted answers and a local fake service, not yet run against the real one. See [`docs/ai.md`](docs/ai.md).
-- **Headless:** `lightfoundry-cli` converts files to G-code, runs JSON command scripts, and `lightfoundry-cli mcp` serves every command to AI agents as Model Context Protocol tools.
+- **Headless:** `laserfoundry-cli` converts files to G-code, runs JSON command scripts, and `laserfoundry-cli mcp` serves every command to AI agents as Model Context Protocol tools.
 
 ## Quick start
 
 ```sh
 git clone https://github.com/Stitchwright/lightfoundry
-cd lightfoundry
+cd laserfoundry
 
-cargo run --release -p lightfoundry                         # desktop app
-cargo run --release -p lightfoundry -- design.svg           # open an SVG
-cargo run -p lightfoundry-cli -- gcode design.svg -o job.gcode --bed 300x200 --origin top_left \
+cargo run --release -p laserfoundry                         # desktop app
+cargo run --release -p laserfoundry -- design.svg           # open an SVG
+cargo run -p laserfoundry-cli -- gcode design.svg -o job.gcode --bed 300x200 --origin top_left \
     --set 2:speed=900,max_power=40                          # headless conversion
-apps/lightfoundry-web/build.sh                              # browser build (design, open/save as files, preview, G-code, Web Serial in Chromium browsers)
+apps/laserfoundry-web/build.sh                              # browser build (design, open/save as files, preview, G-code, Web Serial in Chromium browsers)
 cargo xtask ci                                              # fmt, clippy, tests, layers, clean-room
 ```
 

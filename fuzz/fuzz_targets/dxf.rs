@@ -2,5 +2,5 @@
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
-    lightfoundry_fuzzkit::dxf(data);
+    laserfoundry_fuzzkit::dxf(data);
 });

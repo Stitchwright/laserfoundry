@@ -13,7 +13,7 @@ pub const BUG_REPORT_URL: &str = "https://hub.stitchbench.app/report-a-bug";
 pub(super) const COMMANDS: &[CommandSpec] = &[
     CommandSpec {
         id: "help.github",
-        label: "LightFoundry on GitHub",
+        label: "LaserFoundry on GitHub",
         menu: "Help",
         shortcut: None,
         params_doc: "{}  — returns {url}: source code, issues and releases",
@@ -41,7 +41,7 @@ fn report_bug(_: &mut Session, _: &Value) -> Result<Value, EngineError> {
 
 /// The report page's address with the program, version and system in it (the page reads them; nothing else is sent).
 fn bug_report_url(version: &str, os: &str, arch: &str) -> String {
-    format!("{BUG_REPORT_URL}?program=lightfoundry&version={}&system={}", percent_encode(version), percent_encode(&format!("{os} {arch}")))
+    format!("{BUG_REPORT_URL}?program=laserfoundry&version={}&system={}", percent_encode(version), percent_encode(&format!("{os} {arch}")))
 }
 
 /// Percent-encodes everything but letters, digits and `-._~`.
@@ -66,7 +66,7 @@ mod tests {
         let mut s = Session::new();
         assert_eq!(s.execute("help.github", &json!({})).unwrap()["url"], GITHUB_URL);
         let u = s.execute("help.report_bug", &json!({})).unwrap()["url"].as_str().unwrap().to_string();
-        assert!(u.starts_with("https://hub.stitchbench.app/report-a-bug?program=lightfoundry&version="), "{u}");
+        assert!(u.starts_with("https://hub.stitchbench.app/report-a-bug?program=laserfoundry&version="), "{u}");
         assert!(u.contains(&format!("version={}", env!("CARGO_PKG_VERSION"))) && u.contains("&system="), "{u}");
     }
 
@@ -74,7 +74,7 @@ mod tests {
     fn the_address_is_encoded() {
         assert_eq!(
             bug_report_url("0.1.0 beta", "linux", "x86_64"),
-            "https://hub.stitchbench.app/report-a-bug?program=lightfoundry&version=0.1.0%20beta&system=linux%20x86_64"
+            "https://hub.stitchbench.app/report-a-bug?program=laserfoundry&version=0.1.0%20beta&system=linux%20x86_64"
         );
         // Anything odd in the text can't add a parameter or leave the address.
         assert_eq!(percent_encode("a&b=c#d é"), "a%26b%3Dc%23d%20%C3%A9");

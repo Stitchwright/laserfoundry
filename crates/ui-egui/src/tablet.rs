@@ -7,7 +7,7 @@
 //! The mode is Auto by default: it switches on the first time a touch is seen.
 
 use crate::i18n::tr;
-use crate::{LightFoundryApp, Tool};
+use crate::{LaserFoundryApp, Tool};
 
 /// Interface scale while the mode is on.
 pub const UI_ZOOM: f32 = 1.3;
@@ -38,7 +38,7 @@ impl TabletMode {
     }
 }
 
-impl LightFoundryApp {
+impl LaserFoundryApp {
     pub(crate) fn tablet_active(&self) -> bool {
         match self.tablet {
             TabletMode::On => true,
@@ -60,7 +60,7 @@ pub fn starts_folded(width: f32) -> bool {
 
 /// Run at the start of every frame: notices touch, applies or removes the larger interface, and
 /// makes the sticky Shift count as a held key.
-pub(crate) fn begin_frame(app: &mut LightFoundryApp, ctx: &egui::Context) {
+pub(crate) fn begin_frame(app: &mut LaserFoundryApp, ctx: &egui::Context) {
     if !app.touch_seen && ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Touch { .. }))) {
         app.touch_seen = true;
     }
@@ -100,7 +100,7 @@ pub(crate) fn begin_frame(app: &mut LightFoundryApp, ctx: &egui::Context) {
 }
 
 /// The row of buttons a keyboard would otherwise provide; shown only in tablet mode.
-pub(crate) fn action_bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub(crate) fn action_bar(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     egui::Panel::top("tablet_bar").show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
             let big = |text: String| egui::Button::new(text).min_size(egui::vec2(56.0, 36.0));
@@ -156,18 +156,18 @@ pub(crate) fn action_bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 
 /// Remembers where a canvas context menu item was drawn, for the frame tests.
 #[cfg(test)]
-pub(crate) fn note_menu(app: &mut LightFoundryApp, name: &'static str, response: &egui::Response) {
+pub(crate) fn note_menu(app: &mut LaserFoundryApp, name: &'static str, response: &egui::Response) {
     app.button_rects.insert(name, response.rect);
 }
 
 #[cfg(not(test))]
-pub(crate) fn note_menu(_app: &mut LightFoundryApp, _name: &'static str, _response: &egui::Response) {}
+pub(crate) fn note_menu(_app: &mut LaserFoundryApp, _name: &'static str, _response: &egui::Response) {}
 
 /// Remembers where a button was drawn, for the frame tests (which click it).
 #[cfg(test)]
-fn note(app: &mut LightFoundryApp, name: &'static str, response: &egui::Response) {
+fn note(app: &mut LaserFoundryApp, name: &'static str, response: &egui::Response) {
     app.button_rects.insert(name, response.rect);
 }
 
 #[cfg(not(test))]
-fn note(_app: &mut LightFoundryApp, _name: &'static str, _response: &egui::Response) {}
+fn note(_app: &mut LaserFoundryApp, _name: &'static str, _response: &egui::Response) {}

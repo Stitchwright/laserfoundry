@@ -1,7 +1,7 @@
 use std::f64::consts::TAU;
 
-use lightfoundry_doc::{LayerId, Shape};
-use lightfoundry_geom::{BezPath, Point, ellipse_path, line_path, rect_path, rounded_rect_path};
+use laserfoundry_doc::{LayerId, Shape};
+use laserfoundry_geom::{BezPath, Point, ellipse_path, line_path, rect_path, rounded_rect_path};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

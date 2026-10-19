@@ -7,7 +7,7 @@ use std::path::Path;
 
 use egui::{Key, Modifiers};
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 
 /// A shortcuts file larger than this is not read (it is not ours).
 const MAX_FILE_BYTES: u64 = 64 * 1024;
@@ -219,7 +219,7 @@ impl Shortcuts {
 }
 
 /// The "Keyboard shortcuts" window.
-pub(crate) fn window(app: &mut LightFoundryApp, ctx: &egui::Context) {
+pub(crate) fn window(app: &mut LaserFoundryApp, ctx: &egui::Context) {
     if !app.shortcuts_open {
         return;
     }

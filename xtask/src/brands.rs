@@ -1,5 +1,5 @@
 //! `cargo xtask brands`: no other vendor's product or company names in what people and agents read.
-//! LightFoundry names its own features; where a comparison is needed, text says "the reference app".
+//! LaserFoundry names its own features; where a comparison is needed, text says "the reference app".
 //!
 //! Scanned: string literals in Rust sources (labels, params docs, menus, panels, MCP tool text; comments
 //! and test code are skipped), the `description` of every `Cargo.toml`, and the hosted page. Markdown docs

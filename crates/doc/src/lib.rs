@@ -1,9 +1,9 @@
-//! The LightFoundry document model: cut layers, shapes, images and the machine profile.
+//! The LaserFoundry document model: cut layers, shapes, images and the machine profile.
 //! Pure data + serde; no I/O, no UI.
 
 use std::sync::Arc;
 
-use lightfoundry_geom::{Affine, BezPath, Polyline, Rect, bounds_of_polylines, flatten};
+use laserfoundry_geom::{Affine, BezPath, Polyline, Rect, bounds_of_polylines, flatten};
 use serde::{Deserialize, Serialize};
 
 pub const LAYER_COLORS: [&str; 16] = [
@@ -247,7 +247,7 @@ impl Anchor {
     ];
 
     /// The anchor's point on `b` (workspace mm, y down).
-    pub fn point(self, b: Rect) -> lightfoundry_geom::Point {
+    pub fn point(self, b: Rect) -> laserfoundry_geom::Point {
         let x = match self {
             Anchor::TopLeft | Anchor::Left | Anchor::BottomLeft => b.x0,
             Anchor::Top | Anchor::Center | Anchor::Bottom => (b.x0 + b.x1) / 2.0,
@@ -258,7 +258,7 @@ impl Anchor {
             Anchor::Left | Anchor::Center | Anchor::Right => (b.y0 + b.y1) / 2.0,
             Anchor::BottomLeft | Anchor::Bottom | Anchor::BottomRight => b.y1,
         };
-        lightfoundry_geom::Point::new(x, y)
+        laserfoundry_geom::Point::new(x, y)
     }
 }
 
@@ -530,7 +530,7 @@ impl Shape {
                 flatten(&p, FLATTEN_TOLERANCE_MM)
             }
             ShapeKind::Image { width_mm, height_mm, .. } => {
-                let p = lightfoundry_geom::rect_path(0.0, 0.0, *width_mm, *height_mm);
+                let p = laserfoundry_geom::rect_path(0.0, 0.0, *width_mm, *height_mm);
                 let mut p = p;
                 p.apply_affine(self.transform);
                 flatten(&p, FLATTEN_TOLERANCE_MM)
@@ -909,7 +909,7 @@ pub enum Origin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lightfoundry_geom::rect_path;
+    use laserfoundry_geom::rect_path;
 
     #[test]
     fn every_anchor_has_its_own_name() {
@@ -954,9 +954,9 @@ mod tests {
     #[test]
     fn anchors_pick_the_expected_points() {
         let b = Rect::new(10.0, 20.0, 30.0, 60.0);
-        assert_eq!(Anchor::TopLeft.point(b), lightfoundry_geom::Point::new(10.0, 20.0));
-        assert_eq!(Anchor::Center.point(b), lightfoundry_geom::Point::new(20.0, 40.0));
-        assert_eq!(Anchor::BottomRight.point(b), lightfoundry_geom::Point::new(30.0, 60.0));
+        assert_eq!(Anchor::TopLeft.point(b), laserfoundry_geom::Point::new(10.0, 20.0));
+        assert_eq!(Anchor::Center.point(b), laserfoundry_geom::Point::new(20.0, 40.0));
+        assert_eq!(Anchor::BottomRight.point(b), laserfoundry_geom::Point::new(30.0, 60.0));
         assert_eq!(Anchor::ALL.len(), 9);
     }
 

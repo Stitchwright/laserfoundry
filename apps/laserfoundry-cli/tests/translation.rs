@@ -32,14 +32,14 @@ mod catalog_tests {
     fn without_a_catalog_everything_is_english_and_the_environment_can_name_one() {
         let dir = temp_dir("english");
         let out = cli(&dir, &["bogus"]);
-        assert!(stderr(&out).starts_with("error: usage: lightfoundry-cli"), "{}", stderr(&out));
+        assert!(stderr(&out).starts_with("error: usage: laserfoundry-cli"), "{}", stderr(&out));
         let catalog = write_catalog(&dir, r#"{"strings":{"error: {message}":"Fehler: {message}"}}"#);
-        let out = Command::new(env!("CARGO_BIN_EXE_lightfoundry-cli"))
+        let out = Command::new(env!("CARGO_BIN_EXE_laserfoundry-cli"))
             .arg("bogus")
             .env("HOME", &dir)
             .env("XDG_DATA_HOME", &dir)
             .env("APPDATA", &dir)
-            .env("LIGHTFOUNDRY_TRANSLATION", &catalog)
+            .env("LASERFOUNDRY_TRANSLATION", &catalog)
             .output()
             .unwrap();
         assert!(stderr(&out).starts_with("Fehler:"), "{}", stderr(&out));
@@ -48,7 +48,7 @@ mod catalog_tests {
     #[test]
     fn the_desktop_apps_catalog_is_used_when_nothing_else_is_named() {
         let dir = temp_dir("default");
-        let home = dir.join("LightFoundry");
+        let home = dir.join("LaserFoundry");
         std::fs::create_dir_all(&home).unwrap();
         std::fs::write(home.join("translation.json"), r#"{"strings":{"error: {message}":"Fehler: {message}"}}"#).unwrap();
         let out = cli(&dir, &["bogus"]);
@@ -85,7 +85,7 @@ mod hostile_tests {
         let bad = write_catalog(&dir, "{ not json");
         assert!(!cli(&dir, &["--translation", path(&bad), "commands"]).status.success());
         assert!(!cli(&dir, &["--translation"]).status.success(), "the flag needs a file");
-        let home = dir.join("LightFoundry");
+        let home = dir.join("LaserFoundry");
         std::fs::create_dir_all(&home).unwrap();
         std::fs::write(home.join("translation.json"), "{ not json").unwrap();
         assert!(cli(&dir, &["commands"]).status.success(), "a broken default catalog must not stop the tool");
@@ -93,12 +93,12 @@ mod hostile_tests {
 }
 
 fn cli(home: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_lightfoundry-cli"))
+    Command::new(env!("CARGO_BIN_EXE_laserfoundry-cli"))
         .args(args)
         .env("HOME", home)
         .env("XDG_DATA_HOME", home)
         .env("APPDATA", home)
-        .env_remove("LIGHTFOUNDRY_TRANSLATION")
+        .env_remove("LASERFOUNDRY_TRANSLATION")
         .output()
         .unwrap()
 }
@@ -122,7 +122,7 @@ fn stderr(o: &Output) -> String {
 }
 
 fn temp_dir(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("lightfoundry-cli-{tag}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("laserfoundry-cli-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir

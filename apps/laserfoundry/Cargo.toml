@@ -1,10 +1,10 @@
 [package]
-name = "lightfoundry"
+name = "laserfoundry"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
-default-run = "lightfoundry"
+default-run = "laserfoundry"
 
 [lints]
 workspace = true
@@ -12,17 +12,17 @@ workspace = true
 [features]
 default = ["serial"]
 # Real serial ports (GRBL over USB). Disable for a simulator-only build.
-serial = ["lightfoundry-device/serial"]
+serial = ["laserfoundry-device/serial"]
 
 [dependencies]
-lightfoundry-engine = { workspace = true }
-lightfoundry-fontlib = { workspace = true }
-lightfoundry-ai = { workspace = true }
+laserfoundry-engine = { workspace = true }
+laserfoundry-fontlib = { workspace = true }
+laserfoundry-ai = { workspace = true }
 ureq = "3"
-lightfoundry-i18n = { workspace = true }
-lightfoundry-ui-egui = { workspace = true }
-lightfoundry-mcp = { workspace = true }
-lightfoundry-device = { workspace = true }
+laserfoundry-i18n = { workspace = true }
+laserfoundry-ui-egui = { workspace = true }
+laserfoundry-mcp = { workspace = true }
+laserfoundry-device = { workspace = true }
 eframe = { workspace = true, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
 egui = { workspace = true }
 log = { workspace = true }

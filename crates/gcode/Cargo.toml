@@ -1,17 +1,17 @@
 [package]
-name = "lightfoundry-gcode"
+name = "laserfoundry-gcode"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry gcode"
+description = "LaserFoundry gcode"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-geom = { workspace = true }
-lightfoundry-doc = { workspace = true }
-lightfoundry-toolpath = { workspace = true }
+laserfoundry-geom = { workspace = true }
+laserfoundry-doc = { workspace = true }
+laserfoundry-toolpath = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

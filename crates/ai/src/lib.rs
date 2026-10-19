@@ -1,4 +1,4 @@
-//! What LightFoundry asks an AI model for, and how the answers are read.
+//! What LaserFoundry asks an AI model for, and how the answers are read.
 //!
 //! Four features share this crate: **Design from Prompt** and **Redraw Image** ([`art`]: vector artwork
 //! for cutting and engraving), **Ask About Lasering** ([`ask`]: answers that know the open document) and

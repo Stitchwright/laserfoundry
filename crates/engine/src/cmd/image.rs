@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use lightfoundry_doc::{LayerId, Shape, ShapeId, ShapeKind};
-use lightfoundry_geom::{Affine, Vec2};
+use laserfoundry_doc::{LayerId, Shape, ShapeId, ShapeKind};
+use laserfoundry_geom::{Affine, Vec2};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -248,9 +248,9 @@ fn trace_colors(
     fit: Option<f64>,
     keep_image: bool,
 ) -> Result<Value, EngineError> {
-    use lightfoundry_doc::LAYER_COLORS;
-    if !(2..=lightfoundry_toolpath::MAX_COLORS).contains(&colors) {
-        return Err(EngineError::BadParams(format!("colors must be between 2 and {}", lightfoundry_toolpath::MAX_COLORS)));
+    use laserfoundry_doc::LAYER_COLORS;
+    if !(2..=laserfoundry_toolpath::MAX_COLORS).contains(&colors) {
+        return Err(EngineError::BadParams(format!("colors must be between 2 and {}", laserfoundry_toolpath::MAX_COLORS)));
     }
     let shape = s.doc.shape(id).ok_or_else(|| EngineError::NotFound(format!("shape {id} does not exist")))?;
     let ShapeKind::Image { image, width_mm, height_mm, .. } = &shape.kind else { return Err(not_an_image(id)) };
@@ -259,7 +259,7 @@ fn trace_colors(
         .as_ref()
         .ok_or_else(|| EngineError::BadParams("that picture has no colour (grey, or imported by an older version); import it again".into()))?;
     let (w, h) = (image.width as usize, image.height as usize);
-    let q = lightfoundry_toolpath::quantize(rgb, colors)
+    let q = laserfoundry_toolpath::quantize(rgb, colors)
         .ok_or_else(|| EngineError::BadParams("the picture has no ink to trace (it is all paper-white)".into()))?;
     let to_local = Affine::scale_non_uniform(*width_mm / w as f64, *height_mm / h as f64);
     let place = shape.transform * to_local;
@@ -270,7 +270,7 @@ fn trace_colors(
     let mut made = Vec::new();
     for (k, colour) in q.palette.iter().enumerate() {
         let label = k as u8;
-        let loops = lightfoundry_toolpath::trace(w, h, |x, y| q.labels.get(y * w + x) == Some(&label), tolerance, min_area)
+        let loops = laserfoundry_toolpath::trace(w, h, |x, y| q.labels.get(y * w + x) == Some(&label), tolerance, min_area)
             .ok_or_else(|| EngineError::BadParams("that picture is too large or too detailed to trace".into()))?;
         if loops.is_empty() {
             continue;
@@ -299,13 +299,13 @@ fn trace_colors(
 }
 
 /// The traced loops as a path: straight steps, gently smoothed, or least-squares fitted curves.
-fn outline_path(loops: &[lightfoundry_geom::Polyline], smooth: bool, fit: Option<f64>) -> lightfoundry_geom::BezPath {
+fn outline_path(loops: &[laserfoundry_geom::Polyline], smooth: bool, fit: Option<f64>) -> laserfoundry_geom::BezPath {
     if let Some(tol) = fit {
-        let subpaths = loops.iter().map(|l| lightfoundry_geom::fit::fit_polyline(&l.points, l.closed, SMOOTH_CORNER_DEG, tol)).collect();
-        lightfoundry_geom::nodes::NodePath { subpaths }.to_bez()
+        let subpaths = loops.iter().map(|l| laserfoundry_geom::fit::fit_polyline(&l.points, l.closed, SMOOTH_CORNER_DEG, tol)).collect();
+        laserfoundry_geom::nodes::NodePath { subpaths }.to_bez()
     } else if smooth {
-        let subpaths = loops.iter().map(|l| lightfoundry_geom::nodes::smooth_polyline(&l.points, l.closed, SMOOTH_CORNER_DEG)).collect();
-        lightfoundry_geom::nodes::NodePath { subpaths }.to_bez()
+        let subpaths = loops.iter().map(|l| laserfoundry_geom::nodes::smooth_polyline(&l.points, l.closed, SMOOTH_CORNER_DEG)).collect();
+        laserfoundry_geom::nodes::NodePath { subpaths }.to_bez()
     } else {
         super::pathops::polylines_to_path(loops)
     }
@@ -344,7 +344,7 @@ fn trace(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let mut traced = Vec::new();
     for k in 1..=p.levels {
         let limit = (threshold * f64::from(k) / f64::from(p.levels)) as f32;
-        let loops = lightfoundry_toolpath::trace(
+        let loops = laserfoundry_toolpath::trace(
             w,
             h,
             |x, y| image.gray.get(y * w + x).is_some_and(|g| adjust.apply(f32::from(*g)) < limit),

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::io::{self, BufRead, Write};
 
-use lightfoundry_engine::{Session, commands};
+use laserfoundry_engine::{Session, commands};
 use serde_json::{Value, json};
 
 pub mod link;
@@ -58,7 +58,7 @@ pub fn serve(session: &mut Session, input: &mut impl BufRead, output: &mut impl 
 /// Who is on the other end: a private session of the agent's own, or the person's open window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
-    /// The server owns its session (`lightfoundry-cli mcp`); nothing there can be lost.
+    /// The server owns its session (`laserfoundry-cli mcp`); nothing there can be lost.
     Standalone,
     /// The agent is working in the document the person has open, so commands that would throw away
     /// unsaved work are refused.
@@ -111,7 +111,7 @@ fn dispatch(session: &mut Session, method: &str, params: &Value, mode: Mode, sub
             Ok(json!({
                 "protocolVersion": version,
                 "capabilities": { "tools": {}, "resources": { "subscribe": true }, "prompts": {} },
-                "serverInfo": { "name": "lightfoundry", "version": env!("CARGO_PKG_VERSION") },
+                "serverInfo": { "name": "laserfoundry", "version": env!("CARGO_PKG_VERSION") },
                 "instructions": "Design and export laser jobs. Units are mm, y points down from the bed's top-left corner. Call document_summary to see the drawing; shape_* create shapes, layer_set changes cut settings, job_gcode generates the program (include=true to get the text).",
             }))
         }
@@ -252,9 +252,9 @@ fn summary(s: &Session) -> Value {
     })
 }
 
-const DOCUMENT_URI: &str = "lightfoundry://document/summary";
-const GCODE_URI: &str = "lightfoundry://job/gcode";
-const COMMANDS_URI: &str = "lightfoundry://reference/commands";
+const DOCUMENT_URI: &str = "laserfoundry://document/summary";
+const GCODE_URI: &str = "laserfoundry://job/gcode";
+const COMMANDS_URI: &str = "laserfoundry://reference/commands";
 
 fn resource_list() -> Vec<Value> {
     vec![
@@ -456,7 +456,7 @@ mod tests {
         fn an_agent_in_the_window_may_only_write_beside_the_project_or_in_the_temp_folder() {
             let dir = std::env::temp_dir().join(format!("lf-live-write-{}", std::process::id()));
             std::fs::create_dir_all(&dir).unwrap();
-            let project = dir.join("job.lightfoundry");
+            let project = dir.join("job.laserfoundry");
             assert!(live_write_allowed(Some(&project), &dir.join("out.gcode")).is_ok());
             assert!(live_write_allowed(Some(&project), &dir.join("new-folder/deeper/out.gcode")).is_ok(), "folders that do not exist yet");
             assert!(live_write_allowed(None, &dir.join("out.gcode")).is_ok(), "the temporary folder");
@@ -487,7 +487,7 @@ mod tests {
     mod subscription_tests {
         use super::*;
 
-        const DOC: &str = "lightfoundry://document/summary";
+        const DOC: &str = "laserfoundry://document/summary";
 
         fn send(s: &mut Session, subs: &mut Subscriptions, method: &str, params: Value) -> Value {
             handle_line_with(s, &json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string(), Mode::Standalone, subs).unwrap()
@@ -518,7 +518,7 @@ mod tests {
             let (mut s, mut subs) = (Session::new(), Subscriptions::default());
             s.execute("shape.rectangle", &json!({"x": 0, "y": 0, "width": 4, "height": 4})).unwrap();
             assert!(!s.selection.is_empty(), "a new shape is selected");
-            for uri in [DOC, "lightfoundry://job/gcode", "lightfoundry://reference/commands"] {
+            for uri in [DOC, "laserfoundry://job/gcode", "laserfoundry://reference/commands"] {
                 send(&mut s, &mut subs, "resources/subscribe", json!({"uri": uri}));
             }
             s.selection.clear();
@@ -526,7 +526,7 @@ mod tests {
             assert_eq!(uris, [DOC]);
             s.execute("shape.rectangle", &json!({"x": 9, "y": 9, "width": 4, "height": 4})).unwrap();
             let uris: Vec<String> = subs.changed(&s).iter().map(|n| n["params"]["uri"].as_str().unwrap().to_string()).collect();
-            assert_eq!(uris, [DOC, "lightfoundry://job/gcode"], "an edit changes both, never the reference");
+            assert_eq!(uris, [DOC, "laserfoundry://job/gcode"], "an edit changes both, never the reference");
         }
 
         #[test]
@@ -580,7 +580,7 @@ mod tests {
             let r = ask(&mut s, json!({"jsonrpc": "2.0", "id": 7, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}}));
             assert_eq!(r["id"], json!(7));
             assert_eq!(r["result"]["protocolVersion"], json!("2025-03-26"));
-            assert_eq!(r["result"]["serverInfo"]["name"], json!("lightfoundry"));
+            assert_eq!(r["result"]["serverInfo"]["name"], json!("laserfoundry"));
             assert!(r["result"]["capabilities"]["tools"].is_object());
         }
 
@@ -659,7 +659,7 @@ mod tests {
             assert!(g["result"]["contents"][0]["text"].as_str().unwrap().contains("G21"));
             let c = read(&mut s, COMMANDS_URI);
             assert!(c["result"]["contents"][0]["text"].as_str().unwrap().contains("shape_rectangle"));
-            assert_eq!(read(&mut s, "lightfoundry://nope")["error"]["code"], json!(INVALID_PARAMS));
+            assert_eq!(read(&mut s, "laserfoundry://nope")["error"]["code"], json!(INVALID_PARAMS));
             assert_eq!(
                 ask(&mut s, json!({"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {}}))["error"]["code"],
                 json!(INVALID_PARAMS)

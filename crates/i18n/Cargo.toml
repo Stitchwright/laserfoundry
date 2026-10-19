@@ -1,5 +1,5 @@
 [package]
-name = "lightfoundry-i18n"
+name = "laserfoundry-i18n"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

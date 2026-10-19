@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use lightfoundry_geom::{Point, Polyline};
+use laserfoundry_geom::{Point, Polyline};
 
 /// Most pixels that will be traced.
 pub const MAX_TRACE_PIXELS: usize = 16_000_000;
@@ -146,7 +146,7 @@ fn rdp(pts: &[Point], tol: f64) -> Vec<Point> {
     }
     let mut worst = (0usize, 0.0f64);
     for (i, p) in pts.iter().enumerate().skip(1).take(pts.len() - 2) {
-        let d = lightfoundry_geom::distance_to_segment(*p, *first, *last);
+        let d = laserfoundry_geom::distance_to_segment(*p, *first, *last);
         if d > worst.1 {
             worst = (i, d);
         }

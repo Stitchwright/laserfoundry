@@ -1,5 +1,5 @@
-use lightfoundry_doc::{CutOverride, LAYER_COLORS, LayerId, Shape, ShapeId, ShapeKind, TextSettings};
-use lightfoundry_geom::{Affine, rect_path};
+use laserfoundry_doc::{CutOverride, LAYER_COLORS, LayerId, Shape, ShapeId, ShapeKind, TextSettings};
+use laserfoundry_geom::{Affine, rect_path};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

@@ -2,8 +2,8 @@
 //! moment. There is no acceleration model, so these are optimistic estimates.
 
 use crate::{Job, Move, Op};
-use lightfoundry_doc::LayerId;
-use lightfoundry_geom::Point;
+use laserfoundry_doc::LayerId;
+use laserfoundry_geom::Point;
 
 /// Travel speed (mm/min) used when the machine's rapid speed is not a usable number.
 const DEFAULT_RAPID: f64 = 6000.0;

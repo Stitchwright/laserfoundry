@@ -7,7 +7,7 @@
 //! page poking at `localhost`, cannot drive the app. Connection threads only move lines: every
 //! command runs on the app's own thread through [`LinkServer::serve_pending`], once per frame, so the
 //! UI and the agent never touch the session at the same time. The client side, [`proxy`], bridges
-//! an MCP client's stdio to the socket (`lightfoundry-cli mcp --connect`).
+//! an MCP client's stdio to the socket (`laserfoundry-cli mcp --connect`).
 //!
 //! Only engine commands cross the link. Starting a job on a machine is a UI action and is not
 //! reachable, and commands that would replace unsaved work are refused ([`Mode::Live`]).
@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use lightfoundry_engine::Session;
+use laserfoundry_engine::Session;
 use serde_json::{Value, json};
 
 use crate::{Line, MAX_MESSAGE_BYTES, Mode, Subscriptions, handle_line_with, read_capped_line, write_message};
@@ -92,7 +92,7 @@ impl LinkServer {
         let clients = Arc::new(AtomicUsize::new(0));
         let wake: Arc<dyn Fn() + Send + Sync> = Arc::new(wake);
         let accept_stop = stop.clone();
-        thread::Builder::new().name("lightfoundry-link".into()).spawn(move || {
+        thread::Builder::new().name("laserfoundry-link".into()).spawn(move || {
             for stream in listener.incoming() {
                 if accept_stop.load(Ordering::Relaxed) {
                     break;
@@ -104,7 +104,7 @@ impl LinkServer {
                 }
                 let (tx, token, wake, count, id) =
                     (tx.clone(), token.clone(), wake.clone(), clients.clone(), next_id.fetch_add(1, Ordering::Relaxed));
-                let spawned = thread::Builder::new().name("lightfoundry-link-client".into()).spawn(move || {
+                let spawned = thread::Builder::new().name("laserfoundry-link-client".into()).spawn(move || {
                     if let Err(e) = client(stream, id, &token, &tx, wake.as_ref()) {
                         log::debug!("agent link closed: {e}");
                     }
@@ -195,7 +195,7 @@ fn client(stream: TcpStream, id: u64, token: &str, tx: &SyncSender<Event>, wake:
     let handshaken = Arc::new(AtomicBool::new(false));
     {
         let (handshaken, stream) = (Arc::clone(&handshaken), stream.try_clone()?);
-        thread::Builder::new().name("lightfoundry-link-deadline".into()).spawn(move || {
+        thread::Builder::new().name("laserfoundry-link-deadline".into()).spawn(move || {
             thread::sleep(HANDSHAKE_TIMEOUT);
             if !handshaken.load(Ordering::SeqCst) {
                 let _ = stream.shutdown(Shutdown::Both);
@@ -218,7 +218,7 @@ fn client(stream: TcpStream, id: u64, token: &str, tx: &SyncSender<Event>, wake:
     stream.set_read_timeout(None)?;
 
     let (out, queue) = mpsc::sync_channel::<Value>(OUT_QUEUE);
-    thread::Builder::new().name("lightfoundry-link-writer".into()).spawn(move || {
+    thread::Builder::new().name("laserfoundry-link-writer".into()).spawn(move || {
         for message in queue {
             if write_message(&mut output, &message).is_err() {
                 break;
@@ -255,7 +255,7 @@ fn send(tx: &SyncSender<Event>, wake: &(dyn Fn() + Send + Sync), event: Event) -
     Ok(())
 }
 
-/// Where the running app and `lightfoundry-cli mcp --connect` agree to meet: the per-user data folder.
+/// Where the running app and `laserfoundry-cli mcp --connect` agree to meet: the per-user data folder.
 pub fn default_link_file() -> Option<PathBuf> {
     let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
     let base = if cfg!(target_os = "windows") {
@@ -265,21 +265,21 @@ pub fn default_link_file() -> Option<PathBuf> {
     } else {
         var("XDG_RUNTIME_DIR").or_else(|| var("XDG_DATA_HOME")).or_else(|| var("HOME").map(|h| h.join(".local").join("share")))
     }?;
-    Some(base.join("LightFoundry").join("agent-link.json"))
+    Some(base.join("LaserFoundry").join("agent-link.json"))
 }
 
 /// Connects to the app named by `link_file` and relays MCP lines between `input`/`output` (an
 /// agent's stdio) and it, until `input` ends.
 pub fn proxy(link_file: &Path, input: impl BufRead, output: impl Write + Send + 'static) -> io::Result<()> {
     let text = fs::read_to_string(link_file)
-        .map_err(|e| io::Error::new(e.kind(), format!("no running LightFoundry to connect to ({}): {e}", link_file.display())))?;
+        .map_err(|e| io::Error::new(e.kind(), format!("no running LaserFoundry to connect to ({}): {e}", link_file.display())))?;
     let info: Value = serde_json::from_str(&text).map_err(|e| io::Error::other(format!("unreadable link file: {e}")))?;
     let port =
         info.get("port").and_then(Value::as_u64).and_then(|p| u16::try_from(p).ok()).ok_or_else(|| io::Error::other("link file has no port"))?;
     let token = info.get("token").and_then(Value::as_str).ok_or_else(|| io::Error::other("link file has no token"))?;
 
     let stream = TcpStream::connect_timeout(&SocketAddr::from((Ipv4Addr::LOCALHOST, port)), Duration::from_secs(3))
-        .map_err(|e| io::Error::new(e.kind(), format!("LightFoundry is not listening (is agent access switched on?): {e}")))?;
+        .map_err(|e| io::Error::new(e.kind(), format!("LaserFoundry is not listening (is agent access switched on?): {e}")))?;
     stream.set_nodelay(true)?;
     let mut writer = stream.try_clone()?;
     let mut reader = BufReader::new(stream);
@@ -288,7 +288,7 @@ pub fn proxy(link_file: &Path, input: impl BufRead, output: impl Write + Send + 
     let mut hello = String::new();
     reader.by_ref().take(MAX_HANDSHAKE_BYTES as u64).read_line(&mut hello)?;
     if serde_json::from_str::<Value>(&hello).ok().and_then(|v| v.get("ok").and_then(Value::as_bool)) != Some(true) {
-        return Err(io::Error::other("LightFoundry refused the connection (stale link file?)"));
+        return Err(io::Error::other("LaserFoundry refused the connection (stale link file?)"));
     }
 
     let output = Arc::new(Mutex::new(output));
@@ -414,7 +414,7 @@ mod tests {
             let mut server = LinkServer::start(&file, || {}).unwrap();
             let mut session = Session::new();
             let (mut agent, _unread) = connect(&file);
-            let request = json!({"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "lightfoundry://reference/commands"}});
+            let request = json!({"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "laserfoundry://reference/commands"}});
             // Ask for the (large) command reference over and over without ever reading an answer. The socket
             // buffers fill, the writer stalls, the queue fills, and the server hangs up on this agent.
             let started = std::time::Instant::now();
@@ -492,7 +492,7 @@ mod tests {
             let mut server = LinkServer::start(&file, || {}).unwrap();
             let mut session = Session::new();
             let (mut agent, mut lines) = connect(&file);
-            writeln!(agent, "{}", json!({"jsonrpc":"2.0","id":1,"method":"resources/subscribe","params":{"uri":"lightfoundry://document/summary"}}))
+            writeln!(agent, "{}", json!({"jsonrpc":"2.0","id":1,"method":"resources/subscribe","params":{"uri":"laserfoundry://document/summary"}}))
                 .unwrap();
             assert_eq!(read_one(&mut lines, &mut server, &mut session)["result"], json!({}));
             // Nothing changed, so nothing is announced.
@@ -503,7 +503,7 @@ mod tests {
             session.execute("shape.rectangle", &json!({"x": 1, "y": 1, "width": 5, "height": 5})).unwrap();
             let note = read_one(&mut lines, &mut server, &mut session);
             assert_eq!(note["method"], json!("notifications/resources/updated"));
-            assert_eq!(note["params"]["uri"], json!("lightfoundry://document/summary"));
+            assert_eq!(note["params"]["uri"], json!("laserfoundry://document/summary"));
         }
 
         #[test]
@@ -527,7 +527,7 @@ mod tests {
         fn the_proxy_reports_a_missing_or_stale_link_file() {
             let (file, _guard) = scratch("stale");
             let err = proxy(&file, io::empty(), io::sink()).unwrap_err();
-            assert!(err.to_string().contains("no running LightFoundry"));
+            assert!(err.to_string().contains("no running LaserFoundry"));
             fs::create_dir_all(file.parent().unwrap()).unwrap();
             fs::write(&file, "{\"port\": 1, \"token\": \"x\"}").unwrap();
             assert!(proxy(&file, io::empty(), io::sink()).is_err());

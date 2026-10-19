@@ -1,5 +1,5 @@
-use lightfoundry_doc::{Dither, Document, Layer, RasterImage, Shape, ShapeKind};
-use lightfoundry_geom::{Point, bounds_of_polylines};
+use laserfoundry_doc::{Dither, Document, Layer, RasterImage, Shape, ShapeKind};
+use laserfoundry_geom::{Point, bounds_of_polylines};
 
 use crate::{MAX_RASTER_CELLS, Move, PlanError};
 
@@ -155,7 +155,7 @@ pub(crate) fn plan_image(doc: &Document, layer: &Layer, shape: &Shape) -> Result
     let x_at = |i: usize| b.x0 + i as f64 * pitch;
     // With absolute placement the bed edges are known: a picture flush with an edge gets a shorter
     // lead-in rather than a job that cannot run. (Relative placements cannot know the room.)
-    let absolute = doc.job_origin.start_from == lightfoundry_doc::StartFrom::Absolute;
+    let absolute = doc.job_origin.start_from == laserfoundry_doc::StartFrom::Absolute;
     let room = |x: f64| if absolute { x.clamp(0.0, doc.machine.bed_width) } else { x };
     let mut moves = Vec::new();
     for (iy, row) in intensity.chunks_exact(nx).enumerate() {

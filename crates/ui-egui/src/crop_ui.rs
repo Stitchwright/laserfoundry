@@ -3,10 +3,10 @@
 //! inspector shows; the crop is applied with the Crop button.
 
 use egui::{Color32, Stroke};
-use lightfoundry_doc::ShapeKind;
-use lightfoundry_geom::{Affine, Point};
+use laserfoundry_doc::ShapeKind;
+use laserfoundry_geom::{Affine, Point};
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 use crate::view::View;
 
 /// How close (screen points) the pointer must be to an edge to grab it.
@@ -15,7 +15,7 @@ const GRAB_PX: f32 = 10.0;
 pub const MAX_PCT: f64 = 95.0;
 
 /// Edge indices, in the order of `crop_pct`: left, top, right, bottom.
-pub fn selected_image(app: &LightFoundryApp) -> Option<(Affine, f64, f64)> {
+pub fn selected_image(app: &LaserFoundryApp) -> Option<(Affine, f64, f64)> {
     let [id] = app.session.selection.as_slice() else { return None };
     match &app.session.doc.shape(*id)?.kind {
         ShapeKind::Image { width_mm, height_mm, .. } => Some((app.session.doc.shape(*id)?.transform, *width_mm, *height_mm)),
@@ -63,7 +63,7 @@ pub fn pct_for(edge: usize, transform: Affine, w: f64, h: f64, at: Point) -> f64
 }
 
 /// Handles the pointer while crop mode is on. Returns whether the canvas should ignore it.
-pub fn interact(app: &mut LightFoundryApp, resp: &egui::Response, view: &View, pointer: Option<Point>) -> bool {
+pub fn interact(app: &mut LaserFoundryApp, resp: &egui::Response, view: &View, pointer: Option<Point>) -> bool {
     let Some((transform, w, h)) = selected_image(app) else {
         app.crop_mode = false;
         return false;
@@ -93,7 +93,7 @@ pub fn interact(app: &mut LightFoundryApp, resp: &egui::Response, view: &View, p
 }
 
 /// A cut edge can be grabbed along its (inset) line, not just the picture's own border.
-fn nearest_cut_edge(app: &LightFoundryApp, view: &View, transform: Affine, w: f64, h: f64, p: egui::Pos2) -> Option<usize> {
+fn nearest_cut_edge(app: &LaserFoundryApp, view: &View, transform: Affine, w: f64, h: f64, p: egui::Pos2) -> Option<usize> {
     let [l, t, r, b] = app.crop_pct.map(|v| v / 100.0);
     let (x0, y0, x1, y1) = (l * w, t * h, w - r * w, h - b * h);
     let s = |x: f64, y: f64| view.to_screen(transform * Point::new(x, y));
@@ -107,7 +107,7 @@ fn nearest_cut_edge(app: &LightFoundryApp, view: &View, transform: Affine, w: f6
         .map(|(i, _)| i)
 }
 
-pub fn draw(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
+pub fn draw(app: &LaserFoundryApp, painter: &egui::Painter, view: &View) {
     if !app.crop_mode {
         return;
     }

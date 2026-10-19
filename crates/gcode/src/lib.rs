@@ -9,9 +9,9 @@ pub use resume::{ResumeError, resume_from};
 
 use std::fmt::Write;
 
-use lightfoundry_doc::{Dialect, Machine, Origin};
-use lightfoundry_geom::{Point, Rect};
-use lightfoundry_toolpath::{Job, Move};
+use laserfoundry_doc::{Dialect, Machine, Origin};
+use laserfoundry_geom::{Point, Rect};
+use laserfoundry_toolpath::{Job, Move};
 use thiserror::Error;
 
 /// Largest feed rate written, mm/min.
@@ -57,7 +57,7 @@ pub enum Placement {
 pub fn generate(job: &Job, machine: &Machine, placement: Placement) -> Result<String, GcodeError> {
     check_machine(machine)?;
     let mut w = Writer::new(machine, placement)?;
-    w.preamble("LightFoundry job");
+    w.preamble("LaserFoundry job");
     for op in &job.ops {
         if !(op.speed.is_finite() && op.speed > 0.0 && op.speed <= MAX_FEED) {
             return Err(GcodeError::BadFeed(op.speed));
@@ -90,7 +90,7 @@ pub fn frame(bounds: Rect, machine: &Machine, placement: Placement, speed: f64, 
         return Err(GcodeError::BadMachine("frame speed"));
     }
     let mut w = Writer::new(machine, placement)?;
-    w.preamble("LightFoundry frame");
+    w.preamble("LaserFoundry frame");
     let corners = [(bounds.x0, bounds.y0), (bounds.x1, bounds.y0), (bounds.x1, bounds.y1), (bounds.x0, bounds.y1), (bounds.x0, bounds.y0)];
     for (i, (x, y)) in corners.iter().enumerate() {
         let p = Point::new(*x, *y);
@@ -175,7 +175,7 @@ impl<'a> Writer<'a> {
     /// Moves Z (with the laser off) when an operation wants a different height; an operation that
     /// does not use Z brings it back to the work zero if an earlier one moved it.
     fn set_z(&mut self, z: f64, wanted: bool) -> Result<(), GcodeError> {
-        if !z.is_finite() || z.abs() > lightfoundry_toolpath::MAX_Z_MM {
+        if !z.is_finite() || z.abs() > laserfoundry_toolpath::MAX_Z_MM {
             return Err(GcodeError::NonFinite);
         }
         let target = if wanted { z } else { 0.0 };
@@ -308,9 +308,9 @@ fn num(v: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use lightfoundry_doc::{Document, Shape};
-    use lightfoundry_geom::rect_path;
-    use lightfoundry_toolpath::plan;
+    use laserfoundry_doc::{Document, Shape};
+    use laserfoundry_geom::rect_path;
+    use laserfoundry_toolpath::plan;
 
     use super::*;
 
@@ -328,7 +328,7 @@ mod tests {
 
     mod refusal_tests {
         use super::*;
-        use lightfoundry_toolpath::{Op, OpKind};
+        use laserfoundry_toolpath::{Op, OpKind};
 
         fn job(speed: f64, power: f64, to: Point) -> Job {
             Job {
@@ -379,7 +379,7 @@ mod tests {
     mod rotary_tests {
         use super::*;
 
-        fn y_words(rotary: lightfoundry_doc::Rotary) -> Vec<String> {
+        fn y_words(rotary: laserfoundry_doc::Rotary) -> Vec<String> {
             let mut doc = Document::default();
             doc.machine.origin = Origin::TopLeft;
             doc.machine.rotary = rotary;
@@ -390,18 +390,18 @@ mod tests {
 
         #[test]
         fn y_is_scaled_by_the_reference_over_the_object_diameter() {
-            let plain = y_words(lightfoundry_doc::Rotary::default());
+            let plain = y_words(laserfoundry_doc::Rotary::default());
             assert!(plain.contains(&"Y50".to_string()), "{plain:?}");
-            let scaled = y_words(lightfoundry_doc::Rotary { enabled: true, reference_diameter: 60.0, object_diameter: 30.0 });
+            let scaled = y_words(laserfoundry_doc::Rotary { enabled: true, reference_diameter: 60.0, object_diameter: 30.0 });
             assert!(scaled.contains(&"Y100".to_string()) && scaled.contains(&"Y20".to_string()), "{scaled:?}");
-            let off = y_words(lightfoundry_doc::Rotary { enabled: false, reference_diameter: 60.0, object_diameter: 30.0 });
+            let off = y_words(laserfoundry_doc::Rotary { enabled: false, reference_diameter: 60.0, object_diameter: 30.0 });
             assert_eq!(off, plain);
         }
 
         #[test]
         fn unusable_diameters_are_refused_not_divided_by() {
             let mut doc = Document::default();
-            doc.machine.rotary = lightfoundry_doc::Rotary { enabled: true, reference_diameter: 50.0, object_diameter: 0.0 };
+            doc.machine.rotary = laserfoundry_doc::Rotary { enabled: true, reference_diameter: 50.0, object_diameter: 0.0 };
             doc.add_shape(Shape::path("a", 0, rect_path(10.0, 10.0, 20.0, 10.0)));
             assert_eq!(generate(&plan(&doc).unwrap(), &doc.machine, Placement::Absolute), Err(GcodeError::BadMachine("rotary diameters")));
         }
@@ -453,7 +453,7 @@ mod tests {
     }
 
     mod dialect_tests {
-        use lightfoundry_doc::Dialect;
+        use laserfoundry_doc::Dialect;
 
         use super::*;
 
@@ -511,7 +511,7 @@ mod tests {
         fn rectangle_program_matches_expected_text() {
             let g = rect_program(Origin::TopLeft);
             let expected = "\
-; LightFoundry job
+; LaserFoundry job
 G21
 G90
 M4 S0
@@ -569,9 +569,9 @@ G0 X0 Y0
         #[test]
         fn non_finite_coordinates_are_refused() {
             let job = Job {
-                ops: vec![lightfoundry_toolpath::Op {
+                ops: vec![laserfoundry_toolpath::Op {
                     layer: 0,
-                    kind: lightfoundry_toolpath::OpKind::Line,
+                    kind: laserfoundry_toolpath::OpKind::Line,
                     speed: 100.0,
                     passes: 1,
                     air_assist: false,

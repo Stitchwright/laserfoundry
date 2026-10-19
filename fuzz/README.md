@@ -9,7 +9,7 @@ cargo +nightly fuzz run svg          # or: dxf project controller_line gcode_pro
 ```
 
 Every target calls a function in `crates/fuzzkit`, which are also driven by deterministic mutation
-tests that run on stable with `cargo test -p lightfoundry-fuzzkit` (part of `cargo xtask ci`). Those
+tests that run on stable with `cargo test -p laserfoundry-fuzzkit` (part of `cargo xtask ci`). Those
 tests already found two bugs: a panic in the simulated controller on a non-ASCII G-code word, and
 G-code lines containing GRBL real-time bytes (soft reset, `?`, `!`, `~`), which the streamer now
 refuses before sending anything.

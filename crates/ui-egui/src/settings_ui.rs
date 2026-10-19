@@ -4,11 +4,11 @@
 use crate::i18n::{tr, trf};
 use std::collections::BTreeMap;
 
-use lightfoundry_device::settings::{Kind, describe};
-use lightfoundry_doc::Machine;
+use laserfoundry_device::settings::{Kind, describe};
+use laserfoundry_doc::Machine;
 use serde_json::json;
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 
 /// Differences between what the controller reports and what the document assumes.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -52,7 +52,7 @@ pub fn advice(settings: &BTreeMap<u32, String>, machine: &Machine) -> Vec<Advice
     out
 }
 
-pub fn section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub fn section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.collapsing(tr("Controller settings ($$)"), |ui| {
         let busy = app.job_active();
         ui.horizontal(|ui| {
@@ -91,7 +91,7 @@ pub fn section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     });
 }
 
-fn advice_row(app: &mut LightFoundryApp, ui: &mut egui::Ui, a: Advice, busy: bool) {
+fn advice_row(app: &mut LaserFoundryApp, ui: &mut egui::Ui, a: Advice, busy: bool) {
     ui.horizontal_wrapped(|ui| match a {
         Advice::LaserModeOff => {
             ui.colored_label(app.tokens.error, tr("Laser mode ($32) is off."));

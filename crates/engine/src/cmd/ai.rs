@@ -1,10 +1,10 @@
 //! The engine's side of the AI features: describing the open document for the model, and placing the
-//! artwork it draws. The requests themselves are built by `lightfoundry-ai`; the interface sends them.
+//! artwork it draws. The requests themselves are built by `laserfoundry-ai`; the interface sends them.
 
 use std::collections::BTreeMap;
 
-use lightfoundry_doc::{LayerMode, Shape};
-use lightfoundry_geom::Affine;
+use laserfoundry_doc::{LayerMode, Shape};
+use laserfoundry_geom::Affine;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -104,7 +104,7 @@ fn prepare_picture(_: &mut Session, params: &Value) -> Result<Value, EngineError
     let p: PictureParams = parse(params)?;
     let bytes = match (&p.path, &p.data_base64) {
         (Some(path), _) => {
-            lightfoundry_format::read_capped(path, MAX_PICTURE_BYTES)?.ok_or_else(|| EngineError::Import("the picture is too large".into()))?
+            laserfoundry_format::read_capped(path, MAX_PICTURE_BYTES)?.ok_or_else(|| EngineError::Import("the picture is too large".into()))?
         }
         (None, Some(data)) => {
             if data.len() as u64 > MAX_PICTURE_BYTES * 4 / 3 + 16 {
@@ -132,7 +132,7 @@ fn prepare_picture(_: &mut Session, params: &Value) -> Result<Value, EngineError
         px.0[3] = 255;
     }
     let mut rgb = image::DynamicImage::ImageRgba8(rgba).to_rgb8();
-    let side = lightfoundry_ai::IMAGE_SIDE;
+    let side = laserfoundry_ai::IMAGE_SIDE;
     if rgb.width().max(rgb.height()) > side {
         let (w, h) = (rgb.width(), rgb.height());
         let scale = f64::from(side) / f64::from(w.max(h));
@@ -143,8 +143,8 @@ fn prepare_picture(_: &mut Session, params: &Value) -> Result<Value, EngineError
     for quality in [88u8, 70, 50] {
         let mut out = Vec::new();
         image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality).encode_image(&rgb).map_err(|e| EngineError::Import(e.to_string()))?;
-        let data_base64 = lightfoundry_doc::base64::encode(&out);
-        if data_base64.len() <= lightfoundry_ai::MAX_IMAGE_BASE64 {
+        let data_base64 = laserfoundry_doc::base64::encode(&out);
+        if data_base64.len() <= laserfoundry_ai::MAX_IMAGE_BASE64 {
             return Ok(json!({ "media_type": "image/jpeg", "data_base64": data_base64, "width": rgb.width(), "height": rgb.height() }));
         }
     }
@@ -165,14 +165,14 @@ fn place_art(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     if p.size_mm.is_some_and(|v| v < SIZE_LIMITS.0 || v > SIZE_LIMITS.1) {
         return Err(EngineError::BadParams(format!("size_mm must be between {} and {}", SIZE_LIMITS.0, SIZE_LIMITS.1)));
     }
-    let svg = lightfoundry_svg::import_svg(p.svg.as_bytes()).map_err(|e| EngineError::Import(e.to_string()))?;
+    let svg = laserfoundry_svg::import_svg(p.svg.as_bytes()).map_err(|e| EngineError::Import(e.to_string()))?;
     if svg.paths.is_empty() {
         return Err(EngineError::Import("the artwork has no shapes".into()));
     }
     if svg.paths.len() > MAX_ART_SHAPES {
         return Err(EngineError::Import("the artwork has too many shapes".into()));
     }
-    let empty_before: Vec<u32> = (0..lightfoundry_doc::LAYER_COLORS.len() as u32).filter(|l| !s.doc.shapes.iter().any(|sh| sh.layer == *l)).collect();
+    let empty_before: Vec<u32> = (0..laserfoundry_doc::LAYER_COLORS.len() as u32).filter(|l| !s.doc.shapes.iter().any(|sh| sh.layer == *l)).collect();
     let mut ids = Vec::new();
     // Per layer: does all the artwork on it fill its shapes (engraving), or does some of it only outline?
     let mut all_filled: BTreeMap<u32, bool> = BTreeMap::new();

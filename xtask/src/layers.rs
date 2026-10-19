@@ -6,14 +6,14 @@ use std::process::Command;
 
 use serde_json::Value;
 
-const PREFIX: &str = "lightfoundry-";
+const PREFIX: &str = "laserfoundry-";
 const UI_LAYER: u8 = 7;
 const UI_TOOLKITS: &[&str] = &["egui", "eframe", "winit", "rfd", "wgpu", "glow"];
 
 /// Packages that fetch from the network at run time. Only the desktop app and the command line may
 /// use them: the hosted browser build (and the UI and engine it shares) must never download anything.
-const NETWORK_CRATES: &[&str] = &["lightfoundry-fontlib", "ureq"];
-const MAY_USE_NETWORK: &[&str] = &["lightfoundry", "lightfoundry-cli", "lightfoundry-fontlib", "lightfoundry-fuzzkit"];
+const NETWORK_CRATES: &[&str] = &["laserfoundry-fontlib", "ureq"];
+const MAY_USE_NETWORK: &[&str] = &["laserfoundry", "laserfoundry-cli", "laserfoundry-fontlib", "laserfoundry-fuzzkit"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Class {
@@ -24,7 +24,7 @@ pub enum Class {
     Exempt,
 }
 
-/// Package names without the `lightfoundry-` prefix.
+/// Package names without the `laserfoundry-` prefix.
 pub const TABLE: &[(&str, Class)] = &[
     ("geom", Class::Layer(0)),
     ("i18n", Class::Layer(0)),
@@ -44,7 +44,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("ui-egui", Class::Layer(UI_LAYER)),
     ("testkit", Class::Testkit),
     ("fuzzkit", Class::Exempt),
-    ("lightfoundry", Class::Exempt),
+    ("laserfoundry", Class::Exempt),
     ("web", Class::Exempt),
     ("cli", Class::Exempt),
     ("xtask", Class::Exempt),
@@ -157,8 +157,8 @@ mod tests {
     fn downward_dependencies_pass() {
         assert!(
             check(&[
-                pkg("lightfoundry-engine", &[("lightfoundry-doc", false), ("serde", false)]),
-                pkg("lightfoundry-doc", &[("lightfoundry-geom", false)])
+                pkg("laserfoundry-engine", &[("laserfoundry-doc", false), ("serde", false)]),
+                pkg("laserfoundry-doc", &[("laserfoundry-geom", false)])
             ])
             .is_empty()
         );
@@ -166,35 +166,35 @@ mod tests {
 
     #[test]
     fn upward_and_sideways_dependencies_fail() {
-        assert_eq!(check(&[pkg("lightfoundry-doc", &[("lightfoundry-engine", false)])]).len(), 1);
-        assert_eq!(check(&[pkg("lightfoundry-svg", &[("lightfoundry-dxf", false)])]).len(), 1);
+        assert_eq!(check(&[pkg("laserfoundry-doc", &[("laserfoundry-engine", false)])]).len(), 1);
+        assert_eq!(check(&[pkg("laserfoundry-svg", &[("laserfoundry-dxf", false)])]).len(), 1);
     }
 
     #[test]
     fn ui_toolkits_are_banned_below_the_ui_layer() {
-        assert_eq!(check(&[pkg("lightfoundry-engine", &[("egui", false)])]).len(), 1);
-        assert!(check(&[pkg("lightfoundry-ui-egui", &[("egui", false)])]).is_empty());
+        assert_eq!(check(&[pkg("laserfoundry-engine", &[("egui", false)])]).len(), 1);
+        assert!(check(&[pkg("laserfoundry-ui-egui", &[("egui", false)])]).is_empty());
     }
 
     #[test]
     fn unknown_crates_must_be_added_to_the_table() {
-        assert_eq!(check(&[pkg("lightfoundry-mystery", &[])]).len(), 1);
+        assert_eq!(check(&[pkg("laserfoundry-mystery", &[])]).len(), 1);
     }
 
     #[test]
     fn only_the_desktop_app_and_cli_may_download() {
         assert!(
-            check(&[pkg("lightfoundry", &[("lightfoundry-fontlib", false)]), pkg("lightfoundry-cli", &[("lightfoundry-fontlib", false)])]).is_empty()
+            check(&[pkg("laserfoundry", &[("laserfoundry-fontlib", false)]), pkg("laserfoundry-cli", &[("laserfoundry-fontlib", false)])]).is_empty()
         );
-        assert_eq!(check(&[pkg("lightfoundry-web", &[("lightfoundry-fontlib", false)])]).len(), 1);
-        assert_eq!(check(&[pkg("lightfoundry-ui-egui", &[("ureq", false)])]).len(), 1);
-        assert_eq!(check(&[pkg("lightfoundry-engine", &[("lightfoundry-fontlib", false)])]).len(), 1, "the engine runs in the browser too");
+        assert_eq!(check(&[pkg("laserfoundry-web", &[("laserfoundry-fontlib", false)])]).len(), 1);
+        assert_eq!(check(&[pkg("laserfoundry-ui-egui", &[("ureq", false)])]).len(), 1);
+        assert_eq!(check(&[pkg("laserfoundry-engine", &[("laserfoundry-fontlib", false)])]).len(), 1, "the engine runs in the browser too");
     }
 
     #[test]
     fn testkit_is_dev_only() {
-        assert!(check(&[pkg("lightfoundry-engine", &[("lightfoundry-testkit", true)])]).is_empty());
-        assert_eq!(check(&[pkg("lightfoundry-engine", &[("lightfoundry-testkit", false)])]).len(), 1);
+        assert!(check(&[pkg("laserfoundry-engine", &[("laserfoundry-testkit", true)])]).is_empty());
+        assert_eq!(check(&[pkg("laserfoundry-engine", &[("laserfoundry-testkit", false)])]).len(), 1);
     }
 
     #[test]

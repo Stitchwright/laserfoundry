@@ -1,4 +1,4 @@
-use lightfoundry_geom::{Point, Polyline};
+use laserfoundry_geom::{Point, Polyline};
 
 /// Points closer than this (mm) to a line lie on it; overlaps shorter than this are ignored.
 const ON_LINE_MM: f64 = 1e-4;

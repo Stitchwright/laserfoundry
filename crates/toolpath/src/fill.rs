@@ -1,4 +1,4 @@
-use lightfoundry_geom::{Affine, Point, Polyline, bounds_of_polylines};
+use laserfoundry_geom::{Affine, Point, Polyline, bounds_of_polylines};
 
 /// Even-odd scanline fill of every closed polyline together. Returns segments (start, end);
 /// with `bidirectional` every other row is reversed so the head zig-zags.

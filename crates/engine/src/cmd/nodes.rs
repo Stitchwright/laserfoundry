@@ -1,9 +1,9 @@
 //! Node editing: commands that reshape a path by its nodes and handles. Points arrive in
 //! workspace mm and are mapped through the shape's transform.
 
-use lightfoundry_doc::{LayerId, Shape, ShapeId, ShapeKind};
-use lightfoundry_geom::nodes::{MAX_NODES, Node, NodeError, NodePath, Side};
-use lightfoundry_geom::{Affine, BezPath, Point};
+use laserfoundry_doc::{LayerId, Shape, ShapeId, ShapeKind};
+use laserfoundry_geom::nodes::{MAX_NODES, Node, NodeError, NodePath, Side};
+use laserfoundry_geom::{Affine, BezPath, Point};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -268,7 +268,7 @@ fn create(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         let rel = |t: Option<[f64; 2]>| t.map(|t| Point::new(t[0], t[1]) - at);
         nodes.push(Node { p: at, in_h: rel(n.in_tip), out_h: rel(n.out), smooth: n.smooth });
     }
-    let np = NodePath { subpaths: vec![lightfoundry_geom::nodes::SubPath { nodes, closed: p.closed }] };
+    let np = NodePath { subpaths: vec![laserfoundry_geom::nodes::SubPath { nodes, closed: p.closed }] };
     if s.doc.layer(p.layer).is_none() {
         return Err(EngineError::NotFound(format!("layer {} does not exist", p.layer)));
     }

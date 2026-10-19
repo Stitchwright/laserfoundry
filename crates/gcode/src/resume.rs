@@ -52,7 +52,7 @@ pub fn resume_from(program: &str, line: usize) -> Result<String, ResumeError> {
         return Err(ResumeError::Unsupported(line));
     }
     let mut out = String::new();
-    let _ = writeln!(out, "; LightFoundry resume from line {line}");
+    let _ = writeln!(out, "; LaserFoundry resume from line {line}");
     out.push_str("G21\nG90\n");
     // Power stays at zero until the first cutting move says otherwise.
     // Power stays at zero until the first cutting move says otherwise. The program's own line is
@@ -165,13 +165,13 @@ fn num(v: f64) -> String {
 mod tests {
     use super::*;
 
-    const PROGRAM: &str = "; LightFoundry job\nG21\nG90\nM4 S0\nG92 X0 Y0\nM8\nG0 X10 Y10\nG1 X20 Y10 S500 F1200\nG1 Y20\nG0 X50 Y50\nG1 X60 S250\nG1 Y60\nM9\nM5\nG0 X0 Y0\n";
+    const PROGRAM: &str = "; LaserFoundry job\nG21\nG90\nM4 S0\nG92 X0 Y0\nM8\nG0 X10 Y10\nG1 X20 Y10 S500 F1200\nG1 Y20\nG0 X50 Y50\nG1 X60 S250\nG1 Y60\nM9\nM5\nG0 X0 Y0\n";
 
     #[test]
     fn resuming_rebuilds_position_feed_power_and_air() {
         // Line 11 is `G1 X60 S250`; the skipped lines left the head at (50, 50), air on, F1200.
         let r = resume_from(PROGRAM, 11).unwrap();
-        assert!(r.starts_with("; LightFoundry resume from line 11\nG21\nG90\nM4 S0\nM8\nG0 X50 Y50\n"), "{r}");
+        assert!(r.starts_with("; LaserFoundry resume from line 11\nG21\nG90\nM4 S0\nM8\nG0 X50 Y50\n"), "{r}");
         assert!(r.contains("G1 X60 S250 F1200\n"), "feed is restored on the first cut: {r}");
         assert!(r.ends_with("M9\nM5\nG0 X0 Y0\n"));
         assert!(!r.contains("G92"), "the origin is not set a second time");

@@ -1,6 +1,6 @@
-use lightfoundry_device::{SimulatedGrbl, StreamOptions, stream_program};
-use lightfoundry_doc::{Anchor, StartFrom};
-use lightfoundry_gcode::Placement;
+use laserfoundry_device::{SimulatedGrbl, StreamOptions, stream_program};
+use laserfoundry_doc::{Anchor, StartFrom};
+use laserfoundry_gcode::Placement;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -77,8 +77,8 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
 /// Plans the document and renders it as G-code.
 pub(super) fn generate(s: &Session) -> Result<String, EngineError> {
     let doc = s.job_doc();
-    let job = lightfoundry_toolpath::plan(&doc)?;
-    Ok(lightfoundry_gcode::generate(&job, &doc.machine, placement(s)?)?)
+    let job = laserfoundry_toolpath::plan(&doc)?;
+    Ok(laserfoundry_gcode::generate(&job, &doc.machine, placement(s)?)?)
 }
 
 /// Machine placement for the document's "start from" setting.
@@ -87,7 +87,7 @@ fn placement(s: &Session) -> Result<Placement, EngineError> {
     if origin.start_from == StartFrom::Absolute {
         return Ok(Placement::Absolute);
     }
-    let bounds = lightfoundry_toolpath::job_bounds(&s.job_doc()).ok_or_else(|| EngineError::NotFound("there is nothing to output".into()))?;
+    let bounds = laserfoundry_toolpath::job_bounds(&s.job_doc()).ok_or_else(|| EngineError::NotFound("there is nothing to output".into()))?;
     Ok(Placement::Relative {
         anchor: origin.anchor.point(bounds),
         extent: (bounds.width(), bounds.height()),
@@ -119,7 +119,7 @@ struct ResumeParams {
 fn resume(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: ResumeParams = parse(params)?;
     let program = generate(s)?;
-    let text = lightfoundry_gcode::resume_from(&program, p.line).map_err(|e| EngineError::BadParams(e.to_string()))?;
+    let text = laserfoundry_gcode::resume_from(&program, p.line).map_err(|e| EngineError::BadParams(e.to_string()))?;
     let at = program.lines().nth(p.line.saturating_sub(1)).unwrap_or("").to_string();
     let summary = json!({ "from_line": p.line, "total_lines": program.lines().count(), "line": at, "lines": text.lines().count() });
     Ok(if p.include { json!({ "summary": summary, "gcode": text }) } else { summary })
@@ -183,8 +183,8 @@ fn gcode(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 }
 
 fn estimate(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
-    let job = lightfoundry_toolpath::plan(&s.job_doc())?;
-    let t = lightfoundry_toolpath::Timeline::with_acceleration(&job, s.doc.machine.rapid_speed, s.doc.machine.acceleration);
+    let job = laserfoundry_toolpath::plan(&s.job_doc())?;
+    let t = laserfoundry_toolpath::Timeline::with_acceleration(&job, s.doc.machine.rapid_speed, s.doc.machine.acceleration);
     let layers: Vec<Value> = t
         .layers()
         .iter()
@@ -210,8 +210,8 @@ fn frame_speed() -> f64 {
 
 fn frame(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: FrameParams = parse(params)?;
-    let bounds = lightfoundry_toolpath::job_bounds(&s.job_doc()).ok_or_else(|| EngineError::NotFound("there is nothing to frame".into()))?;
-    let program = lightfoundry_gcode::frame(bounds, &s.doc.machine, placement(s)?, p.speed, p.power)?;
+    let bounds = laserfoundry_toolpath::job_bounds(&s.job_doc()).ok_or_else(|| EngineError::NotFound("there is nothing to frame".into()))?;
+    let program = laserfoundry_gcode::frame(bounds, &s.doc.machine, placement(s)?, p.speed, p.power)?;
     Ok(json!({ "gcode": program, "bounds": [bounds.x0, bounds.y0, bounds.x1, bounds.y1] }))
 }
 

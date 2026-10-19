@@ -4,10 +4,10 @@
 
 use crate::i18n::{tr, trf};
 use egui::{Align2, FontId, Stroke, vec2};
-use lightfoundry_geom::Point;
+use laserfoundry_geom::Point;
 use serde_json::json;
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 use crate::view::View;
 
 /// Which mark the next canvas click sets.
@@ -42,7 +42,7 @@ impl Marks {
     }
 }
 
-pub fn section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub fn section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.collapsing(tr("Align to marks (print and cut)"), |ui| {
         ui.weak(tr("1. Mark two spots in the design. 2. Say where they really are: jog the laser onto each printed mark, or click it on a photo of the bed. 3. Align."));
         for actual in [false, true] {
@@ -87,7 +87,7 @@ pub fn section(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     });
 }
 
-fn mark_row(app: &mut LightFoundryApp, ui: &mut egui::Ui, actual: bool, index: usize) {
+fn mark_row(app: &mut LaserFoundryApp, ui: &mut egui::Ui, actual: bool, index: usize) {
     let current = if actual { app.marks.actual } else { app.marks.design }.get(index).copied().flatten();
     ui.horizontal(|ui| {
         ui.label(trf!("Mark {number}", number = index + 1));
@@ -111,7 +111,7 @@ fn mark_row(app: &mut LightFoundryApp, ui: &mut egui::Ui, actual: bool, index: u
 }
 
 /// A canvas click while a mark is being picked. Returns whether the click was used.
-pub fn click(app: &mut LightFoundryApp, at: Point) -> bool {
+pub fn click(app: &mut LaserFoundryApp, at: Point) -> bool {
     let Some(pick) = app.marks.pick else { return false };
     if at.x.is_finite() && at.y.is_finite() {
         app.marks.set(pick, at);
@@ -120,7 +120,7 @@ pub fn click(app: &mut LightFoundryApp, at: Point) -> bool {
     true
 }
 
-pub fn draw(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
+pub fn draw(app: &LaserFoundryApp, painter: &egui::Painter, view: &View) {
     let tokens = &app.tokens;
     for (actual, marks) in [(false, &app.marks.design), (true, &app.marks.actual)] {
         for (i, mark) in marks.iter().enumerate() {

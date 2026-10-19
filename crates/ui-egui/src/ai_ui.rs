@@ -1,19 +1,19 @@
 //! The AI features and the account: Design from Prompt, Redraw Image, Ask About Lasering, Check My Cut and
-//! the account window (sign in, credits, buying more). The requests and replies are `lightfoundry-ai`'s; the
+//! the account window (sign in, credits, buying more). The requests and replies are `laserfoundry-ai`'s; the
 //! host sends them ([`Platform::start_http`]); what changes in the document goes through engine commands.
 
-use lightfoundry_ai::art::{ArtRequest, Use};
-use lightfoundry_ai::ask::Turn;
-use lightfoundry_ai::check::{Check, CheckRequest};
-use lightfoundry_ai::cloud::{self, Account};
-use lightfoundry_ai::{AiError, Auth, HttpRequest, Picture};
+use laserfoundry_ai::art::{ArtRequest, Use};
+use laserfoundry_ai::ask::Turn;
+use laserfoundry_ai::check::{Check, CheckRequest};
+use laserfoundry_ai::cloud::{self, Account};
+use laserfoundry_ai::{AiError, Auth, HttpRequest, Picture};
 use serde_json::{Value, json};
 
-use crate::LightFoundryApp;
+use crate::LaserFoundryApp;
 use crate::i18n::{self, tr, trf};
 
 /// Where the account and key are kept (see [`Platform::secret_set`](crate::Platform::secret_set)).
-const SECRET_KEY: &str = "lightfoundry.ai";
+const SECRET_KEY: &str = "laserfoundry.ai";
 /// The address of the account service built into this app, if any (`LF_CLOUD_URL` at build time).
 const BUILT_IN_SERVER: Option<&str> = option_env!("LF_CLOUD_URL");
 
@@ -128,7 +128,7 @@ impl AiState {
     }
 }
 
-impl LightFoundryApp {
+impl LaserFoundryApp {
     /// Opens one of the AI windows (loading what was kept the first time).
     pub(crate) fn open_ai(&mut self, window: Window) {
         self.load_ai();
@@ -248,7 +248,7 @@ impl LightFoundryApp {
         self.platform.ai_log_file()?;
         let mut body: Value = serde_json::from_str(&request.body).unwrap_or(Value::Null);
         redact_pictures(&mut body);
-        let destination = if self.ai.use_key { lightfoundry_ai::API_URL.to_string() } else { request.url.clone() };
+        let destination = if self.ai.use_key { laserfoundry_ai::API_URL.to_string() } else { request.url.clone() };
         Some(LogEntry { feature, destination, request: body })
     }
 
@@ -307,7 +307,7 @@ impl LightFoundryApp {
                 },
                 Err(e) => self.ai_error(&e),
             },
-            Pending::Art => match lightfoundry_ai::art::parse_reply(status, body, session) {
+            Pending::Art => match laserfoundry_ai::art::parse_reply(status, body, session) {
                 Ok(art) => {
                     let size = self.ai.size_mm;
                     if let Some(placed) = self.run("ai.place_art", json!({ "svg": art.svg, "size_mm": size })) {
@@ -319,7 +319,7 @@ impl LightFoundryApp {
                 }
                 Err(e) => self.ai_error(&e),
             },
-            Pending::Ask => match lightfoundry_ai::ask::parse_reply(status, body, session) {
+            Pending::Ask => match laserfoundry_ai::ask::parse_reply(status, body, session) {
                 Ok(answer) => {
                     self.ai.turns.push(Turn { from_person: false, text: answer });
                     self.refresh_account();
@@ -329,7 +329,7 @@ impl LightFoundryApp {
                     self.ai_error(&e);
                 }
             },
-            Pending::Check => match lightfoundry_ai::check::parse_reply(status, body, session) {
+            Pending::Check => match laserfoundry_ai::check::parse_reply(status, body, session) {
                 Ok(check) => {
                     self.ai.check = Some(check);
                     self.refresh_account();
@@ -408,13 +408,13 @@ impl LightFoundryApp {
     }
 
     fn start_ask(&mut self) {
-        let turn = match lightfoundry_ai::ask::question(&self.ai.question) {
+        let turn = match laserfoundry_ai::ask::question(&self.ai.question) {
             Ok(t) => t,
             Err(e) => return self.ai_error(&e),
         };
         self.ai.turns.push(turn);
         let context = self.ai_context();
-        let http = self.ai.auth().and_then(|auth| lightfoundry_ai::ask::request(&auth, &context, &self.ai.turns));
+        let http = self.ai.auth().and_then(|auth| laserfoundry_ai::ask::request(&auth, &context, &self.ai.turns));
         if http.is_ok() {
             self.ai.question.clear();
         }
@@ -709,7 +709,7 @@ impl LightFoundryApp {
     fn check_window(&mut self, ui: &mut egui::Ui) {
         let busy = self.ai.busy();
         ui.horizontal(|ui| {
-            if ui.add_enabled(self.ai.photos.len() < lightfoundry_ai::MAX_IMAGES, egui::Button::new(tr("Add photo…"))).clicked() {
+            if ui.add_enabled(self.ai.photos.len() < laserfoundry_ai::MAX_IMAGES, egui::Button::new(tr("Add photo…"))).clicked() {
                 self.ask_for_picture(PictureFor::Check);
             }
             if !self.ai.photos.is_empty() && ui.button(tr("Remove photos")).clicked() {
@@ -806,8 +806,8 @@ mod tests {
     use std::path::PathBuf;
     use std::rc::Rc;
 
-    use lightfoundry_device::Transport;
-    use lightfoundry_engine::Session;
+    use laserfoundry_device::Transport;
+    use laserfoundry_engine::Session;
 
     use super::*;
     use crate::Platform;
@@ -894,20 +894,20 @@ mod tests {
     }
 
     /// An app whose person has already agreed to what is sent (the first-use question has its own test).
-    fn app() -> (LightFoundryApp, Rc<RefCell<Shared>>) {
+    fn app() -> (LaserFoundryApp, Rc<RefCell<Shared>>) {
         let shared = Rc::new(RefCell::new(Shared::default()));
         shared.borrow_mut().secrets.insert(SECRET_KEY.into(), json!({ "consented": true }).to_string());
-        (LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared)))), shared)
+        (LaserFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared)))), shared)
     }
 
     /// Gives the answer to the request in flight and lets the app read it.
-    fn answer(app: &mut LightFoundryApp, shared: &Rc<RefCell<Shared>>, status: u16, body: &str) {
+    fn answer(app: &mut LaserFoundryApp, shared: &Rc<RefCell<Shared>>, status: u16, body: &str) {
         shared.borrow_mut().answers.push_back(Ok((status, body.to_string())));
         app.poll_ai(&egui::Context::default());
     }
 
     /// Answers the credits refresh that follows a paid request, if one was sent.
-    fn settle(app: &mut LightFoundryApp, shared: &Rc<RefCell<Shared>>) {
+    fn settle(app: &mut LaserFoundryApp, shared: &Rc<RefCell<Shared>>) {
         if app.ai.pending == Some(Pending::Account) {
             answer(app, shared, 200, r#"{"email":"me@example.com","credits":90,"payments":true,"packs":[]}"#);
         }
@@ -917,7 +917,7 @@ mod tests {
         json!({"type": "message", "model": "m", "stop_reason": "end_turn", "content": [{"type": "text", "text": text}]}).to_string()
     }
 
-    fn sign_in(app: &mut LightFoundryApp, shared: &Rc<RefCell<Shared>>) {
+    fn sign_in(app: &mut LaserFoundryApp, shared: &Rc<RefCell<Shared>>) {
         app.open_ai(Window::Account);
         app.ai.server = "https://c.example".into();
         app.ai.email = "me@example.com".into();
@@ -947,8 +947,8 @@ mod tests {
         assert_eq!(again.ai.server, "https://c.example");
     }
 
-    fn app_with(shared: &Rc<RefCell<Shared>>) -> (LightFoundryApp, ()) {
-        (LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(shared)))), ())
+    fn app_with(shared: &Rc<RefCell<Shared>>) -> (LaserFoundryApp, ()) {
+        (LaserFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(shared)))), ())
     }
 
     #[test]
@@ -985,7 +985,7 @@ mod tests {
     #[test]
     fn the_first_request_waits_for_the_persons_agreement_and_says_where_it_goes() {
         let shared = Rc::new(RefCell::new(Shared::default()));
-        let mut app = LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared))));
+        let mut app = LaserFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared))));
         app.open_ai(Window::Ask);
         app.ai.use_key = true;
         app.ai.key = "sk-ant-x".into();
@@ -1015,7 +1015,7 @@ mod tests {
         app.start_ask();
         assert!(app.ai.awaiting_consent.is_none() && shared.borrow().sent.len() == 3);
         // signing in is not an AI request and never asks
-        let mut app2 = LightFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared))));
+        let mut app2 = LaserFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared))));
         app2.ai.consented = false;
         let request = cloud::sign_in("https://c.example", "a@b.c", "pw pw pw pw");
         app2.send_ai(Pending::SignIn, request);
@@ -1040,7 +1040,7 @@ mod tests {
         // one request at a time
         app.ai.prompt = "a fox".into();
         app.start_design(false);
-        assert_eq!(shared.borrow().sent[0].url, lightfoundry_ai::API_URL, "the person's own key goes to Anthropic");
+        assert_eq!(shared.borrow().sent[0].url, laserfoundry_ai::API_URL, "the person's own key goes to Anthropic");
         app.start_design(false);
         assert_eq!(shared.borrow().sent.len(), 1);
         assert!(matches!(&app.ai.note, Some((m, true)) if m.contains("still running")), "{:?}", app.ai.note);

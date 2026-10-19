@@ -1,4 +1,4 @@
-use lightfoundry_doc::{Document, ShapeId};
+use laserfoundry_doc::{Document, ShapeId};
 use serde_json::Value;
 
 use crate::{EngineError, cmd, guard};

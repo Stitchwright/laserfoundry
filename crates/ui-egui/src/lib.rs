@@ -7,7 +7,7 @@ mod geometry;
 mod head_ui;
 /// Translation catalogs live in their own crate so the command line can use them too.
 pub(crate) mod i18n {
-    pub use lightfoundry_i18n::*;
+    pub use laserfoundry_i18n::*;
 }
 mod ai_ui;
 mod browser_recent;
@@ -37,9 +37,9 @@ use std::time::Duration;
 
 use web_time::Instant;
 
-use lightfoundry_device::{JobState, Link, SimulatedGrbl, Snapshot};
-use lightfoundry_doc::LayerId;
-use lightfoundry_engine::{EngineError, Session};
+use laserfoundry_device::{JobState, Link, SimulatedGrbl, Snapshot};
+use laserfoundry_doc::LayerId;
+use laserfoundry_engine::{EngineError, Session};
 use serde_json::Value;
 
 use crate::geometry::{GeometryCache, PreviewCache};
@@ -81,7 +81,7 @@ struct Reconnect {
     next: Instant,
 }
 
-pub struct LightFoundryApp {
+pub struct LaserFoundryApp {
     pub session: Session,
     platform: Box<dyn Platform>,
     tokens: Tokens,
@@ -97,7 +97,7 @@ pub struct LightFoundryApp {
     show_inspector: bool,
     inspector_decided: bool,
     /// Where the canvas context menu was opened (right-click, or a long press on a touch screen).
-    menu_point: Option<lightfoundry_geom::Point>,
+    menu_point: Option<laserfoundry_geom::Point>,
     /// Frames left in which the view is refitted after the interface scale changed.
     refit_frames: u8,
     /// Where the tablet action bar drew its buttons (the frame tests click them).
@@ -122,7 +122,7 @@ pub struct LightFoundryApp {
     last_job: Option<JobState>,
     console_input: String,
     /// The text being typed in the inspector (committed when the box loses focus).
-    text_buffer: Option<(lightfoundry_doc::ShapeId, String)>,
+    text_buffer: Option<(laserfoundry_doc::ShapeId, String)>,
     text_warning: Option<String>,
     jog_step: f64,
     offset_distance: f64,
@@ -138,7 +138,7 @@ pub struct LightFoundryApp {
     node_drag: Option<nodes_ui::NodeDrag>,
     pen: Option<nodes_ui::Pen>,
     /// Cursor position on the canvas in mm (hover, not only while pressed).
-    hover_world: Option<lightfoundry_geom::Point>,
+    hover_world: Option<laserfoundry_geom::Point>,
     /// Where the canvas was drawn last frame (screen points).
     canvas_rect: Option<egui::Rect>,
     /// Alignment lines the last drag locked onto, for drawing: (x, y).
@@ -146,9 +146,9 @@ pub struct LightFoundryApp {
     /// Equal gaps the last move locked onto, for drawing.
     snap_spacing: Vec<spacing::Gap>,
     /// Points acquired by hovering with a drawing tool; horizontal and vertical lines through them attract the cursor.
-    tracked: Vec<lightfoundry_geom::Point>,
+    tracked: Vec<laserfoundry_geom::Point>,
     /// The point being hovered with the time it was first hovered, until it is acquired.
-    track_candidate: Option<(lightfoundry_geom::Point, f64)>,
+    track_candidate: Option<(laserfoundry_geom::Point, f64)>,
     grid_cols: u32,
     grid_rows: u32,
     grid_speed: (f64, f64),
@@ -230,7 +230,7 @@ pub struct LightFoundryApp {
 }
 
 /// Where a browser-style host keeps the chosen translation catalog.
-const TRANSLATION_KEY: &str = "lightfoundry.translation";
+const TRANSLATION_KEY: &str = "laserfoundry.translation";
 
 /// What a file chosen in a browser-style host is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -247,7 +247,7 @@ pub(crate) enum UploadKind {
 impl UploadKind {
     fn extensions(self) -> &'static [&'static str] {
         match self {
-            UploadKind::Project => &["lightfoundry"],
+            UploadKind::Project => &["laserfoundry"],
             UploadKind::Svg => &["svg"],
             UploadKind::Dxf => &["dxf"],
             UploadKind::Image => &["png", "jpg", "jpeg", "bmp", "gif", "webp"],
@@ -273,7 +273,7 @@ pub(crate) enum PendingAction {
 /// How often a changed document is written to the recovery file.
 pub const AUTOSAVE_INTERVAL: Duration = Duration::from_secs(20);
 
-impl LightFoundryApp {
+impl LaserFoundryApp {
     pub fn new(session: Session, platform: Box<dyn Platform>) -> Self {
         let ports = platform.serial_ports();
         // Offer the newest autosave that still reads back; a damaged newest copy falls back to an older one.
@@ -687,7 +687,7 @@ impl LightFoundryApp {
             return;
         };
         self.awaiting_upload = None;
-        let data = lightfoundry_doc::base64::encode(&upload.bytes);
+        let data = laserfoundry_doc::base64::encode(&upload.bytes);
         let name = upload.name;
         let ok = match kind {
             UploadKind::Project => {
@@ -779,7 +779,7 @@ impl LightFoundryApp {
             }
             PendingAction::Open if self.platform.browser_files() => self.begin_upload(UploadKind::Project),
             PendingAction::Open => {
-                if let Some(path) = self.platform.pick_open("Open project", &["lightfoundry"]) {
+                if let Some(path) = self.platform.pick_open("Open project", &["laserfoundry"]) {
                     self.run("file.open", serde_json::json!({ "path": path }));
                     self.clear_recovery();
                     self.autosave_revision = None;
@@ -797,7 +797,7 @@ impl LightFoundryApp {
                 }
             }
             PendingAction::OpenStored(name) => match self.browser_recent.bytes(&name) {
-                Some(bytes) if self.run("file.open", serde_json::json!({ "data_base64": lightfoundry_doc::base64::encode(&bytes) })).is_some() => {
+                Some(bytes) if self.run("file.open", serde_json::json!({ "data_base64": laserfoundry_doc::base64::encode(&bytes) })).is_some() => {
                     self.clear_recovery();
                     self.autosave_revision = None;
                     self.view = None;
@@ -860,7 +860,7 @@ impl LightFoundryApp {
             let mut choice = None;
             egui::Modal::new(egui::Id::new("recovery")).show(ctx, |ui| {
                 ui.heading(tr("Recover unsaved work?"));
-                ui.label(tr("LightFoundry found work from a previous session that was never saved."));
+                ui.label(tr("LaserFoundry found work from a previous session that was never saved."));
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     if ui.button(tr("Recover")).clicked() {
@@ -880,7 +880,7 @@ impl LightFoundryApp {
             let mut answer = None;
             egui::Modal::new(egui::Id::new("relative_start")).show(ctx, |ui| {
                 ui.heading(tr("Start from where the head is?"));
-                ui.label(tr("This job is placed from the head's position or your own origin, so LightFoundry cannot check that it fits on the bed from there."));
+                ui.label(tr("This job is placed from the head's position or your own origin, so LaserFoundry cannot check that it fits on the bed from there."));
                 ui.label(tr("Make sure the head is where the job should begin and has room on every side, or turn on the controller's soft limits."));
                 ui.checkbox(&mut self.relative_start_trusted, tr("Do not ask again in this session"));
                 ui.add_space(8.0);
@@ -1003,7 +1003,7 @@ impl LightFoundryApp {
         let mut found: Vec<(String, PathBuf)> = entries
             .filter_map(Result::ok)
             .map(|e| e.path())
-            .filter(|p| p.extension().is_some_and(|x| x == "lightfoundry"))
+            .filter(|p| p.extension().is_some_and(|x| x == "laserfoundry"))
             .filter_map(|p| Some((p.file_stem()?.to_string_lossy().into_owned(), p)))
             .collect();
         found.sort();
@@ -1020,11 +1020,11 @@ impl LightFoundryApp {
             return;
         }
         let _ = std::fs::create_dir_all(&dir);
-        let file = dir.join(format!("{clean}.lightfoundry"));
+        let file = dir.join(format!("{clean}.laserfoundry"));
         // Saved as data, so the open project keeps its own path and unsaved state.
         let was_dirty = self.session.dirty;
         let Some(v) = self.session.execute("file.project_data", &serde_json::Value::Null).ok() else { return };
-        let bytes = v["data_base64"].as_str().and_then(lightfoundry_doc::base64::decode).unwrap_or_default();
+        let bytes = v["data_base64"].as_str().and_then(laserfoundry_doc::base64::decode).unwrap_or_default();
         self.session.dirty = was_dirty;
         match std::fs::write(&file, bytes) {
             Ok(()) => self.say(trf!("Saved template {clean}", clean = clean)),
@@ -1060,7 +1060,7 @@ impl LightFoundryApp {
             return;
         }
         let inline = self.platform.inline_link();
-        let transport: Result<Box<dyn lightfoundry_device::Transport + Send>, String> = match &self.target {
+        let transport: Result<Box<dyn laserfoundry_device::Transport + Send>, String> = match &self.target {
             Target::Simulator => {
                 let mut sim = SimulatedGrbl::new();
                 if inline {
@@ -1081,7 +1081,7 @@ impl LightFoundryApp {
         self.start_link(transport);
     }
 
-    fn start_link(&mut self, transport: Result<Box<dyn lightfoundry_device::Transport + Send>, String>) {
+    fn start_link(&mut self, transport: Result<Box<dyn laserfoundry_device::Transport + Send>, String>) {
         match transport {
             Ok(t) => {
                 self.link = Some(if self.platform.inline_link() { Link::connect_inline(t) } else { Link::connect(t) });
@@ -1138,7 +1138,7 @@ impl LightFoundryApp {
         }
         // From the head's position or a user origin the job's place on the bed is not known to the program, so
         // the bed cannot be checked: make the person confirm.
-        if self.session.doc.job_origin.start_from != lightfoundry_doc::StartFrom::Absolute && !self.relative_start_trusted {
+        if self.session.doc.job_origin.start_from != laserfoundry_doc::StartFrom::Absolute && !self.relative_start_trusted {
             self.pending_start = Some(program);
             return;
         }
@@ -1170,7 +1170,7 @@ impl LightFoundryApp {
         let Some(path) = self.platform.job_position_file() else { return };
         let write = |program: &str, acknowledged: usize| {
             let total = program.lines().count();
-            let line = lightfoundry_device::restart_line(program, acknowledged).min(total.max(1));
+            let line = laserfoundry_device::restart_line(program, acknowledged).min(total.max(1));
             job_position::save(&path, &job_position::JobPosition { hash: job_position::fingerprint(program), line, total_lines: total });
         };
         match &snap.job {
@@ -1198,7 +1198,7 @@ impl LightFoundryApp {
     }
 
     /// Runs a link command and shows a refusal in the status bar.
-    pub(crate) fn link_do(&mut self, f: impl FnOnce(&Link) -> Result<(), lightfoundry_device::LinkError>) {
+    pub(crate) fn link_do(&mut self, f: impl FnOnce(&Link) -> Result<(), laserfoundry_device::LinkError>) {
         let Some(link) = &self.link else {
             self.status = Some((tr("Not connected"), true));
             return;
@@ -1367,10 +1367,10 @@ pub(crate) enum Answer {
     Cancel,
 }
 
-/// `name — LightFoundry`, with `*` while there are unsaved changes.
+/// `name — LaserFoundry`, with `*` while there are unsaved changes.
 pub(crate) fn window_title(session: &Session) -> String {
     let name = session.path.as_ref().and_then(|p| p.file_name()).map_or("Untitled".to_string(), |n| n.to_string_lossy().into_owned());
-    format!("{}{name} — LightFoundry", if session.dirty { "*" } else { "" })
+    format!("{}{name} — LaserFoundry", if session.dirty { "*" } else { "" })
 }
 
 /// The presets in a library file; a missing, oversized or damaged file is an empty library.
@@ -1383,8 +1383,8 @@ fn read_library(file: &std::path::Path) -> Vec<Value> {
 }
 
 /// Why a job cannot start while the controller reports `state` (`None` when it can).
-fn not_ready(state: lightfoundry_device::MachineState) -> Option<String> {
-    use lightfoundry_device::MachineState as M;
+fn not_ready(state: laserfoundry_device::MachineState) -> Option<String> {
+    use laserfoundry_device::MachineState as M;
     Some(match state {
         M::Idle | M::Unknown => return None,
         M::Alarm => tr("The machine is in an alarm state: use Unlock ($X) or Home ($H) first"),

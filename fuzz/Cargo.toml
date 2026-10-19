@@ -1,5 +1,5 @@
 [package]
-name = "lightfoundry-fuzz"
+name = "laserfoundry-fuzz"
 version = "0.0.0"
 edition = "2024"
 publish = false
@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-lightfoundry-fuzzkit = { path = "../crates/fuzzkit" }
+laserfoundry-fuzzkit = { path = "../crates/fuzzkit" }
 
 [workspace]
 

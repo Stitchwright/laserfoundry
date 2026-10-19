@@ -1,28 +1,28 @@
 [package]
-name = "lightfoundry-ui-egui"
+name = "laserfoundry-ui-egui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry ui-egui"
+description = "LaserFoundry ui-egui"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-engine = { workspace = true }
-lightfoundry-device = { workspace = true }
-lightfoundry-geom = { workspace = true }
-lightfoundry-doc = { workspace = true }
-lightfoundry-toolpath = { workspace = true }
-lightfoundry-format = { workspace = true }
-lightfoundry-ai = { workspace = true }
+laserfoundry-engine = { workspace = true }
+laserfoundry-device = { workspace = true }
+laserfoundry-geom = { workspace = true }
+laserfoundry-doc = { workspace = true }
+laserfoundry-toolpath = { workspace = true }
+laserfoundry-format = { workspace = true }
+laserfoundry-ai = { workspace = true }
 egui = { workspace = true }
 kurbo = { workspace = true }
-lightfoundry-i18n = { workspace = true }
+laserfoundry-i18n = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 web-time = { workspace = true }
 
 [dev-dependencies]
-lightfoundry-format = { workspace = true }
+laserfoundry-format = { workspace = true }
 image = { workspace = true }

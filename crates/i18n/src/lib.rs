@@ -267,7 +267,7 @@ pub fn load(path: &Path) -> Result<Translation, String> {
 
 /// Where the person's catalog is kept: `translation.json` in the per-user data folder
 /// (`$XDG_DATA_HOME` or `~/.local/share` on Linux, `~/Library/Application Support` on macOS,
-/// `%APPDATA%` on Windows) under `LightFoundry`.
+/// `%APPDATA%` on Windows) under `LaserFoundry`.
 pub fn default_file() -> Option<PathBuf> {
     let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
     let base = if cfg!(target_os = "windows") {
@@ -277,7 +277,7 @@ pub fn default_file() -> Option<PathBuf> {
     } else {
         var("XDG_DATA_HOME").or_else(|| var("HOME").map(|h| h.join(".local").join("share")))
     };
-    Some(base?.join("LightFoundry").join("translation.json"))
+    Some(base?.join("LaserFoundry").join("translation.json"))
 }
 
 #[cfg(test)]

@@ -1,9 +1,9 @@
 use crate::i18n::{tr, trf};
 use serde_json::{Value, json};
 
-use crate::{LightFoundryApp, PendingAction};
+use crate::{LaserFoundryApp, PendingAction};
 
-pub fn menu_bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub fn menu_bar(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     egui::Panel::top("menu").show(ui, |ui| {
         egui::MenuBar::new().ui(ui, |ui| {
             ui.menu_button(tr("File"), |ui| file_menu(app, ui));
@@ -130,7 +130,7 @@ pub fn menu_bar(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// AI: the four features and the account. Each opens its own window.
-fn ai_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn ai_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     use crate::ai_ui::Window;
     for (label, window) in [
         ("Design from Prompt…", Window::Design),
@@ -150,8 +150,8 @@ fn ai_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
 }
 
 /// Help: each entry's command returns a web address, which the system browser opens.
-fn help_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
-    for (label, id) in [("LightFoundry on GitHub", "help.github"), ("Report a Bug…", "help.report_bug")] {
+fn help_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
+    for (label, id) in [("LaserFoundry on GitHub", "help.github"), ("Report a Bug…", "help.report_bug")] {
         if item(ui, label, "")
             && let Some(url) = app.run(id, Value::Null).and_then(|v| v["url"].as_str().map(str::to_string))
         {
@@ -160,7 +160,7 @@ fn help_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn file_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn file_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if item(ui, "New", "Ctrl+N") {
         app.request(PendingAction::New);
     }
@@ -222,7 +222,7 @@ fn file_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn template_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn template_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if app.templates_available() {
         let templates = app.templates();
         let mut chosen = None;
@@ -253,7 +253,7 @@ fn template_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn recent_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn recent_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if app.platform_browser_files() {
         return browser_recent_menu(app, ui);
     }
@@ -285,7 +285,7 @@ fn recent_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn edit_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn edit_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let (can_undo, can_redo) = (app.session.can_undo(), app.session.can_redo());
     use crate::shortcuts::Action;
     if ui.add_enabled(can_undo, egui::Button::new(tr("Undo")).shortcut_text(app.shortcuts.text(Action::Undo))).clicked() {
@@ -315,7 +315,7 @@ fn edit_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-pub(crate) fn arrange_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub(crate) fn arrange_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.add_enabled_ui(!app.session.selection.is_empty(), |ui| {
         for (label, to) in [
             ("Align Left", "left"),
@@ -340,7 +340,7 @@ pub(crate) fn arrange_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
         });
         ui.add_enabled_ui(app.session.selection.len() == 2, |ui| {
             if ui.button(tr("Text on Path")).on_hover_text(tr("Select a text and the shape to bend it along")).clicked() {
-                let is_text = |id: &u64| app.session.doc.shape(*id).is_some_and(|s| matches!(s.kind, lightfoundry_doc::ShapeKind::Text { .. }));
+                let is_text = |id: &u64| app.session.doc.shape(*id).is_some_and(|s| matches!(s.kind, laserfoundry_doc::ShapeKind::Text { .. }));
                 if let [a, b] = app.session.selection[..] {
                     let (text, path) = if is_text(&a) { (a, b) } else { (b, a) };
                     app.run("text.on_path", json!({ "text": text, "path": path }));
@@ -394,7 +394,7 @@ pub(crate) fn arrange_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
     });
 }
 
-fn laser_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn laser_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if ui.button(tr("Generate G-code")).clicked() {
         if app.run("job.gcode", Value::Null).is_some() {
             app.say(tr("G-code generated"));
@@ -426,17 +426,17 @@ fn item(ui: &mut egui::Ui, label: &str, shortcut: &str) -> bool {
 }
 
 /// Saves (asking for a path when needed). Returns whether the document was saved.
-pub(crate) fn save(app: &mut LightFoundryApp, always_ask: bool) -> bool {
+pub(crate) fn save(app: &mut LaserFoundryApp, always_ask: bool) -> bool {
     if app.platform_browser_files() {
         let Some(v) = app.run("file.project_data", Value::Null) else { return false };
-        let bytes = v["data_base64"].as_str().and_then(lightfoundry_doc::base64::decode).unwrap_or_default();
+        let bytes = v["data_base64"].as_str().and_then(laserfoundry_doc::base64::decode).unwrap_or_default();
         let name =
-            app.session.path.as_ref().and_then(|p| p.file_name()).map_or("project.lightfoundry".to_string(), |n| n.to_string_lossy().into_owned());
+            app.session.path.as_ref().and_then(|p| p.file_name()).map_or("project.laserfoundry".to_string(), |n| n.to_string_lossy().into_owned());
         app.download(&name, &bytes, "application/json");
         app.remember_project(&name, &bytes);
         return true;
     }
-    let path = if always_ask || app.session.path.is_none() { app.pick_save("Save project", "project.lightfoundry", &["lightfoundry"]) } else { None };
+    let path = if always_ask || app.session.path.is_none() { app.pick_save("Save project", "project.laserfoundry", &["laserfoundry"]) } else { None };
     let params = path.map_or(Value::Null, |p| json!({ "path": p }));
     if (always_ask && params.is_null()) || (app.session.path.is_none() && params.is_null()) {
         return false;
@@ -448,7 +448,7 @@ pub(crate) fn save(app: &mut LightFoundryApp, always_ask: bool) -> bool {
     false
 }
 
-fn import(app: &mut LightFoundryApp, command: &str, title: &str, exts: &[&str]) {
+fn import(app: &mut LaserFoundryApp, command: &str, title: &str, exts: &[&str]) {
     if app.platform_browser_files() {
         let kind = match command {
             "file.import_svg" => crate::UploadKind::Svg,
@@ -478,7 +478,7 @@ pub fn format_duration(seconds: f64) -> String {
 }
 
 /// "Open Recent" in a browser: the projects it kept, by name.
-fn browser_recent_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+fn browser_recent_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let mut chosen = None;
     let mut clear = false;
     ui.add_enabled_ui(!app.browser_recent.entries.is_empty(), |ui| {

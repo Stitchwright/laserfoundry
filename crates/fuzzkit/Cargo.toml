@@ -1,5 +1,5 @@
 [package]
-name = "lightfoundry-fuzzkit"
+name = "laserfoundry-fuzzkit"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,14 +9,14 @@ publish = false
 workspace = true
 
 [dependencies]
-lightfoundry-engine = { workspace = true }
-lightfoundry-svg = { workspace = true }
-lightfoundry-dxf = { workspace = true }
-lightfoundry-format = { workspace = true }
-lightfoundry-device = { workspace = true }
-lightfoundry-mcp = { workspace = true }
-lightfoundry-text = { workspace = true }
-lightfoundry-fontlib = { workspace = true }
-lightfoundry-ai = { workspace = true }
-lightfoundry-web = { path = "../../apps/lightfoundry-web" }
+laserfoundry-engine = { workspace = true }
+laserfoundry-svg = { workspace = true }
+laserfoundry-dxf = { workspace = true }
+laserfoundry-format = { workspace = true }
+laserfoundry-device = { workspace = true }
+laserfoundry-mcp = { workspace = true }
+laserfoundry-text = { workspace = true }
+laserfoundry-fontlib = { workspace = true }
+laserfoundry-ai = { workspace = true }
+laserfoundry-web = { path = "../../apps/laserfoundry-web" }
 serde_json = { workspace = true }

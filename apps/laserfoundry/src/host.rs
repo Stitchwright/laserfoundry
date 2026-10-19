@@ -2,12 +2,12 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, mpsc};
 
-use lightfoundry_device::Transport;
-use lightfoundry_mcp::link::LinkServer;
-use lightfoundry_ui_egui::{LightFoundryApp, Platform};
+use laserfoundry_device::Transport;
+use laserfoundry_mcp::link::LinkServer;
+use laserfoundry_ui_egui::{LaserFoundryApp, Platform};
 
 pub struct Host {
-    pub app: LightFoundryApp,
+    pub app: LaserFoundryApp,
     /// Present only when the person switched agent access on; closing the app closes it.
     pub agent_link: Option<LinkServer>,
 }
@@ -35,52 +35,52 @@ pub struct DesktopPlatform {
 
 impl Platform for DesktopPlatform {
     fn recovery_file(&self) -> Option<PathBuf> {
-        Some(data_dir()?.join("LightFoundry").join("recovery.lightfoundry"))
+        Some(data_dir()?.join("LaserFoundry").join("recovery.laserfoundry"))
     }
 
     fn job_position_file(&self) -> Option<PathBuf> {
-        Some(data_dir()?.join("LightFoundry").join("job-position.json"))
+        Some(data_dir()?.join("LaserFoundry").join("job-position.json"))
     }
 
     fn translation_file(&self) -> Option<PathBuf> {
-        lightfoundry_i18n::default_file()
+        laserfoundry_i18n::default_file()
     }
 
     fn preset_library_file(&self) -> Option<PathBuf> {
-        Some(data_dir()?.join("LightFoundry").join("presets.json"))
+        Some(data_dir()?.join("LaserFoundry").join("presets.json"))
     }
 
     fn templates_dir(&self) -> Option<PathBuf> {
-        Some(data_dir()?.join("LightFoundry").join("templates"))
+        Some(data_dir()?.join("LaserFoundry").join("templates"))
     }
 
     fn recent_file(&self) -> Option<PathBuf> {
-        Some(data_dir()?.join("LightFoundry").join("recent.json"))
+        Some(data_dir()?.join("LaserFoundry").join("recent.json"))
     }
 
     fn shortcuts_file(&self) -> Option<PathBuf> {
-        Some(data_dir()?.join("LightFoundry").join("shortcuts.json"))
+        Some(data_dir()?.join("LaserFoundry").join("shortcuts.json"))
     }
 
     fn font_library_available(&self) -> bool {
-        lightfoundry_fontlib::default_dir().is_some()
+        laserfoundry_fontlib::default_dir().is_some()
     }
 
     fn font_library_dir(&self) -> Option<PathBuf> {
-        lightfoundry_fontlib::default_dir()
+        laserfoundry_fontlib::default_dir()
     }
 
     fn start_font_library_download(&self, everything: bool) -> bool {
-        let (Some(dest), Ok(mut job)) = (lightfoundry_fontlib::default_dir(), self.font_job.lock()) else { return false };
+        let (Some(dest), Ok(mut job)) = (laserfoundry_fontlib::default_dir(), self.font_job.lock()) else { return false };
         if job.is_some() {
             return false;
         }
         let (sender, receiver) = mpsc::channel();
         *job = Some(receiver);
-        let set = if everything { lightfoundry_fontlib::Set::Everything } else { lightfoundry_fontlib::Set::Foundry };
+        let set = if everything { laserfoundry_fontlib::Set::Everything } else { laserfoundry_fontlib::Set::Foundry };
         std::thread::spawn(move || {
             let cancel = AtomicBool::new(false);
-            let result = lightfoundry_fontlib::download(&dest, &lightfoundry_fontlib::Source::default(), set, &cancel, &mut |_, _| {})
+            let result = laserfoundry_fontlib::download(&dest, &laserfoundry_fontlib::Source::default(), set, &cancel, &mut |_, _| {})
                 .map(|s| {
                     format!(
                         "Font library: {} downloaded, {} already there, in {}. The Foundry fonts are under Library fonts in the text inspector.",
@@ -114,7 +114,7 @@ impl Platform for DesktopPlatform {
         true
     }
 
-    fn start_http(&self, request: lightfoundry_ai::HttpRequest) -> bool {
+    fn start_http(&self, request: laserfoundry_ai::HttpRequest) -> bool {
         let Ok(mut job) = self.http_job.lock() else { return false };
         if job.is_some() {
             return false;
@@ -143,15 +143,15 @@ impl Platform for DesktopPlatform {
     }
 
     fn ai_log_file(&self) -> Option<PathBuf> {
-        Some(data_dir()?.join("LightFoundry").join("ai-log.jsonl"))
+        Some(data_dir()?.join("LaserFoundry").join("ai-log.jsonl"))
     }
 
     fn secret_get(&self, key: &str) -> Option<String> {
-        crate::net::secret_get(&data_dir()?.join("LightFoundry").join("secrets.json"), key)
+        crate::net::secret_get(&data_dir()?.join("LaserFoundry").join("secrets.json"), key)
     }
 
     fn secret_set(&self, key: &str, value: &str) {
-        let Some(path) = data_dir().map(|d| d.join("LightFoundry").join("secrets.json")) else { return };
+        let Some(path) = data_dir().map(|d| d.join("LaserFoundry").join("secrets.json")) else { return };
         if let Err(e) = crate::net::secret_set(&path, key, value) {
             log::warn!("could not keep the account settings: {e}");
         }
@@ -176,7 +176,7 @@ impl Platform for DesktopPlatform {
 
     #[cfg(feature = "serial")]
     fn serial_ports(&self) -> Vec<String> {
-        lightfoundry_device::serial::list_ports()
+        laserfoundry_device::serial::list_ports()
     }
 
     #[cfg(not(feature = "serial"))]
@@ -186,7 +186,7 @@ impl Platform for DesktopPlatform {
 
     #[cfg(feature = "serial")]
     fn open_serial(&self, port: &str) -> Result<Box<dyn Transport + Send>, String> {
-        let t = lightfoundry_device::serial::SerialTransport::open(port, lightfoundry_device::serial::DEFAULT_BAUD).map_err(|e| e.to_string())?;
+        let t = laserfoundry_device::serial::SerialTransport::open(port, laserfoundry_device::serial::DEFAULT_BAUD).map_err(|e| e.to_string())?;
         Ok(Box::new(t))
     }
 
@@ -213,7 +213,7 @@ fn data_dir() -> Option<PathBuf> {
 /// owner only, so other people on a shared computer cannot read a person's designs. A failure is logged and
 /// the app carries on: the files inside are still written.
 pub fn make_data_folder_private() {
-    let Some(dir) = data_dir().map(|d| d.join("LightFoundry")) else { return };
+    let Some(dir) = data_dir().map(|d| d.join("LaserFoundry")) else { return };
     if let Err(e) = make_private(&dir) {
         log::warn!("could not make {} private: {e}", dir.display());
     }
@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn the_data_folder_becomes_owner_only() {
-        let dir = std::env::temp_dir().join(format!("lf-private-{}", std::process::id())).join("LightFoundry");
+        let dir = std::env::temp_dir().join(format!("lf-private-{}", std::process::id())).join("LaserFoundry");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::set_permissions(&dir, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
         make_private(&dir).unwrap();

@@ -1,6 +1,6 @@
 use egui::{Align2, Color32, FontId, PointerButton, Pos2, Sense, Shape, Stroke, vec2};
-use lightfoundry_doc::Origin;
-use lightfoundry_geom::{Affine, Point, Rect};
+use laserfoundry_doc::Origin;
+use laserfoundry_geom::{Affine, Point, Rect};
 use serde_json::json;
 
 use crate::i18n::{tr, trf};
@@ -8,7 +8,7 @@ use crate::snap::{self, SnapSettings, SnapTargets};
 use crate::spacing;
 
 use crate::view::View;
-use crate::{LightFoundryApp, Tool};
+use crate::{LaserFoundryApp, Tool};
 use crate::{crop_ui, head_ui, nodes_ui, register_ui, timeline_ui};
 
 /// Pointer-distance (screen points) within which handles and edges are hit.
@@ -70,7 +70,7 @@ pub(crate) struct Snapper {
 }
 
 impl Snapper {
-    fn new(app: &LightFoundryApp, view: &View) -> Snapper {
+    fn new(app: &LaserFoundryApp, view: &View) -> Snapper {
         let mut all = SnapTargets::default();
         let mut others = SnapTargets::default();
         for t in [&mut all, &mut others] {
@@ -96,7 +96,7 @@ impl Snapper {
             }
             // Corners and edge midpoints of drawn paths (not text, which has too many to be useful).
             if let Some(shape) = app.session.doc.shape(item.id)
-                && let lightfoundry_doc::ShapeKind::Path { path } = &shape.kind
+                && let laserfoundry_doc::ShapeKind::Path { path } = &shape.kind
                 && vertices < snap::MAX_VERTEX_TARGETS
             {
                 for (p, kind) in snap::path_points(path, shape.transform, snap::MAX_VERTEX_TARGETS_PER_SHAPE) {
@@ -159,7 +159,7 @@ const TRACK_DWELL_SECS: f64 = 0.5;
 pub(crate) type SnapLines = (Option<snap::Target>, Option<snap::Target>, Option<snap::Diagonal>);
 
 /// The far end of a drag as it will be applied: constrained by Shift, otherwise snapped.
-fn drag_end(app: &LightFoundryApp, snapper: &Snapper, start: Point, raw: Point, shift: bool) -> (Point, SnapLines, Vec<spacing::Gap>) {
+fn drag_end(app: &LaserFoundryApp, snapper: &Snapper, start: Point, raw: Point, shift: bool) -> (Point, SnapLines, Vec<spacing::Gap>) {
     if shift {
         let p = match app.tool {
             Tool::Line => snap::constrain_angle(start, raw, 15.0),
@@ -173,7 +173,7 @@ fn drag_end(app: &LightFoundryApp, snapper: &Snapper, start: Point, raw: Point, 
     (end, (s.x_line, s.y_line, s.diagonal), gaps)
 }
 
-pub fn show(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Other, true, "Design canvas"));
     let canvas_rect = resp.rect;
@@ -264,7 +264,7 @@ fn navigate(ui: &egui::Ui, resp: &egui::Response, view: &mut View, hand: bool) {
 
 /// Handles pointer interaction and returns the live move offset (mm) while dragging a selection.
 fn interact(
-    app: &mut LightFoundryApp,
+    app: &mut LaserFoundryApp,
     ui: &egui::Ui,
     resp: &egui::Response,
     view: &View,
@@ -364,13 +364,13 @@ fn interact(
 }
 
 /// Whether a screen position is on a ruler strip.
-pub(crate) fn in_ruler(app: &LightFoundryApp, canvas: egui::Rect, p: Pos2) -> bool {
+pub(crate) fn in_ruler(app: &LaserFoundryApp, canvas: egui::Rect, p: Pos2) -> bool {
     app.show_rulers && canvas.contains(p) && (p.x - canvas.min.x < RULER_PX || p.y - canvas.min.y < RULER_PX)
 }
 
 /// The selection's move offset: Shift locks to the dominant axis, otherwise alignment and grid
 /// snapping adjust it (and remember which lines were hit, for drawing).
-fn move_offset(app: &mut LightFoundryApp, snapper: &Snapper, start: Point, p: Point, shift: bool) -> (f64, f64) {
+fn move_offset(app: &mut LaserFoundryApp, snapper: &Snapper, start: Point, p: Point, shift: bool) -> (f64, f64) {
     let mut raw = (p.x - start.x, p.y - start.y);
     if shift {
         if raw.0.abs() >= raw.1.abs() {
@@ -414,7 +414,7 @@ fn move_offset(app: &mut LightFoundryApp, snapper: &Snapper, start: Point, p: Po
     delta
 }
 
-fn begin_drag(app: &mut LightFoundryApp, p: Point, screen: Option<Pos2>, canvas: egui::Rect, tol: f64, shift: bool, snapper: &Snapper) -> Drag {
+fn begin_drag(app: &mut LaserFoundryApp, p: Point, screen: Option<Pos2>, canvas: egui::Rect, tol: f64, shift: bool, snapper: &Snapper) -> Drag {
     // Pulling a guide out of a ruler comes before any tool.
     if let Some(s) = screen
         && in_ruler(app, canvas, s)
@@ -450,7 +450,7 @@ fn begin_drag(app: &mut LightFoundryApp, p: Point, screen: Option<Pos2>, canvas:
     }
 }
 
-fn finish_drag(app: &mut LightFoundryApp, end: Point, offset: (f64, f64), shift: bool, snapper: &Snapper, released_on_ruler: bool) {
+fn finish_drag(app: &mut LaserFoundryApp, end: Point, offset: (f64, f64), shift: bool, snapper: &Snapper, released_on_ruler: bool) {
     match app.drag {
         Drag::None => {}
         Drag::Create { start } => {
@@ -505,7 +505,7 @@ fn finish_drag(app: &mut LightFoundryApp, end: Point, offset: (f64, f64), shift:
     }
 }
 
-fn create(app: &mut LightFoundryApp, a: Point, b: Point) {
+fn create(app: &mut LaserFoundryApp, a: Point, b: Point) {
     let (w, h) = ((b.x - a.x).abs(), (b.y - a.y).abs());
     let layer = app.active_layer;
     match app.tool {
@@ -529,7 +529,7 @@ fn create(app: &mut LightFoundryApp, a: Point, b: Point) {
     }
 }
 
-fn click_select(app: &mut LightFoundryApp, p: Point, tol: f64, shift: bool) {
+fn click_select(app: &mut LaserFoundryApp, p: Point, tol: f64, shift: bool) {
     let hit = app.geometry.pick(p, tol);
     let mut ids = if shift { app.session.selection.clone() } else { Vec::new() };
     if let Some(id) = hit {
@@ -543,14 +543,14 @@ fn click_select(app: &mut LightFoundryApp, p: Point, tol: f64, shift: bool) {
 }
 
 /// The corner opposite to a selection-bounds corner under `p`, if any.
-fn handle_at(app: &LightFoundryApp, p: Point, tol: f64) -> Option<Point> {
+fn handle_at(app: &LaserFoundryApp, p: Point, tol: f64) -> Option<Point> {
     let b = app.session.doc.bounds_of(&app.session.selection)?;
     let tol = if app.tablet_active() { tol.min(0.3 * (b.x1 - b.x0).min(b.y1 - b.y0)) } else { tol };
     let corners = [(b.x0, b.y0, b.x1, b.y1), (b.x1, b.y0, b.x0, b.y1), (b.x1, b.y1, b.x0, b.y0), (b.x0, b.y1, b.x1, b.y0)];
     corners.iter().find(|(cx, cy, _, _)| p.distance(Point::new(*cx, *cy)) <= tol).map(|(_, _, ax, ay)| Point::new(*ax, *ay))
 }
 
-fn draw_bed(app: &LightFoundryApp, painter: &egui::Painter, view: &View, w: f64, h: f64) {
+fn draw_bed(app: &LaserFoundryApp, painter: &egui::Painter, view: &View, w: f64, h: f64) {
     let t = &app.tokens;
     let bed = egui::Rect::from_two_pos(view.to_screen(Point::new(0.0, 0.0)), view.to_screen(Point::new(w, h)));
     painter.rect_filled(bed, 0.0, t.bed);
@@ -581,7 +581,7 @@ fn draw_bed(app: &LightFoundryApp, painter: &egui::Painter, view: &View, w: f64,
     painter.circle_filled(o, 3.0, t.origin);
 }
 
-fn draw_shapes(app: &mut LightFoundryApp, painter: &egui::Painter, view: &View, clip: egui::Rect, offset: (f64, f64)) {
+fn draw_shapes(app: &mut LaserFoundryApp, painter: &egui::Painter, view: &View, clip: egui::Rect, offset: (f64, f64)) {
     let shift = Affine::translate(offset);
     let dim = app.show_preview;
     for item in &app.geometry.items {
@@ -613,14 +613,14 @@ fn draw_shapes(app: &mut LightFoundryApp, painter: &egui::Painter, view: &View, 
 /// falling back to a labelled box if no texture can be made.
 fn draw_image(
     thumbs: &mut crate::geometry::ImageTextures,
-    doc: &lightfoundry_doc::Document,
+    doc: &laserfoundry_doc::Document,
     painter: &egui::Painter,
     view: &View,
-    id: lightfoundry_doc::ShapeId,
+    id: laserfoundry_doc::ShapeId,
     extra: Affine,
 ) {
     let Some(shape) = doc.shape(id).cloned() else { return };
-    let lightfoundry_doc::ShapeKind::Image { width_mm, height_mm, .. } = &shape.kind else { return };
+    let laserfoundry_doc::ShapeKind::Image { width_mm, height_mm, .. } = &shape.kind else { return };
     let (w, h) = (*width_mm, *height_mm);
     let Some(texture) = thumbs.get(painter.ctx(), &shape) else { return };
     let corner = |x: f64, y: f64| view.to_screen(extra * shape.transform * Point::new(x, y));
@@ -650,7 +650,7 @@ struct PreviewRanges {
     speed: (f32, f32),
 }
 
-fn draw_preview(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
+fn draw_preview(app: &LaserFoundryApp, painter: &egui::Painter, view: &View) {
     let ranges = PreviewRanges { power: app.preview.power_range, speed: app.preview.speed_range };
     let now = app.player.position.and_then(|t| app.preview.timeline.at(t));
     for seg in &app.preview.segments {
@@ -692,7 +692,7 @@ fn draw_preview(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
     }
 }
 
-fn preview_stroke(app: &LightFoundryApp, seg: &crate::geometry::PreviewSegment, ranges: &PreviewRanges) -> Stroke {
+fn preview_stroke(app: &LaserFoundryApp, seg: &crate::geometry::PreviewSegment, ranges: &PreviewRanges) -> Stroke {
     if seg.power <= 0.0 {
         return Stroke::new(1.0, app.tokens.travel);
     }
@@ -711,7 +711,7 @@ fn preview_stroke(app: &LightFoundryApp, seg: &crate::geometry::PreviewSegment, 
 }
 
 fn draw_overlays(
-    app: &LightFoundryApp,
+    app: &LaserFoundryApp,
     painter: &egui::Painter,
     view: &View,
     pointer: Option<Point>,
@@ -866,7 +866,7 @@ fn draw_alignment(painter: &egui::Painter, view: &View, lines: &SnapLines, mover
 /// centre does it; with any tool (Select too, where resting is how things are picked), pressing T
 /// over one acquires it, and again removes it. Escape, finishing a shape or move, or the Nodes tool
 /// forget them all.
-fn update_tracking(app: &mut LightFoundryApp, ui: &egui::Ui, snapper: &Snapper, hover: Option<Point>, idle: bool) {
+fn update_tracking(app: &mut LaserFoundryApp, ui: &egui::Ui, snapper: &Snapper, hover: Option<Point>, idle: bool) {
     if matches!(app.tool, Tool::Nodes) {
         app.tracked.clear();
         app.track_candidate = None;
@@ -909,7 +909,7 @@ fn update_tracking(app: &mut LightFoundryApp, ui: &egui::Ui, snapper: &Snapper, 
 
 /// The context menu: the usual edits on the selection, tracking and guides at the point pressed (both
 /// work without hovering, for touch screens), and the Arrange commands.
-fn canvas_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui, snapper: &Snapper) {
+fn canvas_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui, snapper: &Snapper) {
     let (can_undo, can_redo, selected) = (app.session.can_undo(), app.session.can_redo(), !app.session.selection.is_empty());
     for (enabled, label, id) in [
         (can_undo, "Undo", "edit.undo"),
@@ -959,7 +959,7 @@ fn canvas_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui, snapper: &Snapper) 
     ui.menu_button(tr("Arrange"), |ui| crate::menus::arrange_menu(app, ui));
 }
 
-fn acquire(app: &mut LightFoundryApp, p: Point) {
+fn acquire(app: &mut LaserFoundryApp, p: Point) {
     app.tracked.push(p);
     if app.tracked.len() > snap::MAX_TRACKED {
         app.tracked.remove(0);
@@ -967,7 +967,7 @@ fn acquire(app: &mut LightFoundryApp, p: Point) {
 }
 
 /// A + on each acquired point, and a ring on the one being acquired.
-fn draw_tracked(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
+fn draw_tracked(app: &LaserFoundryApp, painter: &egui::Painter, view: &View) {
     let stroke = Stroke::new(1.5, app.tokens.guide);
     for p in &app.tracked {
         let c = view.to_screen(*p);
@@ -979,7 +979,7 @@ fn draw_tracked(app: &LightFoundryApp, painter: &egui::Painter, view: &View) {
     }
 }
 
-fn draw_guides(app: &LightFoundryApp, painter: &egui::Painter, view: &View, clip: egui::Rect) {
+fn draw_guides(app: &LaserFoundryApp, painter: &egui::Painter, view: &View, clip: egui::Rect) {
     for g in &app.guides {
         draw_guide_line(painter, view, clip, *g, app.tokens.guide.gamma_multiply(0.7));
     }
@@ -997,7 +997,7 @@ fn draw_guide_line(painter: &egui::Painter, view: &View, clip: egui::Rect, g: Gu
 }
 
 /// Rulers along the top and left edges, in mm, with the cursor position marked.
-fn draw_rulers(app: &LightFoundryApp, painter: &egui::Painter, view: &View, canvas: egui::Rect, hover: Option<Point>) {
+fn draw_rulers(app: &LaserFoundryApp, painter: &egui::Painter, view: &View, canvas: egui::Rect, hover: Option<Point>) {
     let t = &app.tokens;
     let (top, left) = (
         egui::Rect::from_min_size(canvas.min, vec2(canvas.width(), RULER_PX)),
@@ -1060,7 +1060,7 @@ fn trim_mm(v: f64) -> String {
     if s.is_empty() || s == "-0" { "0".into() } else { s.into() }
 }
 
-fn draw_create_ghost(app: &LightFoundryApp, painter: &egui::Painter, view: &View, a: Point, b: Point, stroke: Stroke) {
+fn draw_create_ghost(app: &LaserFoundryApp, painter: &egui::Painter, view: &View, a: Point, b: Point, stroke: Stroke) {
     let (sa, sb) = (view.to_screen(a), view.to_screen(b));
     match app.tool {
         Tool::Rectangle => {

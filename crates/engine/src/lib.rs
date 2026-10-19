@@ -1,4 +1,4 @@
-//! The LightFoundry engine: a [`Session`] owns the document, selection and undo history, and every
+//! The LaserFoundry engine: a [`Session`] owns the document, selection and undo history, and every
 //! user-visible action is a [`CommandSpec`] in the registry. Menus, the UI, the CLI and (later)
 //! MCP all go through [`Session::execute`], so anything a person can do an agent can do.
 

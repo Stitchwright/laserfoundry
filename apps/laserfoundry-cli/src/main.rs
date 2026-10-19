@@ -1,36 +1,36 @@
-//! Headless LightFoundry: batch conversion and a JSON command interface.
+//! Headless LaserFoundry: batch conversion and a JSON command interface.
 //!
 //! ```text
-//! lightfoundry-cli gcode design.svg -o job.gcode [--layer 0:speed=900,max_power=40] [--bed 300x200] [--origin top_left]
-//! lightfoundry-cli info design.svg
-//! lightfoundry-cli commands
-//! lightfoundry-cli mcp                        # Model Context Protocol server on stdin/stdout
-//! lightfoundry-cli mcp --connect              # the same, but editing the drawing open in a running `lightfoundry --agent-link`
-//! lightfoundry-cli run script.json            # [{"id": "...", "params": {...}}, ...] then prints the last result
-//! lightfoundry-cli fonts download [--all] [--to DIR]   # fetch the font library (the Foundry fonts; --all adds Ink/Stitch's)
-//! lightfoundry-cli translation-template       # every text this tool prints, as a catalog to translate
+//! laserfoundry-cli gcode design.svg -o job.gcode [--layer 0:speed=900,max_power=40] [--bed 300x200] [--origin top_left]
+//! laserfoundry-cli info design.svg
+//! laserfoundry-cli commands
+//! laserfoundry-cli mcp                        # Model Context Protocol server on stdin/stdout
+//! laserfoundry-cli mcp --connect              # the same, but editing the drawing open in a running `laserfoundry --agent-link`
+//! laserfoundry-cli run script.json            # [{"id": "...", "params": {...}}, ...] then prints the last result
+//! laserfoundry-cli fonts download [--all] [--to DIR]   # fetch the font library (the Foundry fonts; --all adds Ink/Stitch's)
+//! laserfoundry-cli translation-template       # every text this tool prints, as a catalog to translate
 //! ```
 //!
 //! Output is translated with the same catalog as the desktop app (`translation.json` in the
-//! LightFoundry data folder), or the one named by `--translation FILE` or `$LIGHTFOUNDRY_TRANSLATION`.
+//! LaserFoundry data folder), or the one named by `--translation FILE` or `$LASERFOUNDRY_TRANSLATION`.
 
 use std::path::Path;
 use std::process::ExitCode;
 
-use lightfoundry_engine::{Session, commands};
+use laserfoundry_engine::{Session, commands};
 use serde_json::{Value, json};
 
 /// Every fixed text the tool prints, so a translator can be given all of them (`translation-template`).
 const USAGE_LINES: &[&str] = &[
-    "usage: lightfoundry-cli [--translation FILE] <command>",
+    "usage: laserfoundry-cli [--translation FILE] <command>",
     "",
-    "  gcode <input.svg|dxf|png|jpg|lightfoundry> -o <out.gcode> [--bed WxH] [--origin top_left|bottom_left]",
+    "  gcode <input.svg|dxf|png|jpg|laserfoundry> -o <out.gcode> [--bed WxH] [--origin top_left|bottom_left]",
     "                       [--start-from absolute|user_origin|current_position] [--anchor center|top_left|...]",
     "                       [--set LAYER:key=value,key=value]...",
     "  info <input>         shape count, size, estimated time",
     "  commands             list every engine command with its parameters",
     "  mcp [--connect]      serve the engine's commands as MCP tools on stdin/stdout (for AI agents);",
-    "                       --connect works in the window of a running `lightfoundry --agent-link` instead",
+    "                       --connect works in the window of a running `laserfoundry --agent-link` instead",
     "  run <script.json>    run a JSON array of {\"id\", \"params\"} commands and print the last result",
     "  fonts download [--all] [--to DIR]",
     "                       download the font library (Stitchwright/stitchfoundry-fonts) to the data folder or DIR;",
@@ -98,7 +98,7 @@ mod msg {
     ];
 }
 
-use lightfoundry_i18n::{tr, tr_fill, tr_message};
+use laserfoundry_i18n::{tr, tr_fill, tr_message};
 
 /// A fixed text, translated.
 fn t(text: &str) -> String {
@@ -137,10 +137,10 @@ fn main() -> ExitCode {
     }
 }
 
-/// Activates the catalog: `--translation FILE` (which must load), else `$LIGHTFOUNDRY_TRANSLATION`, else
+/// Activates the catalog: `--translation FILE` (which must load), else `$LASERFOUNDRY_TRANSLATION`, else
 /// the desktop app's file if there is one (a missing or unreadable default is ignored).
 fn select_translation(args: &mut Vec<String>) -> Result<(), String> {
-    let mut explicit = std::env::var_os("LIGHTFOUNDRY_TRANSLATION").filter(|v| !v.is_empty()).map(std::path::PathBuf::from);
+    let mut explicit = std::env::var_os("LASERFOUNDRY_TRANSLATION").filter(|v| !v.is_empty()).map(std::path::PathBuf::from);
     if args.first().map(String::as_str) == Some("--translation") {
         args.remove(0);
         if args.is_empty() {
@@ -150,11 +150,11 @@ fn select_translation(args: &mut Vec<String>) -> Result<(), String> {
     }
     let (path, required) = match explicit {
         Some(p) => (Some(p), true),
-        None => (lightfoundry_i18n::default_file().filter(|p| p.exists()), false),
+        None => (laserfoundry_i18n::default_file().filter(|p| p.exists()), false),
     };
     let Some(path) = path else { return Ok(()) };
-    match lightfoundry_i18n::load(&path) {
-        Ok(translation) => lightfoundry_i18n::set_active(Some(translation)),
+    match laserfoundry_i18n::load(&path) {
+        Ok(translation) => laserfoundry_i18n::set_active(Some(translation)),
         Err(e) if required => return Err(tf(msg::TRANSLATION_FAILED, &[("path", path.display().to_string()), ("error", e)])),
         Err(_) => {}
     }
@@ -176,11 +176,11 @@ fn run(args: &[String]) -> Result<String, String> {
 
 /// `fonts download [--all] [--to DIR]` and `fonts path`.
 fn fonts(args: &[String]) -> Result<String, String> {
-    let mut set = lightfoundry_fontlib::Set::Foundry;
+    let mut set = laserfoundry_fontlib::Set::Foundry;
     let mut dest = None;
-    let mut source = lightfoundry_fontlib::Source::default();
+    let mut source = laserfoundry_fontlib::Source::default();
     match args.first().map(String::as_str) {
-        Some("path") => return lightfoundry_fontlib::default_dir().map(|d| d.display().to_string()).ok_or_else(|| t(msg::NO_FONT_FOLDER)),
+        Some("path") => return laserfoundry_fontlib::default_dir().map(|d| d.display().to_string()).ok_or_else(|| t(msg::NO_FONT_FOLDER)),
         Some("download") => {}
         _ => return Err(usage()),
     }
@@ -188,7 +188,7 @@ fn fonts(args: &[String]) -> Result<String, String> {
     while let Some(flag) = args.get(i) {
         let value = || args.get(i + 1).cloned().ok_or_else(|| tf(msg::NEEDS_VALUE, &[("flag", flag.clone())]));
         match flag.as_str() {
-            "--all" => set = lightfoundry_fontlib::Set::Everything,
+            "--all" => set = laserfoundry_fontlib::Set::Everything,
             "--to" => {
                 dest = Some(std::path::PathBuf::from(value()?));
                 i += 1;
@@ -206,10 +206,10 @@ fn fonts(args: &[String]) -> Result<String, String> {
         }
         i += 1;
     }
-    let dest = dest.or_else(lightfoundry_fontlib::default_dir).ok_or_else(|| t(msg::NO_FONT_FOLDER))?;
+    let dest = dest.or_else(laserfoundry_fontlib::default_dir).ok_or_else(|| t(msg::NO_FONT_FOLDER))?;
     let cancel = std::sync::atomic::AtomicBool::new(false);
     let mut shown = 0;
-    let summary = lightfoundry_fontlib::download(&dest, &source, set, &cancel, &mut |done, total| {
+    let summary = laserfoundry_fontlib::download(&dest, &source, set, &cancel, &mut |done, total| {
         // Progress goes to stderr every so often so stdout stays the result.
         if done == total || done >= shown + 25 {
             shown = done;
@@ -237,7 +237,7 @@ fn translation_template() -> String {
     for text in USAGE_LINES.iter().chain(msg::ALL) {
         let _ = tr(text);
     }
-    lightfoundry_i18n::template()
+    laserfoundry_i18n::template()
 }
 
 fn load(path: &str) -> Result<Session, String> {
@@ -336,8 +336,8 @@ fn mcp(flag: Option<&str>) -> Result<String, String> {
     match flag {
         None => {}
         Some("--connect") => {
-            let file = lightfoundry_mcp::link::default_link_file().ok_or_else(|| t(msg::NO_LINK_FOLDER))?;
-            lightfoundry_mcp::link::proxy(&file, std::io::stdin().lock(), std::io::stdout()).map_err(engine)?;
+            let file = laserfoundry_mcp::link::default_link_file().ok_or_else(|| t(msg::NO_LINK_FOLDER))?;
+            laserfoundry_mcp::link::proxy(&file, std::io::stdin().lock(), std::io::stdout()).map_err(engine)?;
             return Ok(String::new());
         }
         Some(_) => return Err(usage()),
@@ -346,6 +346,6 @@ fn mcp(flag: Option<&str>) -> Result<String, String> {
     let stdin = std::io::stdin();
     let mut input = stdin.lock();
     let mut output = std::io::stdout().lock();
-    lightfoundry_mcp::serve(&mut s, &mut input, &mut output).map_err(engine)?;
+    laserfoundry_mcp::serve(&mut s, &mut input, &mut output).map_err(engine)?;
     Ok(String::new())
 }

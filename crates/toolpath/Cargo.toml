@@ -1,17 +1,17 @@
 [package]
-name = "lightfoundry-toolpath"
+name = "laserfoundry-toolpath"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightFoundry toolpath"
+description = "LaserFoundry toolpath"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightfoundry-geom = { workspace = true }
-lightfoundry-doc = { workspace = true }
-lightfoundry-pathops = { workspace = true }
+laserfoundry-geom = { workspace = true }
+laserfoundry-doc = { workspace = true }
+laserfoundry-pathops = { workspace = true }
 kurbo = { workspace = true }
 thiserror = { workspace = true }
 

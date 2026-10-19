@@ -1,6 +1,6 @@
-use lightfoundry_doc::{LayerId, Shape, ShapeId, ShapeKind, TextAlign, TextSettings};
-use lightfoundry_geom::Affine;
-use lightfoundry_text::{Align, TextStyle, layout};
+use laserfoundry_doc::{LayerId, Shape, ShapeId, ShapeKind, TextAlign, TextSettings};
+use laserfoundry_geom::Affine;
+use laserfoundry_text::{Align, TextStyle, layout};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -131,7 +131,7 @@ fn edit(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     Ok(json!({ "id": id, "unsupported": unsupported }))
 }
 
-pub(super) fn generate(text: &str, s: &TextSettings) -> Result<(lightfoundry_geom::BezPath, Vec<char>), EngineError> {
+pub(super) fn generate(text: &str, s: &TextSettings) -> Result<(laserfoundry_geom::BezPath, Vec<char>), EngineError> {
     if text.trim().is_empty() {
         return Err(EngineError::BadParams("text is empty".into()));
     }
@@ -155,11 +155,11 @@ pub(super) fn generate(text: &str, s: &TextSettings) -> Result<(lightfoundry_geo
         _ => None,
     };
     let one = |t: &str, st: &TextStyle| match &font {
-        Some(LoadedFont::File(data)) => lightfoundry_text::layout_outline_with_fallback(data, fallback.as_deref(), t, st),
-        Some(LoadedFont::Glyphs(font)) => lightfoundry_text::layout_glyph_font(font, t, st),
+        Some(LoadedFont::File(data)) => laserfoundry_text::layout_outline_with_fallback(data, fallback.as_deref(), t, st),
+        Some(LoadedFont::Glyphs(font)) => laserfoundry_text::layout_glyph_font(font, t, st),
         None => layout(t, st),
     };
-    let l = if s.vertical { lightfoundry_text::layout_vertical(text, &style, |c| one(c, &style)) } else { one(text, &style) }
+    let l = if s.vertical { laserfoundry_text::layout_vertical(text, &style, |c| one(c, &style)) } else { one(text, &style) }
         .map_err(|e| EngineError::BadParams(e.to_string()))?;
     Ok((l.path, l.unsupported))
 }
@@ -167,7 +167,7 @@ pub(super) fn generate(text: &str, s: &TextSettings) -> Result<(lightfoundry_geo
 /// A font as loaded: a TrueType/OpenType file's bytes, or a font library folder's ready-drawn glyphs.
 enum LoadedFont {
     File(Vec<u8>),
-    Glyphs(std::sync::Arc<lightfoundry_text::GlyphFont>),
+    Glyphs(std::sync::Arc<laserfoundry_text::GlyphFont>),
 }
 
 /// The font library's folders: `font.json` with either `glyphs.stitchfoundry` (the Foundry fonts) or
@@ -200,7 +200,7 @@ fn read_font(path: &str) -> Result<LoadedFont, EngineError> {
 
 /// Parsed library fonts, so laying text out again (every edit) does not parse a drawing of many
 /// megabytes each time. Keyed by folder; an entry is stale when either file's size or time changed.
-type FontCache = std::sync::Mutex<Vec<(std::path::PathBuf, [(u64, Option<std::time::SystemTime>); 2], std::sync::Arc<lightfoundry_text::GlyphFont>)>>;
+type FontCache = std::sync::Mutex<Vec<(std::path::PathBuf, [(u64, Option<std::time::SystemTime>); 2], std::sync::Arc<laserfoundry_text::GlyphFont>)>>;
 const CACHED_FONTS: usize = 8;
 
 fn font_cache() -> &'static FontCache {
@@ -223,13 +223,13 @@ fn read_glyph_font(folder: &std::path::Path) -> Result<LoadedFont, EngineError> 
         let bytes = read_limited(&path.display().to_string(), limit)?;
         String::from_utf8(bytes).map_err(|_| EngineError::BadParams(format!("{} is not text", path.display())))
     };
-    let info = read("font.json", lightfoundry_text::MAX_FONT_JSON_BYTES)?;
+    let info = read("font.json", laserfoundry_text::MAX_FONT_JSON_BYTES)?;
     let font = if inkstitch {
-        let svg = read("ltr.svg", lightfoundry_text::MAX_INKSTITCH_SVG_BYTES)?;
-        lightfoundry_text::GlyphFont::parse_inkstitch(&info, &svg)
+        let svg = read("ltr.svg", laserfoundry_text::MAX_INKSTITCH_SVG_BYTES)?;
+        laserfoundry_text::GlyphFont::parse_inkstitch(&info, &svg)
     } else {
-        let glyphs = read("glyphs.stitchfoundry", lightfoundry_text::MAX_GLYPH_FILE_BYTES)?;
-        lightfoundry_text::GlyphFont::parse(&info, &glyphs)
+        let glyphs = read("glyphs.stitchfoundry", laserfoundry_text::MAX_GLYPH_FILE_BYTES)?;
+        laserfoundry_text::GlyphFont::parse(&info, &glyphs)
     }
     .map_err(|e| EngineError::BadParams(e.to_string()))?;
     let font = std::sync::Arc::new(font);
@@ -244,7 +244,7 @@ fn read_glyph_font(folder: &std::path::Path) -> Result<LoadedFont, EngineError> 
 }
 
 fn read_font_file(path: &str) -> Result<Vec<u8>, EngineError> {
-    read_limited(path, lightfoundry_text::MAX_FONT_BYTES)
+    read_limited(path, laserfoundry_text::MAX_FONT_BYTES)
 }
 
 /// Reads a file of at most `limit` bytes; a larger one is an error, not a truncation.
@@ -293,22 +293,22 @@ fn on_path(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         .into_iter()
         .max_by(|a, b| a.length().total_cmp(&b.length()))
         .ok_or_else(|| EngineError::BadParams("the path has no geometry".into()))?;
-    let along = lightfoundry_geom::along::Along::new(&line).ok_or_else(|| EngineError::BadParams("the path is too short to follow".into()))?;
+    let along = laserfoundry_geom::along::Along::new(&line).ok_or_else(|| EngineError::BadParams("the path is too short to follow".into()))?;
 
     // Letters keep their own size (the text shape's scale) and their baseline sits on the line.
     let m = text.transform.as_coeffs();
     let (sx, sy) = (m[0].hypot(m[1]), m[2].hypot(m[3]));
     let baseline = style.height;
     let layer = text.layer;
-    let mut bent = lightfoundry_geom::BezPath::new();
+    let mut bent = laserfoundry_geom::BezPath::new();
     let mut count = 0usize;
-    for pl in lightfoundry_geom::flatten(path, BEND_TOLERANCE_MM) {
+    for pl in laserfoundry_geom::flatten(path, BEND_TOLERANCE_MM) {
         count += pl.points.len();
         if count > MAX_BENT_POINTS {
             return Err(EngineError::BadParams("that text is too large to bend".into()));
         }
         // Long straight edges are cut into short steps so they can follow a curve.
-        let mut dense: Vec<lightfoundry_geom::Point> = Vec::with_capacity(pl.points.len());
+        let mut dense: Vec<laserfoundry_geom::Point> = Vec::with_capacity(pl.points.len());
         let n = pl.points.len();
         let edges = if pl.closed { n } else { n.saturating_sub(1) };
         for i in 0..edges {
@@ -327,7 +327,7 @@ fn on_path(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         }
         for (i, pt) in dense.iter().enumerate() {
             let (at, dir) = along.at(p.offset + pt.x * sx);
-            let up = lightfoundry_geom::Vec2::new(dir.y, -dir.x);
+            let up = laserfoundry_geom::Vec2::new(dir.y, -dir.x);
             let q = at + up * ((baseline - pt.y) * sy);
             if i == 0 {
                 bent.move_to(q);

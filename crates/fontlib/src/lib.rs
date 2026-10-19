@@ -97,7 +97,7 @@ pub struct Summary {
     pub bytes: u64,
 }
 
-/// `LightFoundry/fonts` in the per-user data folder (`$XDG_DATA_HOME` or `~/.local/share` on Linux,
+/// `LaserFoundry/fonts` in the per-user data folder (`$XDG_DATA_HOME` or `~/.local/share` on Linux,
 /// `~/Library/Application Support` on macOS, `%APPDATA%` on Windows).
 pub fn default_dir() -> Option<PathBuf> {
     let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
@@ -108,7 +108,7 @@ pub fn default_dir() -> Option<PathBuf> {
     } else {
         var("XDG_DATA_HOME").or_else(|| var("HOME").map(|h| h.join(".local").join("share")))
     };
-    Some(base?.join("LightFoundry").join("fonts"))
+    Some(base?.join("LaserFoundry").join("fonts"))
 }
 
 /// The files to fetch from a tree listing: blobs under the set's folders, minus skipped kinds, with
@@ -218,7 +218,7 @@ fn encode_path(path: &str) -> String {
 
 /// Reads a response body of at most `limit` bytes; a longer one is an error, not a truncation.
 fn read_limited(agent: &ureq::Agent, url: &str, limit: u64) -> Result<Vec<u8>, FontLibError> {
-    let response = agent.get(url).header("User-Agent", "lightfoundry-fontlib").call().map_err(|e| FontLibError::Network(e.to_string()))?;
+    let response = agent.get(url).header("User-Agent", "laserfoundry-fontlib").call().map_err(|e| FontLibError::Network(e.to_string()))?;
     let mut body = Vec::new();
     response.into_body().into_reader().take(limit + 1).read_to_end(&mut body).map_err(|e| FontLibError::Network(e.to_string()))?;
     if body.len() as u64 > limit {
@@ -345,7 +345,7 @@ mod tests {
         #[test]
         fn the_default_folder_is_under_the_data_folder() {
             if let Some(dir) = default_dir() {
-                assert!(dir.ends_with("LightFoundry/fonts") || dir.ends_with("LightFoundry\\fonts"), "{dir:?}");
+                assert!(dir.ends_with("LaserFoundry/fonts") || dir.ends_with("LaserFoundry\\fonts"), "{dir:?}");
             }
         }
     }
@@ -409,7 +409,7 @@ mod tests {
         }
 
         fn temp_dir(tag: &str) -> PathBuf {
-            let dir = std::env::temp_dir().join(format!("lightfoundry-fontlib-{tag}-{}", std::process::id()));
+            let dir = std::env::temp_dir().join(format!("laserfoundry-fontlib-{tag}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             dir
         }

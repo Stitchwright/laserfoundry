@@ -1,5 +1,5 @@
-use lightfoundry_doc::ShapeId;
-use lightfoundry_geom::{Affine, Point};
+use laserfoundry_doc::ShapeId;
+use laserfoundry_geom::{Affine, Point};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

@@ -1,5 +1,5 @@
 [package]
-name = "lightfoundry-mcp"
+name = "laserfoundry-mcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,7 +9,7 @@ publish = false
 workspace = true
 
 [dependencies]
-lightfoundry-engine = { workspace = true }
+laserfoundry-engine = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 getrandom = "0.3"

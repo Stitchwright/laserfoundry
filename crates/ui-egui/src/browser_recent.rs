@@ -1,7 +1,7 @@
 //! Recently opened or saved projects in a browser, which has no file paths to remember: the
 //! project's bytes are kept instead, in the page's small text storage, within a fixed budget.
 
-use lightfoundry_doc::base64;
+use laserfoundry_doc::base64;
 
 /// Projects kept.
 pub const MAX_ENTRIES: usize = 8;
@@ -15,7 +15,7 @@ const MAX_NAME_CHARS: usize = 120;
 const MAX_LOAD_CHARS: usize = MAX_TOTAL_CHARS + 100_000;
 
 /// The key the list lives under in the platform's storage.
-pub const STORAGE_KEY: &str = "lightfoundry.recent";
+pub const STORAGE_KEY: &str = "laserfoundry.recent";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Entry {
@@ -94,12 +94,12 @@ mod tests {
         #[test]
         fn the_newest_goes_first_and_a_repeat_replaces_the_older_copy() {
             let mut r = BrowserRecent::default();
-            assert!(r.push("a.lightfoundry", b"one"));
-            assert!(r.push("b.lightfoundry", b"two"));
-            assert!(r.push("a.lightfoundry", b"three"));
+            assert!(r.push("a.laserfoundry", b"one"));
+            assert!(r.push("b.laserfoundry", b"two"));
+            assert!(r.push("a.laserfoundry", b"three"));
             let names: Vec<_> = r.entries.iter().map(|e| e.name.as_str()).collect();
-            assert_eq!(names, ["a.lightfoundry", "b.lightfoundry"]);
-            assert_eq!(r.bytes("a.lightfoundry").as_deref(), Some(&b"three"[..]));
+            assert_eq!(names, ["a.laserfoundry", "b.laserfoundry"]);
+            assert_eq!(r.bytes("a.laserfoundry").as_deref(), Some(&b"three"[..]));
             assert_eq!(r.bytes("missing"), None);
         }
 
@@ -107,10 +107,10 @@ mod tests {
         fn only_the_newest_entries_and_the_budget_are_kept() {
             let mut r = BrowserRecent::default();
             for i in 0..20 {
-                assert!(r.push(&format!("p{i}.lightfoundry"), b"x"));
+                assert!(r.push(&format!("p{i}.laserfoundry"), b"x"));
             }
             assert_eq!(r.entries.len(), MAX_ENTRIES);
-            assert_eq!(r.entries[0].name, "p19.lightfoundry");
+            assert_eq!(r.entries[0].name, "p19.laserfoundry");
 
             // Each just under the entry limit: only as many as fit the total survive.
             let big = vec![7u8; MAX_ENTRY_CHARS / 4 * 3 - 10];
@@ -140,11 +140,11 @@ mod tests {
         #[test]
         fn the_list_survives_a_round_trip() {
             let mut r = BrowserRecent::default();
-            r.push("a.lightfoundry", &[0, 1, 2, 255]);
-            r.push("b.lightfoundry", b"hello");
+            r.push("a.laserfoundry", &[0, 1, 2, 255]);
+            r.push("b.laserfoundry", b"hello");
             let back = BrowserRecent::parse(&r.to_text());
             assert_eq!(back, r);
-            assert_eq!(back.bytes("a.lightfoundry"), Some(vec![0, 1, 2, 255]));
+            assert_eq!(back.bytes("a.laserfoundry"), Some(vec![0, 1, 2, 255]));
         }
 
         #[test]

@@ -46,7 +46,7 @@ pub struct CheckRequest {
 }
 
 const SYSTEM: &str = "You are an experienced laser operator looking at photos of a test cut or engraving from a GRBL laser \
-run with LightFoundry. Judge what the photos show (burn-through, charring, soot, wide or uneven lines, shallow \
+run with LaserFoundry. Judge what the photos show (burn-through, charring, soot, wide or uneven lines, shallow \
 engraving, warping, missed passes, banding) and say what to change. Settings you suggest are for the layers the \
 person lists: speed in mm/min, maximum power in percent, number of passes.\n\
 \n\

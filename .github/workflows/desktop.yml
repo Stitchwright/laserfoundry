@@ -37,23 +37,23 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-x11-0 libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Build (serial ports are on by default)
-        run: cargo build --release --locked -p lightfoundry -p lightfoundry-cli
+        run: cargo build --release --locked -p laserfoundry -p laserfoundry-cli
       - name: Package
         shell: bash
         run: |
           mkdir dist
-          cp target/release/lightfoundry${{ matrix.ext }} target/release/lightfoundry-cli${{ matrix.ext }} dist/
+          cp target/release/laserfoundry${{ matrix.ext }} target/release/laserfoundry-cli${{ matrix.ext }} dist/
           cp README.md dist/
           cd dist
           if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a ../lightfoundry-${{ matrix.name }}.zip . > /dev/null
+            7z a ../laserfoundry-${{ matrix.name }}.zip . > /dev/null
           else
-            tar czf ../lightfoundry-${{ matrix.name }}.tar.gz .
+            tar czf ../laserfoundry-${{ matrix.name }}.tar.gz .
           fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: lightfoundry-${{ matrix.name }}
-          path: lightfoundry-${{ matrix.name }}.*
+          name: laserfoundry-${{ matrix.name }}
+          path: laserfoundry-${{ matrix.name }}.*
 
   # Only this job can write to the repository: the builds above run with a read-only token.
   release:
@@ -70,4 +70,4 @@ jobs:
       - name: Attach to the release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          files: dist/lightfoundry-*
+          files: dist/laserfoundry-*

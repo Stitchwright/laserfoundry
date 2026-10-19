@@ -3,7 +3,7 @@
 //! Tabs leave small uncut gaps so a part stays attached to the sheet; lead-ins start the cut on
 //! the scrap side of the line so the pierce mark does not land on the finished edge.
 
-use lightfoundry_geom::{Point, Polyline, Vec2};
+use laserfoundry_geom::{Point, Polyline, Vec2};
 
 /// Most tabs one outline may get.
 pub const MAX_TABS: u32 = 1000;

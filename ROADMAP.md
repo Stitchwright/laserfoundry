@@ -669,3 +669,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
 - **2026-10-19 — A first screenshot for the landing page.** `docs/screenshots/canvas.png`, taken from the desktop
   app under Xvfb with an original demo design; `docs/marketing.md` says what else the page needs. Not done: the
   preview, dithering and AI-window screenshots.
+- **2026-10-19 — Dependabot's ten updates, applied together.** Rust: `i_overlay` 9.1, `getrandom` 0.4 (live-link
+  tokens), `skrifa` 0.48 and `harfrust` 0.14 (its shaping API was redone: `crates/text/src/outline.rs` now builds a
+  `harfrust::Font` and `ShaperFont` and calls `shape`, and a font it cannot shape is a `BadFont` error, not a panic
+  or a silent skip). Workflows (all still pinned by commit): `checkout` 7.0.1, `upload-artifact` 7.0.2,
+  `download-artifact` 8.0.2, `upload-pages-artifact` 5.0.0, `deploy-pages` 5.0.1, `action-gh-release` 3.0.3. Checked with
+  `cargo xtask ci` (the text and font tests cover the new shaping path). Not checked before the push: the
+  Pages, Desktop and release workflows only run on pushes and tags, so the action bumps are proven by those runs.

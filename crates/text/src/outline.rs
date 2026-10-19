@@ -63,8 +63,11 @@ pub fn layout_outline_with_fallback(data: &[u8], fallback: Option<&[u8]>, text: 
 
     let outlines: Vec<_> = fonts.iter().map(|f| f.outline_glyphs()).collect();
     let charmaps: Vec<_> = fonts.iter().map(|f| f.charmap()).collect();
-    let shaper_data: Vec<_> = fonts.iter().map(harfrust::ShaperData::new).collect();
-    let shapers: Vec<_> = fonts.iter().zip(&shaper_data).map(|(f, d)| d.shaper(f).build()).collect();
+    let shaping_fonts = blobs
+        .iter()
+        .map(|b| harfrust::Font::new(b.to_vec(), 0).ok_or_else(|| TextError::BadFont("the font cannot be shaped".into())))
+        .collect::<Result<Vec<_>, _>>()?;
+    let shapers: Vec<_> = shaping_fonts.iter().map(harfrust::ShaperFont::new).collect();
 
     let mut path = BezPath::new();
     let mut unsupported: Vec<char> = Vec::new();
@@ -77,12 +80,14 @@ pub fn layout_outline_with_fallback(data: &[u8], fallback: Option<&[u8]>, text: 
         let mut row = Vec::new();
         for (font_ix, run, rtl) in visual_pieces(line, &charmaps) {
             let (Some(shaper), Some(&sc)) = (shapers.get(font_ix), scales.get(font_ix)) else { continue };
-            let mut buffer = harfrust::UnicodeBuffer::new();
+            let mut buffer = harfrust::Buffer::new();
             buffer.push_str(run);
             buffer.set_direction(if rtl { harfrust::Direction::RightToLeft } else { harfrust::Direction::LeftToRight });
             buffer.guess_segment_properties();
-            let shaped = shaper.shape(buffer, harfrust::ShapeOptions::new());
-            for (info, pos) in shaped.glyph_infos().iter().zip(shaped.glyph_positions()) {
+            if harfrust::shape(shaper, &mut buffer, harfrust::ShapeOptions::new()).is_err() {
+                continue;
+            }
+            for (info, pos) in buffer.glyph_infos().iter().zip(buffer.glyph_positions()) {
                 if info.glyph_id == 0
                     && let Some(ch) = run.get(info.cluster as usize..).and_then(|rest| rest.chars().next())
                     && !ch.is_whitespace()

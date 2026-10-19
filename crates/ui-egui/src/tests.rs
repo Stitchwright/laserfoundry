@@ -1611,6 +1611,22 @@ mod machine_tests {
     }
 
     #[test]
+    fn the_machine_report_says_what_is_assumed_and_what_the_controller_reported() {
+        let h = Harness::new();
+        let none = crate::machine_report::report(&h.app);
+        assert!(none.contains("Version: ") && none.contains("not connected"), "{none}");
+        let mut h = connected();
+        pump(&mut h, "the settings", |h| h.app.snap.as_ref().is_some_and(|s| s.settings.len() > 20));
+        h.app.link_do(|l| l.send_line("G0 X1"));
+        pump(&mut h, "the console", |h| h.app.snap.as_ref().is_some_and(|s| s.console.iter().any(|l| l.contains("G0 X1"))));
+        let r = crate::machine_report::report(&h.app);
+        assert!(r.contains("Connection: simulator  Connected: true"), "{r}");
+        assert!(r.contains("$32=1") && r.contains("Controller settings ($$):") && r.contains("G0 X1"), "{r}");
+        assert!(r.contains("Document machine: bed 400 x 400 mm"), "{r}");
+        assert!(!r.contains("lightfoundry-ai") && !r.contains("token"), "nothing private");
+    }
+
+    #[test]
     fn a_job_is_refused_while_the_controller_is_not_in_laser_mode() {
         let mut h = connected();
         // The settings are fetched by themselves once the controller answers.

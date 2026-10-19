@@ -626,3 +626,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   laser-safety bugs first, saying what could not be checked). It condenses working notes on Kuhlmann's *The Book
   of Debugging* (No Starch Press) kept in the `autolayout` repository, in new words; the notes themselves stay
   there.
+- **2026-10-19 — ready for the first real laser.** Added **Laser → Save machine report…** (the program's version
+  and system, the connection, what the document assumes, the controller's `$$` settings and the console, as
+  plain text with nothing private) and `docs/hardware-bringup.md`: safety, reading and fixing the settings the
+  program checks, a laser-off motion test, first marks on scrap, and exactly what to bring back for a fix.
+  Checked by a frame test against the simulator. Not done: any of it on real hardware (that is the next step).

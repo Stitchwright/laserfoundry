@@ -401,6 +401,14 @@ fn laser_menu(app: &mut LightFoundryApp, ui: &mut egui::Ui) {
         }
         ui.close();
     }
+    if ui
+        .button(tr("Save machine report…"))
+        .on_hover_text(tr("The controller's settings, the console and what this program assumes, as text to send with a problem"))
+        .clicked()
+    {
+        app.save_machine_report();
+        ui.close();
+    }
     if ui.button(tr("Estimate time")).clicked() {
         if let Some(v) = app.run("job.estimate", Value::Null) {
             app.say(trf!("Estimated {time}", time = format_duration(v["seconds"].as_f64().unwrap_or(0.0))));

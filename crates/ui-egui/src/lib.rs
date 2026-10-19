@@ -12,6 +12,7 @@ pub(crate) mod i18n {
 mod ai_ui;
 mod browser_recent;
 mod job_position;
+mod machine_report;
 mod menus;
 mod nodes_ui;
 mod panels;

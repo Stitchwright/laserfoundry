@@ -31,7 +31,7 @@ simulator when nothing is plugged in.
 ## Quick start
 
 ```sh
-git clone https://github.com/Stitchwright/lightfoundry
+git clone https://github.com/Stitchwright/laserfoundry
 cd laserfoundry
 
 cargo run --release -p laserfoundry                         # desktop app
@@ -62,7 +62,7 @@ See [`docs/architecture.md`](docs/architecture.md). Contributor and agent rules 
 
 In the app, **Help → Report a Bug…** opens StitchHub's report page, filled in with the version and your system.
 Describe what happened and send it: it becomes an issue in this repository (a public one, so leave out anything
-private). You can also [open an issue](https://github.com/Stitchwright/lightfoundry/issues) yourself. A maintainer can
+private). You can also [open an issue](https://github.com/Stitchwright/laserfoundry/issues) yourself. A maintainer can
 have Claude work on an issue by labelling it `claude-fix`; Claude opens a pull request for review, and never merges.
 
 ## Licence

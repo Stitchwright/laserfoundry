@@ -6,7 +6,7 @@ use super::CommandSpec;
 use crate::{EngineError, Session};
 
 /// This app's source repository.
-pub const GITHUB_URL: &str = "https://github.com/Stitchwright/lightfoundry";
+pub const GITHUB_URL: &str = "https://github.com/Stitchwright/laserfoundry";
 /// Where bug reports go: StitchHub's report page, which files them as issues on this app's GitHub repository.
 pub const BUG_REPORT_URL: &str = "https://hub.stitchbench.app/report-a-bug";
 

@@ -651,3 +651,6 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   `Stitchwright/lightfoundry` (renaming it is a settings change; URLs in `Cargo.toml`, the README and
   `help.rs` keep the old name until then, and GitHub redirects the old one); files saved by an earlier build with
   the `.lightfoundry` extension are not recognised by name.
+- **2026-10-19 — Repository renamed to `Stitchwright/laserfoundry`.** The repository URLs in `Cargo.toml`, the README,
+  the Help menu and `docs/domain.md` now use the new name. Checked with `cargo xtask ci`. Not done: the custom
+  domain (DNS, GitHub verification) is still the owner's to set up.

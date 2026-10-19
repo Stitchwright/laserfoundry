@@ -55,10 +55,56 @@ jobs:
           name: laserfoundry-${{ matrix.name }}
           path: laserfoundry-${{ matrix.name }}.*
 
+  # Signs the Windows binaries. Runs only for tags and manual runs, because it uses the `signing` environment's
+  # Azure credentials. It replaces the unsigned Windows artifact with a signed one of the same name.
+  sign:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: windows-latest
+    environment: signing
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: laserfoundry-windows-x64
+          path: unsigned
+      - name: Unpack
+        shell: bash
+        run: 7z x unsigned/laserfoundry-windows-x64.zip -osigned > /dev/null
+      - name: Sign
+        uses: azure/trusted-signing-action@48da903ca5e2d362da62c631a42d77c02ec7eadb # v1.2.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.AZURE_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\signed
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Verify the signatures
+        shell: pwsh
+        run: |
+          foreach ($f in Get-ChildItem signed -Filter *.exe) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            if ($sig.Status -ne 'Valid') { throw "$($f.Name) is not validly signed: $($sig.Status)" }
+            "$($f.Name): $($sig.SignerCertificate.Subject)"
+          }
+      - name: Repack
+        shell: bash
+        run: cd signed && 7z a ../laserfoundry-windows-x64.zip . > /dev/null
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: laserfoundry-windows-x64
+          path: laserfoundry-windows-x64.zip
+          overwrite: true
+
   # Only this job can write to the repository: the builds above run with a read-only token.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, sign]
     runs-on: ubuntu-latest
     permissions:
       contents: write

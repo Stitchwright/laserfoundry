@@ -676,3 +676,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   `download-artifact` 8.0.2, `upload-pages-artifact` 5.0.0, `deploy-pages` 5.0.1, `action-gh-release` 3.0.3. Checked with
   `cargo xtask ci` (the text and font tests cover the new shaping path). Not checked before the push: the
   Pages, Desktop and release workflows only run on pushes and tags, so the action bumps are proven by those runs.
+- **2026-10-19 — Windows builds are signed with Azure Trusted Signing.** `desktop.yml` has a `sign` job in the
+  `signing` environment, run only for `v*` tags and manual runs: it unpacks the Windows zip, signs both `.exe` files, fails
+  unless `Get-AuthenticodeSignature` says `Valid`, and replaces the artifact, which the release job then attaches. Needs the
+  secrets `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and the variables `AZURE_SIGNING_ENDPOINT`,
+  `AZURE_SIGNING_ACCOUNT`, `AZURE_SIGNING_PROFILE`. Not checked yet: the first manual run (the names and the action's inputs
+  are unproven until it signs), and nobody has launched a signed `.exe` on a Windows machine.

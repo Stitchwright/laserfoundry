@@ -619,3 +619,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   headers so no tokens or keys), notes that answers can be wrong, and a lawful-use reminder with Anthropic's
   usage policy in the consent screen. Checked by 4 tests (log contents and secrets, rotation, switches kept)
   and the full gate. Not done: terms for the Foundry apps; the browser keeps no log (no file to put it in).
+- **2026-10-19 — a `/debug` skill.** Added `.claude/skills/debug/SKILL.md` and a Debugging section in
+  `CLAUDE.md`/`AGENTS.md` (now identical again; `AGENTS.md` had lagged on commit authorship): a Reproduce, Probe,
+  Examine, Fix workflow adapted to this project (command scripts and frame tests, the simulator, per-crate test
+  loops, stale `target/` and browser `pkg`, no panics or `println!`, regression tests that fail without the fix,
+  laser-safety bugs first, saying what could not be checked). It condenses working notes on Kuhlmann's *The Book
+  of Debugging* (No Starch Press) kept in the `autolayout` repository, in new words; the notes themselves stay
+  there.

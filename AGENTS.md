@@ -60,3 +60,21 @@ Grade by behaviour, not by whether a menu item exists; scores are self-assessed,
 - `cargo run -p lightfoundry-cli -- commands` lists every command; `... gcode in.svg -o out.gcode --bed 300x200` converts headlessly; `... run script.json` runs a JSON command script.
 - Shell gotcha: `mv`/`cp` may be aliased interactive in some shells; use `/bin/mv -f` / `/bin/cp -f` in scripts. Parallel agents: use a separate `CARGO_TARGET_DIR` per agent, edit only the crates you own, and delete your target directory when you finish (`target/` grows to many gigabytes; a full disk fails links with `errno=28`).
 - **For UI work, look at the result**: take a screenshot (Xvfb + `import -window root`) and drive it with `xdotool`, and cover interactions with the headless egui frame tests in `crates/ui-egui/src/tests.rs` (they feed real pointer events).
+
+## Debugging
+When a bug is not obvious, follow the `debug` skill (`.claude/skills/debug/SKILL.md`; invoke it with `/debug`): **Reproduce, Probe, Examine, Fix**, looping until the bug can no longer be reproduced, always starting with Reproduce. In short:
+- Reproduce it on demand from a named input before reading code, shorten the feedback loop (one crate's test, not the whole gate), and cut the case down. If you cannot reproduce it, you are missing a factor: do not guess a fix.
+- Write the symptom down objectively, theories kept out. Take responsibility: assume the bug is ours, not the library's.
+- Probe with evidence, not hunches: stop shortcuts after about an hour or two or three tries; bisect when it used to work; look at the data the program actually produced; remove randomness; and never trust a build you have not seen change (stale `target/`, stale `apps/lightfoundry-web/pkg`, the wrong data folder).
+- Examine by following the data to where it first goes bad, and by testing assumptions. Per experiment write the hypothesis, the test and what you learn either way; make experiments revertible and never commit their markers. Keep a debugging log (`docs/debug-logs/`) for anything that takes more than one sitting.
+- Fix the root cause, minimally, one bug per commit, and prove it: the regression test must fail without the fix. Search for the same mistake elsewhere. Say plainly what could not be checked (real hardware, a real service).
+- A bug that can leave the laser on, ignore the bed or lose work comes before everything else.
+
+## Commit authorship
+
+Commits in this repository are authored by **Bruce Wattendorf**, so the work shows on his GitHub profile. AI assistance is credited with a trailer, not as the author.
+
+- Before the first commit in a session, set the identity: `git config user.name "Bruce Wattendorf"` and `git config user.email "bwattendorf@gmail.com"`. If you can't change the config, pass `--author="Bruce Wattendorf <bwattendorf@gmail.com>"` on every `git commit`.
+- Never author or commit as `Claude <noreply@anthropic.com>`.
+- End every commit message with this trailer as its last line:
+  `Co-Authored-By: Claude <noreply@anthropic.com>`

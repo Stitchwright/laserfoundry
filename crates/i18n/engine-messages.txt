@@ -133,8 +133,8 @@ that would make the picture too large
 the artwork has no shapes
 the artwork has no size
 the artwork has too many shapes
-the controller raised ALARM:{0}; clear it (unlock/home) before running again
-the controller rejected line {line} ({text}) with error:{code}
+the controller raised ALARM:{0} {1}; clear it (unlock/home) before running again
+the controller rejected line {line} ({text}) with error:{code} {hint}
 the download was cancelled
 the file has no ENTITIES section
 the file is too large

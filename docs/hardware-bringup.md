@@ -17,6 +17,19 @@ program, not just of the laser.** The aim is to find what breaks, safely, and to
 - **Start with the beam off or at its lowest power.** Test motion with the laser disabled, then at 1 % power
   on a scrap, then raise power in small steps.
 
+## If it will not connect or complains
+
+- A port that will not open says why when it can: on Linux your user must be in the `dialout` (or `uucp`)
+  group; on any system another program (a laser program, a terminal) may hold the port; a gone port means a
+  loose cable. Close other programs that use the laser before connecting.
+- Most boards reset when the port opens: the console shows the `Grbl 1.1…` banner a second or two later, and
+  nothing is sent to the controller before it answers.
+- GRBL's numbered replies are explained in the console and in errors (`error:9 (G-code is locked out…)`,
+  `ALARM:3 (the machine was reset while moving…)`); other firmware may number things differently, so the
+  number is always shown too.
+- A job will not start while the controller reports an alarm, hold, open door, homing or movement: the message
+  says which. After an alarm use **Unlock** (`$X`) or **Home** (`$H`) first.
+
 ## Before the first job
 
 1. **Connect** (Laser panel → choose the serial port → Connect). Note the port name and what the console shows

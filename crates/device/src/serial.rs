@@ -16,8 +16,26 @@ pub struct SerialTransport {
 
 impl SerialTransport {
     pub fn open(path: &str, baud: u32) -> io::Result<Self> {
-        let port = serialport::new(path, baud).timeout(Duration::from_millis(10)).open().map_err(|e| io::Error::other(e.to_string()))?;
+        let port = serialport::new(path, baud)
+            .timeout(Duration::from_millis(10))
+            .open()
+            .map_err(|e| io::Error::other(format!("{e}{}", open_hint(&e.to_string()))))?;
         Ok(Self { port, lines: LineBuffer::default() })
+    }
+}
+
+/// What usually fixes a port that will not open, judged from the system's own message: the first things to
+/// try on a first connection, since the message alone ("Permission denied") rarely says.
+pub fn open_hint(message: &str) -> &'static str {
+    let m = message.to_ascii_lowercase();
+    if m.contains("permission denied") {
+        " — on Linux your user must be allowed to use serial ports (add it to the `dialout` or `uucp` group, then sign out and in again); another program may also hold the port"
+    } else if m.contains("access is denied") || m.contains("busy") || m.contains("in use") || m.contains("resource") {
+        " — another program (a laser program, a terminal, a slicer) may be using the port: close it and try again"
+    } else if m.contains("no such file") || m.contains("not found") || m.contains("cannot find") {
+        " — the port is gone: check the USB cable and choose the port again"
+    } else {
+        ""
     }
 }
 
@@ -50,5 +68,19 @@ impl Transport for SerialTransport {
                 return Ok(None);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_port_that_will_not_open_says_what_to_try() {
+        assert!(open_hint("Permission denied").contains("dialout"));
+        assert!(open_hint("Access is denied.").contains("another program"));
+        assert!(open_hint("Device or resource busy").contains("another program"));
+        assert!(open_hint("No such file or directory").contains("USB cable"));
+        assert_eq!(open_hint("something unexpected"), "");
     }
 }

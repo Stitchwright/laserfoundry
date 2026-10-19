@@ -636,3 +636,11 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   what to change in the repository afterwards. The program needs no change (the page uses relative paths). Not
   done: the registration and the DNS (the owner's), and the links in the README and docs, which wait for the
   domain to work.
+- **2026-10-19 — real-GRBL readiness, round 2.** Reading the machine link against the public GRBL 1.1 interface
+  notes for what a simulator cannot show: GRBL's `error:`/`ALARM:` numbers are now explained in words in the
+  console and in job errors (from the public GRBL documentation; the number is always kept); a job will not
+  start while the controller reports an alarm, hold, open door, homing, movement, check mode or sleep (it
+  names which); a serial port that will not open says what usually fixes it (Linux `dialout` group, another
+  program holding it, a loose cable). Checked by unit tests (code table, messages, the console line against the
+  simulator, the port hints) and a frame test for the idle check; the first-run checklist is updated. Not done:
+  any of it on real hardware.

@@ -1627,6 +1627,28 @@ mod machine_tests {
     }
 
     #[test]
+    fn a_job_waits_for_a_controller_that_is_idle() {
+        use lightfoundry_device::{MachineState, Status};
+        let mut h = connected();
+        for (state, word) in [
+            (MachineState::Alarm, "alarm"),
+            (MachineState::Hold, "holding"),
+            (MachineState::Door, "door"),
+            (MachineState::Home, "homing"),
+            (MachineState::Run, "moving"),
+            (MachineState::Check, "check mode"),
+        ] {
+            h.app.snap.as_mut().unwrap().status = Some(Status { state, position: None, position_is_work: false });
+            h.app.start_job("G21\n".into());
+            assert!(matches!(&h.app.status, Some((m, true)) if m.contains(word)), "{state:?}: {:?}", h.app.status);
+            assert!(h.app.job_program.is_none() && h.app.pending_start.is_none());
+        }
+        h.app.snap.as_mut().unwrap().status = Some(Status { state: MachineState::Idle, position: None, position_is_work: false });
+        h.app.start_job("G21\n".into());
+        assert!(h.app.job_program.is_some(), "idle starts it");
+    }
+
+    #[test]
     fn a_job_is_refused_while_the_controller_is_not_in_laser_mode() {
         let mut h = connected();
         // The settings are fetched by themselves once the controller answers.

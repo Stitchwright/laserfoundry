@@ -92,13 +92,16 @@ impl JobStream {
             Ok(true)
         } else if let Some(code) = resp.strip_prefix("error:") {
             let index = self.acked;
+            let code: u32 = code.trim().parse().unwrap_or(0);
             Err(DeviceError::Grbl {
-                code: code.trim().parse().unwrap_or(0),
+                code,
+                hint: crate::error_hint(code),
                 line: self.numbers.get(index).copied().unwrap_or(index + 1),
                 text: self.lines.get(index).cloned().unwrap_or_default(),
             })
         } else if let Some(code) = resp.strip_prefix("ALARM:") {
-            Err(DeviceError::Alarm(code.trim().parse().unwrap_or(0)))
+            let code: u32 = code.trim().parse().unwrap_or(0);
+            Err(DeviceError::Alarm(code, crate::alarm_hint(code)))
         } else {
             // Status reports, "[MSG:...]" and banners are informational.
             Ok(false)
@@ -374,7 +377,7 @@ mod tests {
             let mut sim = SimulatedGrbl::new();
             sim.alarm_on("G1");
             let err = stream_program(&mut sim, "G1 X1\n", &StreamOptions::default(), &AtomicBool::new(false), |_| {}).unwrap_err();
-            assert!(matches!(err, DeviceError::Alarm(1)));
+            assert!(matches!(err, DeviceError::Alarm(1, _)));
         }
 
         #[test]

@@ -1120,6 +1120,13 @@ impl LightFoundryApp {
             self.status = Some((tr("Connect to a machine (or the simulator) first"), true));
             return;
         }
+        // A controller that is in an alarm, holding, homing or otherwise busy would refuse or garble the program.
+        if let Some(state) = self.snap.as_ref().and_then(|s| s.status.as_ref()).map(|s| s.state)
+            && let Some(why) = not_ready(state)
+        {
+            self.status = Some((why, true));
+            return;
+        }
         // Without laser mode ($32=1) GRBL leaves the beam on during travel moves of a laser program.
         if self
             .snap
@@ -1373,4 +1380,19 @@ fn read_library(file: &std::path::Path) -> Vec<Value> {
         return Vec::new();
     }
     std::fs::read_to_string(file).ok().and_then(|t| serde_json::from_str::<Vec<Value>>(&t).ok()).unwrap_or_default()
+}
+
+/// Why a job cannot start while the controller reports `state` (`None` when it can).
+fn not_ready(state: lightfoundry_device::MachineState) -> Option<String> {
+    use lightfoundry_device::MachineState as M;
+    Some(match state {
+        M::Idle | M::Unknown => return None,
+        M::Alarm => tr("The machine is in an alarm state: use Unlock ($X) or Home ($H) first"),
+        M::Hold => tr("The machine is holding (paused): resume it or stop it first"),
+        M::Door => tr("The machine's safety door is open"),
+        M::Home => tr("The machine is homing: wait until it has finished"),
+        M::Run | M::Jog => tr("The machine is still moving: wait until it is idle"),
+        M::Check => tr("The machine is in check mode ($C): turn it off first"),
+        M::Sleep => tr("The machine is asleep: wake it first"),
+    })
 }

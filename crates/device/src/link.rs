@@ -498,12 +498,20 @@ impl Worker {
             }
             if line.starts_with("ALARM:") && self.job.is_some() {
                 let code = line.trim_start_matches("ALARM:").trim().parse().unwrap_or(0);
-                return Err(DeviceError::Alarm(code));
+                return Err(DeviceError::Alarm(code, crate::alarm_hint(code)));
             }
             let sent = self.pending.pop_front();
+            // GRBL's numbers, in words (a hint: other firmware may differ).
+            let code = |prefix: &str| line.strip_prefix(prefix).and_then(|c| c.trim().parse::<u32>().ok());
+            let hint = match (code("error:"), code("ALARM:")) {
+                (Some(c), _) => crate::error_text(c).map(|t| format!(" ({t})")),
+                (_, Some(c)) => crate::alarm_text(c).map(|t| format!(" ({t})")),
+                _ => None,
+            }
+            .unwrap_or_default();
             self.log(match sent {
-                Some(s) if line != "ok" => format!("< {line}   (for: {s})"),
-                _ => format!("< {line}"),
+                Some(s) if line != "ok" => format!("< {line}{hint}   (for: {s})"),
+                _ => format!("< {line}{hint}"),
             });
             if line.starts_with("ALARM:") {
                 self.log("the machine is in an alarm state: use Unlock ($X), or Home ($H)");
@@ -678,6 +686,11 @@ mod tests {
             link.jog(1.0, 0.0, 1000.0).unwrap();
             let s = wait_for(&link, "the error", |s| s.console.iter().any(|l| l.starts_with("< error:20")));
             assert!(s.console.iter().any(|l| l.contains("(for: $J=G91 G21 X1 F1000)")), "{:?}", s.console);
+            assert!(
+                s.console.iter().any(|l| l.starts_with("< error:20 (an unsupported or invalid G-code command)")),
+                "the code is explained: {:?}",
+                s.console
+            );
         }
 
         #[test]

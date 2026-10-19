@@ -4,6 +4,7 @@
 //! No UI and no OS serial code lives here; real serial ports implement [`Transport`] elsewhere
 //! (see the `serial` feature).
 
+mod codes;
 pub mod linebuf;
 mod link;
 pub mod settings;
@@ -14,6 +15,7 @@ mod stream;
 #[cfg(feature = "serial")]
 pub mod serial;
 
+pub use codes::{alarm_hint, alarm_text, error_hint, error_text};
 pub use link::{CONSOLE_LIMIT, JobState, Link, LinkError, MAX_FEED, MAX_JOG_MM, MAX_TRAVEL_MM, Snapshot, jog_line, jog_to_line};
 pub use sim::SimulatedGrbl;
 pub use status::{MachineState, Status, parse_status};
@@ -45,10 +47,10 @@ pub trait Transport {
 pub enum DeviceError {
     #[error("I/O error talking to the machine: {0}")]
     Io(#[from] io::Error),
-    #[error("the controller rejected line {line} ({text:?}) with error:{code}")]
-    Grbl { code: u32, line: usize, text: String },
-    #[error("the controller raised ALARM:{0}; clear it (unlock/home) before running again")]
-    Alarm(u32),
+    #[error("the controller rejected line {line} ({text:?}) with error:{code} {hint}")]
+    Grbl { code: u32, line: usize, text: String, hint: String },
+    #[error("the controller raised ALARM:{0} {1}; clear it (unlock/home) before running again")]
+    Alarm(u32, String),
     #[error("line {line} is {len} bytes; GRBL accepts at most {} per line", stream::MAX_LINE_BYTES)]
     LineTooLong { line: usize, len: usize },
     #[error("line {line} contains byte 0x{byte:02x}, which the controller would act on as a real-time command or cannot parse")]
@@ -59,4 +61,25 @@ pub enum DeviceError {
     Timeout(u64),
     #[error("job cancelled")]
     Cancelled,
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+
+    #[test]
+    fn error_messages_explain_grbls_numbers_but_keep_them() {
+        let e = DeviceError::Grbl { code: 22, line: 3, text: "G1 X5".into(), hint: error_hint(22) };
+        assert_eq!(e.to_string(), "the controller rejected line 3 (\"G1 X5\") with error:22 (no feed rate has been set)");
+        assert!(DeviceError::Alarm(3, alarm_hint(3)).to_string().contains("ALARM:3 (the machine was reset while moving"));
+        assert!(
+            DeviceError::Alarm(999, alarm_hint(999)).to_string().starts_with("the controller raised ALARM:999 (unknown code);"),
+            "an unknown number stays a number"
+        );
+        assert!(
+            DeviceError::Grbl { code: 999, line: 1, text: String::new(), hint: error_hint(999) }
+                .to_string()
+                .ends_with("with error:999 (unknown code)")
+        );
+    }
 }

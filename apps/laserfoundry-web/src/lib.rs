@@ -445,8 +445,8 @@ mod web {
         result: Option<Result<(u16, String), String>>,
     }
 
-    /// The service this page was built for (`LF_CLOUD_URL` when the site was built), if any.
-    const BUILT_IN_SERVICE: Option<&str> = option_env!("LF_CLOUD_URL");
+    /// The service this page was built for (`LF_CLOUD_URL` when the site was built, else the shared Foundry service).
+    const BUILT_IN_SERVICE: Option<&str> = Some(laserfoundry_ai::cloud::built_in_server());
     /// How long a request may take, and the most of an answer read.
     const HTTP_TIMEOUT_MS: i32 = 240_000;
     const MAX_ANSWER: usize = 16 * 1024 * 1024;

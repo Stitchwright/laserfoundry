@@ -35,14 +35,15 @@ jobs:
           version=$(awk '/^name = "wasm-bindgen"$/ {getline; gsub(/[^0-9.]/, "", $0); print; exit}' Cargo.lock)
           cargo install wasm-bindgen-cli --version "$version" --locked
       # The AI and account service the page may talk to is a repository variable (Settings > Variables >
-      # LF_CLOUD_URL, an https address). Without it the page is built without the AI menu.
+      # LF_CLOUD_URL, an https address). Without it the page uses the shared Foundry service,
+      # https://cloud.stitchfoundry.app.
       - name: Build the browser version
         env:
-          LF_CLOUD_URL: ${{ vars.LF_CLOUD_URL }}
+          LF_CLOUD_URL: ${{ vars.LF_CLOUD_URL || 'https://cloud.stitchfoundry.app' }}
         run: sh apps/laserfoundry-web/build.sh
       - name: Assemble site
         env:
-          LF_CLOUD_URL: ${{ vars.LF_CLOUD_URL }}
+          LF_CLOUD_URL: ${{ vars.LF_CLOUD_URL || 'https://cloud.stitchfoundry.app' }}
         run: |
           mkdir site
           # the page's content security policy names the service's origin, or nothing

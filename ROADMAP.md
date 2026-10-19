@@ -654,3 +654,11 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
 - **2026-10-19 — Repository renamed to `Stitchwright/laserfoundry`.** The repository URLs in `Cargo.toml`, the README,
   the Help menu and `docs/domain.md` now use the new name. Checked with `cargo xtask ci`. Not done: the custom
   domain (DNS, GitHub verification) is still the owner's to set up.
+- **2026-10-19 — Shared Foundry account service by default.** The desktop and browser apps now use
+  `https://cloud.stitchfoundry.app` (the service's `/v1/health` answered ok, ai, payments; its CORS answer allows any
+  origin and our request fields are all on its pass-through list) unless `LF_CLOUD_URL` names another; the Pages
+  build falls back to it for the content security policy, so the browser AI menu is no longer hidden. The window
+  is now "Foundry Account" and the credits "Foundry credits". Checked with `cargo xtask ci` and a test of the
+  default address; the service's health and CORS preflight were read with curl. Not done: a signed-in request
+  against the real service (that creates an account and spends credits, so it is the owner's to try), and prompt
+  tuning from a real run.

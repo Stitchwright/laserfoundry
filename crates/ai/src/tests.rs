@@ -313,6 +313,15 @@ mod cloud_tests {
     }
 
     #[test]
+    fn the_built_in_service_is_an_https_origin_and_requests_go_to_it() {
+        let server = cloud::built_in_server();
+        assert!(server.starts_with("https://"), "{server}");
+        assert!(!server.ends_with('/'), "{server}");
+        let request = cloud::sign_in(server, "a@b.c", "password1").unwrap();
+        assert_eq!(request.url, format!("{server}/v1/signin"));
+    }
+
+    #[test]
     fn only_https_checkout_pages_are_opened() {
         assert!(cloud::checkout_url(&json!({"url": "https://checkout.stripe.com/c/pay/x"})).is_some());
         for bad in ["http://x", "javascript:alert(1)", "file:///etc/passwd", "https://a b", ""] {

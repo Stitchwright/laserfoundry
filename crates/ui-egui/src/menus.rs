@@ -144,7 +144,7 @@ fn ai_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
         }
     }
     ui.separator();
-    if item(ui, "Account…", "") {
+    if item(ui, "Foundry Account…", "") {
         app.open_ai(Window::Account);
     }
 }

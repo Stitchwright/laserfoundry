@@ -14,8 +14,6 @@ use crate::i18n::{self, tr, trf};
 
 /// Where the account and key are kept (see [`Platform::secret_set`](crate::Platform::secret_set)).
 const SECRET_KEY: &str = "laserfoundry.ai";
-/// The address of the account service built into this app, if any (`LF_CLOUD_URL` at build time).
-const BUILT_IN_SERVER: Option<&str> = option_env!("LF_CLOUD_URL");
 
 /// Which window is open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -155,7 +153,7 @@ impl LaserFoundryApp {
         }
         let kept: Option<Value> = self.platform.secret_get(SECRET_KEY).and_then(|t| serde_json::from_str(&t).ok());
         let text = |k: &str| kept.as_ref().and_then(|v| v.get(k)).and_then(Value::as_str).map(str::to_string);
-        self.ai.server = text("server").or_else(|| BUILT_IN_SERVER.map(str::to_string)).unwrap_or_default();
+        self.ai.server = text("server").unwrap_or_else(|| cloud::built_in_server().to_string());
         self.ai.email = text("email").unwrap_or_default();
         self.ai.key = text("key").unwrap_or_default();
         self.ai.use_key = kept.as_ref().and_then(|v| v.get("use_key")).and_then(Value::as_bool).unwrap_or(false);
@@ -497,7 +495,7 @@ impl LaserFoundryApp {
         let Some(window) = self.ai.window else { return };
         let mut open = true;
         let title = match window {
-            Window::Account => tr("Account"),
+            Window::Account => tr("Foundry Account"),
             Window::Design => tr("Design from Prompt"),
             Window::Redraw => tr("Redraw Image"),
             Window::Ask => tr("Ask About Lasering"),
@@ -522,15 +520,15 @@ impl LaserFoundryApp {
             ui.weak(tr("Paying with your own Anthropic key."));
         } else if let Some(a) = &self.ai.account {
             ui.horizontal(|ui| {
-                ui.label(trf!("Credits: {credits}", credits = a.credits));
-                if ui.small_button(tr("Account…")).clicked() {
+                ui.label(trf!("Foundry credits: {credits}", credits = a.credits));
+                if ui.small_button(tr("Foundry Account…")).clicked() {
                     self.ai.window = Some(Window::Account);
                 }
             });
         } else if !self.ai.signed_in() {
             ui.horizontal(|ui| {
                 ui.colored_label(self.tokens.error, tr("Not signed in."));
-                if ui.small_button(tr("Account…")).clicked() {
+                if ui.small_button(tr("Foundry Account…")).clicked() {
                     self.ai.window = Some(Window::Account);
                 }
             });
@@ -570,10 +568,10 @@ impl LaserFoundryApp {
             if self.ai.signed_in() {
                 ui.label(trf!("Signed in as {email}", email = self.ai.email));
                 if let Some(a) = self.ai.account.clone() {
-                    ui.label(trf!("Credits: {credits}", credits = a.credits));
+                    ui.label(trf!("Foundry credits: {credits}", credits = a.credits));
                     if a.payments {
                         for pack in &a.packs {
-                            let label = trf!("Buy {credits} credits for {price}", credits = pack.credits, price = cloud::dollars(pack.cents));
+                            let label = trf!("Buy {credits} Foundry credits for {price}", credits = pack.credits, price = cloud::dollars(pack.cents));
                             if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
                                 let request = cloud::checkout(&self.ai.server, self.ai.token.as_deref().unwrap_or_default(), &pack.id);
                                 self.send_ai(Pending::Checkout, request);

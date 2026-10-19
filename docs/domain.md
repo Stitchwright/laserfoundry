@@ -47,8 +47,8 @@ minutes, up to an hour), then tick **Enforce HTTPS**. `www.laserfoundry.app` the
 
 - Point the README, the docs and the repository's website field at `https://laserfoundry.app/`.
 - The old `stitchwright.github.io/lightfoundry` address may stop working after the repository rename; use the new one.
-- If the account service gets a name such as `api.laserfoundry.app`, set the `LF_CLOUD_URL` repository variable
-  to it (see `ai.md`): the browser build's content security policy is generated from that variable.
+- The apps use the shared Foundry service (`https://cloud.stitchfoundry.app`). If it gets a name such as
+  `api.laserfoundry.app`, set the `LF_CLOUD_URL` repository variable to it (see `ai.md`): the browser build's content security policy is generated from that variable.
 
 ## Checking it
 

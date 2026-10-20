@@ -723,3 +723,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   the planned time stays between the speed limit and the old estimate; the preview's last segment ends when the timeline says (it fails
   if they drift apart). Not done: the estimate assumes unlimited look-ahead where a real controller sees a limited number of moves,
   nothing here was compared with a real machine's clock, and the clean-room rule means GRBL's source was not read (public documents only).
+- **2026-10-20 — old name tidied.** `docs/domain.md` no longer says the repository rename is still to come (it names the old
+  `lightfoundry` address only to say not to use it), and the local git remote now points at `Stitchwright/laserfoundry`, so pushes
+  no longer go through GitHub's redirect. Checked with `cargo xtask ci`. Not changed: the old name in earlier ROADMAP entries,
+  which is history.

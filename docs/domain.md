@@ -46,7 +46,8 @@ minutes, up to an hour), then tick **Enforce HTTPS**. `www.laserfoundry.app` the
 ## 5. Then, in the repository (ask the agent to do this once the above works)
 
 - Point the README, the docs and the repository's website field at `https://laserfoundry.app/`.
-- The old `stitchwright.github.io/lightfoundry` address may stop working after the repository rename; use the new one.
+- The old `stitchwright.github.io/lightfoundry` address belongs to the repository's former name and may stop working; use
+  `https://stitchwright.github.io/laserfoundry/` until the custom domain is set up.
 - The apps use the shared Foundry service (`https://cloud.stitchfoundry.app`). If it gets a name such as
   `api.laserfoundry.app`, set the `LF_CLOUD_URL` repository variable to it (see `ai.md`): the browser build's content security policy is generated from that variable.
 

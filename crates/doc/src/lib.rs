@@ -819,10 +819,19 @@ pub struct Machine {
     /// Controller acceleration in mm/s² for time estimates (GRBL `$120`/`$121`); 0 = ignore.
     #[serde(default)]
     pub acceleration: f64,
+    /// How far from a corner the path may be cut, in mm, for time estimates (GRBL `$11`, whose default is 0.01). It sets
+    /// how fast the head takes a corner; 0 = every move starts and ends at rest. Needs `acceleration` to have any effect.
+    #[serde(default = "default_junction_deviation")]
+    pub junction_deviation: f64,
     /// Where a layer sets no overscan of its own, run up for the distance the head needs to reach
     /// the layer's speed at `acceleration` (v²/2a) instead of a fixed length.
     #[serde(default)]
     pub overscan_by_speed: bool,
+}
+
+/// GRBL's default junction deviation, mm.
+fn default_junction_deviation() -> f64 {
+    0.01
 }
 
 /// A rotary attachment. The controller's Y steps are calibrated for a roller or chuck of
@@ -894,6 +903,7 @@ impl Default for Machine {
             dialect: Dialect::Grbl,
             rotary: Rotary::default(),
             acceleration: 0.0,
+            junction_deviation: default_junction_deviation(),
             overscan_by_speed: false,
         }
     }
@@ -1139,5 +1149,17 @@ mod tests {
         let json = serde_json::to_string(&doc).unwrap();
         let back: Document = serde_json::from_str(&json).unwrap();
         assert_eq!(back, doc);
+    }
+
+    #[test]
+    fn the_junction_deviation_defaults_to_grbls_and_is_kept_in_files() {
+        assert_eq!(Machine::default().junction_deviation, 0.01);
+        // A project saved before the setting existed has no such field and gets GRBL's default.
+        let mut older = serde_json::to_value(Machine::default()).unwrap();
+        older.as_object_mut().unwrap().remove("junction_deviation");
+        assert_eq!(serde_json::from_value::<Machine>(older).unwrap().junction_deviation, 0.01);
+        let custom = Machine { junction_deviation: 0.2, ..Machine::default() };
+        let back: Machine = serde_json::from_value(serde_json::to_value(&custom).unwrap()).unwrap();
+        assert_eq!(back.junction_deviation, 0.2);
     }
 }

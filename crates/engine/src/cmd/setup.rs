@@ -29,7 +29,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         label: "Device Settings",
         menu: "Laser",
         shortcut: None,
-        params_doc: "{name?, bed_width?, bed_height?, origin?: bottom_left|top_left, max_s?, dynamic_power?, rapid_speed?, overscan?, dialect?: grbl|marlin|smoothie, acceleration? (mm/s², for time estimates; 0 = ignore), overscan_by_speed? (layers without their own overscan run up v²/2a), rotary_enabled?, rotary_reference_diameter?, rotary_object_diameter? (mm)}",
+        params_doc: "{name?, bed_width?, bed_height?, origin?: bottom_left|top_left, max_s?, dynamic_power?, rapid_speed?, overscan?, dialect?: grbl|marlin|smoothie, acceleration? (mm/s², for time estimates; 0 = ignore), junction_deviation? (mm, $11: how fast corners are taken in time estimates; 0 = stop at every corner), overscan_by_speed? (layers without their own overscan run up v²/2a), rotary_enabled?, rotary_reference_diameter?, rotary_object_diameter? (mm)}",
         mutates: true,
         run: machine_set,
     },
@@ -174,6 +174,7 @@ struct MachineParams {
     overscan: Option<f64>,
     dialect: Option<laserfoundry_doc::Dialect>,
     acceleration: Option<f64>,
+    junction_deviation: Option<f64>,
     overscan_by_speed: Option<bool>,
     rotary_enabled: Option<bool>,
     rotary_reference_diameter: Option<f64>,
@@ -210,6 +211,9 @@ fn machine_set(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     m.overscan_by_speed = p.overscan_by_speed.unwrap_or(m.overscan_by_speed);
     if let Some(v) = p.acceleration {
         m.acceleration = in_range("acceleration", v, 0.0, 100_000.0)?;
+    }
+    if let Some(v) = p.junction_deviation {
+        m.junction_deviation = in_range("junction_deviation", v, 0.0, 10.0)?;
     }
     m.rotary.enabled = p.rotary_enabled.unwrap_or(m.rotary.enabled);
     if let Some(v) = p.rotary_reference_diameter {

@@ -533,6 +533,130 @@ mod validation_tests {
 
 mod timeline_tests {
     use super::*;
+    use crate::timeline::corner_speed;
+
+    /// An operation that travels to the first point and then cuts through the rest at `speed` mm/min.
+    fn polyline_op(points: &[(f64, f64)], speed: f64) -> Op {
+        let mut moves = vec![Move::Travel(Point::new(points[0].0, points[0].1))];
+        moves.extend(points[1..].iter().map(|&(x, y)| Move::Cut { to: Point::new(x, y), power: 50.0 }));
+        Op { layer: 0, kind: OpKind::Line, speed, passes: 1, air_assist: false, z: 0.0, z_per_pass: 0.0, moves }
+    }
+
+    fn seconds(op: &Op, motion: Motion) -> f64 {
+        move_times(op, Point::new(op.moves[0].target().x, op.moves[0].target().y), 6000.0, motion).iter().sum()
+    }
+
+    const CORNERING: Motion = Motion { acceleration: 500.0, junction_deviation: 0.01 };
+    const REST_TO_REST: Motion = Motion { acceleration: 500.0, junction_deviation: 0.0 };
+
+    #[test]
+    fn a_straight_line_cut_in_many_pieces_takes_as_long_as_one_move() {
+        // 100 mm at 50 mm/s with 500 mm/s²: 2 s of cruising plus 0.1 s of speeding up and slowing down.
+        let pieces: Vec<(f64, f64)> = (0..=100).map(|i| (f64::from(i), 0.0)).collect();
+        let one = polyline_op(&[(0.0, 0.0), (100.0, 0.0)], 3000.0);
+        let many = polyline_op(&pieces, 3000.0);
+        assert!((seconds(&one, CORNERING) - 2.1).abs() < 1e-9);
+        assert!((seconds(&many, CORNERING) - 2.1).abs() < 1e-6, "{}", seconds(&many, CORNERING));
+        // Timed move by move from rest, every piece would pay for its own run-up: the old estimate was far too slow.
+        assert!(seconds(&many, REST_TO_REST) > 4.0, "{}", seconds(&many, REST_TO_REST));
+    }
+
+    #[test]
+    fn corner_speed_follows_the_junction_deviation_formula() {
+        let (east, north, west) = ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0));
+        assert!(corner_speed(east, east, 500.0, 0.01).is_infinite(), "no turn, no limit");
+        assert!(corner_speed(east, west, 500.0, 0.01).abs() < 1e-9, "turning straight back stops the head");
+        // A right angle: sin(θ/2) = sqrt(1/2), R = δ·s/(1−s), v = sqrt(a·R).
+        let s = 0.5_f64.sqrt();
+        let expected = (500.0 * 0.01 * s / (1.0 - s)).sqrt();
+        assert!((corner_speed(east, north, 500.0, 0.01) - expected).abs() < 1e-9);
+        assert!((expected - 3.4745).abs() < 1e-3, "{expected}");
+        // A gentler bend is taken faster, and a larger deviation allows more speed.
+        let gentle = (0.9_f64.acos().cos(), 0.9_f64.acos().sin());
+        assert!(corner_speed(east, gentle, 500.0, 0.01) > corner_speed(east, north, 500.0, 0.01));
+        assert!(corner_speed(east, north, 500.0, 0.05) > corner_speed(east, north, 500.0, 0.01));
+    }
+
+    #[test]
+    fn a_square_is_faster_with_cornering_but_not_faster_than_the_speed_limit() {
+        let square = polyline_op(&[(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0), (0.0, 0.0)], 3000.0);
+        let (planned, from_rest) = (seconds(&square, CORNERING), seconds(&square, REST_TO_REST));
+        let limit = 80.0 / 50.0; // 80 mm at 50 mm/s with nothing slowing it
+        assert!(planned < from_rest, "{planned} vs {from_rest}");
+        assert!(planned > limit, "{planned} vs {limit}");
+        // The square has four right angles but the cut starts and ends at rest at one of them; a straight cut of the
+        // same length is quicker than the square.
+        let straight = polyline_op(&[(0.0, 0.0), (80.0, 0.0)], 3000.0);
+        assert!(seconds(&straight, CORNERING) < planned);
+    }
+
+    #[test]
+    fn a_sharp_reversal_costs_a_full_stop_and_start() {
+        let there_and_back = polyline_op(&[(0.0, 0.0), (50.0, 0.0), (0.0, 0.0)], 3000.0);
+        assert!((seconds(&there_and_back, CORNERING) - seconds(&there_and_back, REST_TO_REST)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn without_a_deviation_or_an_acceleration_the_old_estimates_stand() {
+        let op = polyline_op(&[(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 0.0)], 3000.0);
+        let old = |a: f64| {
+            let mut at = op.moves[0].target();
+            op.moves
+                .iter()
+                .map(|m| {
+                    let t = move_seconds(at, m, op.speed, 6000.0, a);
+                    at = m.target();
+                    t
+                })
+                .sum::<f64>()
+        };
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let motion = Motion { acceleration: 500.0, junction_deviation: bad };
+            assert_eq!(seconds(&op, motion), old(500.0), "deviation {bad} is ignored");
+            let motion = Motion { acceleration: bad, junction_deviation: 0.01 };
+            assert_eq!(seconds(&op, motion), old(bad), "acceleration {bad} is ignored");
+        }
+        let job = plan(&two_layer_doc(1)).unwrap();
+        assert_eq!(
+            Timeline::with_acceleration(&job, 6000.0, 200.0),
+            Timeline::with_motion(&job, 6000.0, Motion { acceleration: 200.0, junction_deviation: 0.0 })
+        );
+    }
+
+    #[test]
+    fn moves_that_go_nowhere_take_no_time_and_do_not_break_a_straight_run() {
+        let with_stops = polyline_op(&[(0.0, 0.0), (10.0, 0.0), (10.0, 0.0), (20.0, 0.0), (20.0, 0.0), (30.0, 0.0)], 3000.0);
+        let plain = polyline_op(&[(0.0, 0.0), (30.0, 0.0)], 3000.0);
+        let times = move_times(&with_stops, with_stops.moves[0].target(), 6000.0, CORNERING);
+        assert_eq!(times.len(), with_stops.moves.len());
+        assert_eq!(times[2], 0.0);
+        assert_eq!(times[4], 0.0);
+        assert!((times.iter().sum::<f64>() - seconds(&plain, CORNERING)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn planned_times_stay_between_the_speed_limit_and_the_rest_to_rest_estimate() {
+        // A deterministic scribble of segments from a few hundredths of a millimetre to tens of millimetres.
+        let mut seed = 12345_u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((seed >> 33) as f64) / f64::from(1u32 << 31)
+        };
+        for speed in [600.0, 3000.0, 12000.0] {
+            let mut points = vec![(0.0, 0.0)];
+            for _ in 0..200 {
+                let (x, y) = *points.last().unwrap();
+                let scale = [0.05, 0.5, 5.0, 40.0][(next() * 4.0) as usize % 4];
+                points.push((x + (next() - 0.5) * scale, y + (next() - 0.5) * scale));
+            }
+            let op = polyline_op(&points, speed);
+            let length: f64 = points.windows(2).map(|w| ((w[1].0 - w[0].0).powi(2) + (w[1].1 - w[0].1).powi(2)).sqrt()).sum();
+            let (planned, from_rest) = (seconds(&op, CORNERING), seconds(&op, REST_TO_REST));
+            assert!(planned.is_finite() && planned > 0.0, "{speed}: {planned}");
+            assert!(planned <= from_rest + 1e-9, "{speed}: {planned} > {from_rest}");
+            assert!(planned >= length / (speed / 60.0) - 1e-9, "{speed}: {planned} is quicker than the speed limit");
+        }
+    }
 
     #[test]
     fn acceleration_makes_short_moves_slower_per_millimetre_than_long_ones() {

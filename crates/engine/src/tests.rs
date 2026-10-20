@@ -1633,6 +1633,29 @@ mod import_tests {
     }
 
     #[test]
+    fn junction_deviation_is_validated_and_sets_how_fast_corners_are_taken_in_the_estimate() {
+        let mut s = Session::new();
+        s.execute("shape.rectangle", &json!({"x": 10, "y": 10, "width": 30, "height": 20})).unwrap();
+        s.execute("machine.set", &json!({"acceleration": 100})).unwrap();
+        let secs = |s: &mut Session| s.execute("job.estimate", &Value::Null).unwrap()["seconds"].as_f64().unwrap();
+        let default = secs(&mut s);
+        s.execute("machine.set", &json!({"junction_deviation": 0})).unwrap();
+        let stopping = secs(&mut s);
+        assert!(stopping > default, "stopping at every corner is slower: {stopping} vs {default}");
+        s.execute("machine.set", &json!({"junction_deviation": 5})).unwrap();
+        assert!(secs(&mut s) < default, "a generous deviation lets the head through the corners faster");
+        for bad in [json!({"junction_deviation": -0.1}), json!({"junction_deviation": 11}), json!({"junction_deviation": "tight"})] {
+            assert!(s.execute("machine.set", &bad).is_err(), "{bad}");
+        }
+        assert_eq!(s.doc.machine.junction_deviation, 5.0, "a refused value changes nothing");
+        // Without an acceleration the setting does nothing.
+        s.execute("machine.set", &json!({"acceleration": 0})).unwrap();
+        let none = secs(&mut s);
+        s.execute("machine.set", &json!({"junction_deviation": 0.01})).unwrap();
+        assert_eq!(secs(&mut s), none);
+    }
+
+    #[test]
     fn cut_order_is_validated_applies_to_the_selection_and_undoes() {
         let mut s = Session::new();
         let a = s.execute("shape.rectangle", &json!({"x": 10, "y": 10, "width": 10, "height": 10})).unwrap()["id"].as_u64().unwrap();

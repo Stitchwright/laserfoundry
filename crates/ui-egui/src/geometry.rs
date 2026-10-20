@@ -4,7 +4,7 @@
 use laserfoundry_doc::{LayerId, ShapeId};
 use laserfoundry_engine::Session;
 use laserfoundry_geom::{Point, Polyline, Rect, bounds_of_polylines};
-use laserfoundry_toolpath::{Move, Timeline, move_seconds, plan};
+use laserfoundry_toolpath::{Motion, Move, Timeline, move_times, plan};
 
 /// Preview segments drawn at most; huge raster jobs are truncated for display only.
 pub const MAX_PREVIEW_SEGMENTS: usize = 400_000;
@@ -108,14 +108,16 @@ impl PreviewCache {
             Err(e) => self.error = Some(e.to_string()),
             Ok(job) => {
                 let rapid = job_doc.machine.rapid_speed;
-                self.timeline = Timeline::with_acceleration(&job, rapid, job_doc.machine.acceleration);
+                let motion = Motion { acceleration: job_doc.machine.acceleration, junction_deviation: job_doc.machine.junction_deviation };
+                self.timeline = Timeline::with_motion(&job, rapid, motion);
                 // The head's real start position is unknown, so the first move draws nothing.
                 let mut at: Option<Point> = None;
                 // Time follows the same path as the timeline model: from the origin, across operations.
                 let mut timed = Point::ORIGIN;
                 'ops: for (index, op) in job.ops.iter().enumerate() {
                     let mut local = 0.0_f64;
-                    for m in &op.moves {
+                    let times = move_times(op, timed, rapid, motion);
+                    for (m, &dt) in op.moves.iter().zip(&times) {
                         if self.segments.len() >= MAX_PREVIEW_SEGMENTS {
                             self.truncated = true;
                             break 'ops;
@@ -124,7 +126,6 @@ impl PreviewCache {
                             Move::Travel(_) => 0.0,
                             Move::Cut { power, .. } => *power as f32,
                         };
-                        let dt = move_seconds(timed, m, op.speed, rapid, job_doc.machine.acceleration);
                         if let Some(a) = at {
                             let (t0, t1) = (local as f32, (local + dt) as f32);
                             self.segments.push(PreviewSegment {

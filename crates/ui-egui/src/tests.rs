@@ -1841,6 +1841,18 @@ mod timeline_ui_tests {
     }
 
     #[test]
+    fn the_preview_and_the_timeline_agree_on_how_long_an_operation_takes_with_cornering() {
+        let mut h = Harness::new();
+        h.app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 50, "height": 30}));
+        h.app.run("machine.set", json!({"acceleration": 300, "junction_deviation": 0.02}));
+        h.app.show_preview = true;
+        h.frame(vec![]);
+        let pass = h.app.preview.timeline.ops[0].pass_seconds;
+        let last = h.app.preview.segments.iter().filter(|s| s.op == 0).map(|s| f64::from(s.t1)).fold(0.0, f64::max);
+        assert!(pass > 0.0 && (last - pass).abs() < 1e-3 * pass.max(1.0), "the last segment ends at {last} s, the pass takes {pass} s");
+    }
+
+    #[test]
     fn playing_runs_to_the_end_and_stops_and_the_scrubber_shows_the_head() {
         let mut h = Harness::new();
         h.app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 50, "height": 30}));

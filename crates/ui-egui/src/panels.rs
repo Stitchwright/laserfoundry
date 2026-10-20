@@ -333,6 +333,11 @@ fn laser(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
                 app.run("machine.set", json!({ "acceleration": v }));
             }
             ui.end_row();
+            ui.label(tr("Corner deviation"));
+            if let Some(v) = number(ui, m.junction_deviation, 0.0..=10.0, " mm") {
+                app.run("machine.set", json!({ "junction_deviation": v }));
+            }
+            ui.end_row();
             ui.label(tr("Overscan"));
             let mut by_speed = m.overscan_by_speed;
             if ui.checkbox(&mut by_speed, tr("from speed")).on_hover_text(tr("Run-up and run-out sized to the layer's speed and the acceleration above")).changed() {

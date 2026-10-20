@@ -184,7 +184,8 @@ fn gcode(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 
 fn estimate(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let job = laserfoundry_toolpath::plan(&s.job_doc())?;
-    let t = laserfoundry_toolpath::Timeline::with_acceleration(&job, s.doc.machine.rapid_speed, s.doc.machine.acceleration);
+    let motion = laserfoundry_toolpath::Motion { acceleration: s.doc.machine.acceleration, junction_deviation: s.doc.machine.junction_deviation };
+    let t = laserfoundry_toolpath::Timeline::with_motion(&job, s.doc.machine.rapid_speed, motion);
     let layers: Vec<Value> = t
         .layers()
         .iter()

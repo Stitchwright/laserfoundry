@@ -711,3 +711,15 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   test of every English sentence, a test that loads a catalog and sees the status line translated (it fails if `tr` is removed), and
   `cargo xtask ci` (the browser host is compiled for wasm). Not done: the system's or network's own error text inside a failure
   stays as reported, and the browser build's fetch errors stay English; no translation ships.
+- **2026-10-20 — corner-aware time estimates.** Estimates and the preview timeline used to time every move from rest to rest, which
+  overstates anything cut as many short segments (a curve, text, a traced picture): 100 one-millimetre pieces of a straight line
+  at 50 mm/s and 500 mm/s² cost about 8.9 s where the same line as one move costs 2.1 s. `laserfoundry_toolpath::move_times` now runs a look-ahead planner over each
+  operation: the speed through a corner follows the junction-deviation model from GRBL's public cornering notes (`v = sqrt(a·R)`,
+  `R = δ·sin(θ/2)/(1−sin(θ/2))`, never above either move's own speed; URLs in the code), then a backward and a forward pass keep every
+  entry and exit speed reachable. New machine setting `junction_deviation` (`machine.set`, 0 to 10 mm, default 0.01 as GRBL's `$11`;
+  older files get the default; 0 gives the old rest-to-rest estimate), a "Corner deviation" field next to Acceleration, and `job.estimate`
+  and the preview both use it. Checked by tests: the formula (a right angle at 500 mm/s² and 0.01 mm gives 3.47 mm/s), a straight line in
+  pieces equals one move, a reversal still stops, bad values fall back to the old numbers, and over 600 random segments at three speeds
+  the planned time stays between the speed limit and the old estimate; the preview's last segment ends when the timeline says (it fails
+  if they drift apart). Not done: the estimate assumes unlimited look-ahead where a real controller sees a limited number of moves,
+  nothing here was compared with a real machine's clock, and the clean-room rule means GRBL's source was not read (public documents only).

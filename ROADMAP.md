@@ -690,4 +690,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   variables). macOS imports the Developer ID certificate into a temporary keychain (`packaging/macos/import-cert.sh`), builds
   `LaserFoundry.app` (`packaging/macos/package.sh`, new: until now the macOS build was a bare binary in a tarball), signs with the
   hardened runtime and a timestamp, notarizes, staples and uploads `laserfoundry-macos-arm64.zip`. Missing secrets give an unsigned
-  build and a warning, never a failed run. See `docs/releasing.md`. Not checked yet: both jobs on a real release (see below).
+  build and a warning, never a failed run. See `docs/releasing.md`. Both jobs were then run on a real pre-release; see the entry below.
+- **2026-10-20 — Release signing tested on the pre-release `v0.0.1-rc.1`.** Run 39412511322 (event `release`, commit `cb2903d`)
+  went green. Windows: Azure Trusted Signing signed `laserfoundry.exe` and `laserfoundry-cli.exe` with no warnings or errors, and
+  `Get-AuthenticodeSignature` reported both `Valid` with the expected signer. macOS: `LaserFoundry.app` and `laserfoundry-cli` passed
+  `codesign --verify`, `notarytool` returned `Accepted`, stapling and `stapler validate` worked and `spctl` assessed the app as
+  `accepted` (source `Notarized Developer ID`). The `release` job attached the signed files. The signing jobs ran in the `release`
+  environment from a `v*` tag, as it allows. The Windows signing was from the first attempt and the macOS signing from a re-run of
+  that run (the Apple secrets were presumably added in between; not confirmed). The test release and tag were deleted afterwards.
+  Not checked: how SmartScreen treats the signed `.exe` on a real Windows machine, a launch of the notarized app on a real Mac,
+  the missing-secrets path (unsigned build plus warning) and a manual run from the `release` branch.

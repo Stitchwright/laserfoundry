@@ -700,3 +700,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   that run (the Apple secrets were presumably added in between; not confirmed). The test release and tag were deleted afterwards.
   Not checked: how SmartScreen treats the signed `.exe` on a real Windows machine, a launch of the notarized app on a real Mac,
   the missing-secrets path (unsigned build plus warning) and a manual run from the `release` branch.
+- **2026-10-20 — release notes for v0.1.0.** `docs/releases/v0.1.0.md`, written from this log, the README and `docs/gaps.md`:
+  downloads and which builds are signed, what the app does, and the known limits, with the point that nothing machine-side has
+  run on real hardware at the top. `docs/releasing.md` links it. Checked by reading every claim against the ROADMAP; not
+  checked: the notes on a real release page (the release is not published yet).

@@ -682,3 +682,12 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   secrets `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and the variables `AZURE_SIGNING_ENDPOINT`,
   `AZURE_SIGNING_ACCOUNT`, `AZURE_SIGNING_PROFILE`. Not checked yet: the first manual run (the names and the action's inputs
   are unproven until it signs), and nobody has launched a signed `.exe` on a Windows machine.
+  (Superseded on 2026-10-20: the environment is now `release` and all Azure values are secrets; see the entry below.)
+- **2026-10-20 — Signing moved to the `release` environment; macOS signing and notarization added.** `desktop.yml` now has
+  `sign-windows` and `sign-macos`, both in `environment: release` (the `release` branch and `v*` tags only), triggered by a
+  published release or a manual run from one of those refs; a manual run from `main` is refused by the environment. Windows reads
+  all six Azure values from secrets (`AZURE_SIGNING_ENDPOINT`, `AZURE_SIGNING_ACCOUNT`, `AZURE_CERT_PROFILE` are no longer
+  variables). macOS imports the Developer ID certificate into a temporary keychain (`packaging/macos/import-cert.sh`), builds
+  `LaserFoundry.app` (`packaging/macos/package.sh`, new: until now the macOS build was a bare binary in a tarball), signs with the
+  hardened runtime and a timestamp, notarizes, staples and uploads `laserfoundry-macos-arm64.zip`. Missing secrets give an unsigned
+  build and a warning, never a failed run. See `docs/releasing.md`. Not checked yet: both jobs on a real release (see below).

@@ -56,36 +56,61 @@ jobs:
           name: laserfoundry-${{ matrix.name }}
           path: laserfoundry-${{ matrix.name }}.*
 
-  # Signs the Windows binaries. Runs only for published releases and manual runs, because it uses the `signing` environment's
-  # Azure credentials. It replaces the unsigned Windows artifact with a signed one of the same name.
-  sign:
+  # Signs the Windows binaries with Azure Trusted Signing. Runs for published releases and manual runs, in the `release`
+  # environment, which allows only the `release` branch and `v*` tags and holds the Azure secrets. A manual run from `main`
+  # is therefore refused by the environment; run it from the `release` branch or a `v*` tag. With any secret missing the
+  # job warns and leaves the unsigned Windows artifact in place instead of failing. It replaces the artifact otherwise.
+  sign-windows:
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: windows-latest
-    environment: signing
+    environment: release
     steps:
+      - name: Check the signing secrets
+        id: check
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
+        run: |
+          $names = 'AZURE_TENANT_ID','AZURE_CLIENT_ID','AZURE_CLIENT_SECRET','AZURE_SIGNING_ENDPOINT','AZURE_SIGNING_ACCOUNT','AZURE_CERT_PROFILE'
+          $missing = $names | Where-Object { -not (Get-Item "env:$_" -ErrorAction SilentlyContinue).Value }
+          if ($missing) {
+            "::warning::Windows signing skipped, the release environment lacks: $($missing -join ', '). The Windows build stays unsigned."
+            "ready=false" >> $env:GITHUB_OUTPUT
+          } else {
+            "ready=true" >> $env:GITHUB_OUTPUT
+          }
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.check.outputs.ready == 'true'
         with:
           name: laserfoundry-windows-x64
           path: unsigned
       - name: Unpack
+        if: steps.check.outputs.ready == 'true'
         shell: bash
         run: 7z x unsigned/laserfoundry-windows-x64.zip -osigned > /dev/null
       - name: Sign
+        if: steps.check.outputs.ready == 'true'
         uses: azure/trusted-signing-action@48da903ca5e2d362da62c631a42d77c02ec7eadb # v1.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
           azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
-          trusted-signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ vars.AZURE_SIGNING_PROFILE }}
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_CERT_PROFILE }}
           files-folder: ${{ github.workspace }}\signed
           files-folder-filter: exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
       - name: Verify the signatures
+        if: steps.check.outputs.ready == 'true'
         shell: pwsh
         run: |
           foreach ($f in Get-ChildItem signed -Filter *.exe) {
@@ -94,18 +119,88 @@ jobs:
             "$($f.Name): $($sig.SignerCertificate.Subject)"
           }
       - name: Repack
+        if: steps.check.outputs.ready == 'true'
         shell: bash
         run: cd signed && 7z a ../laserfoundry-windows-x64.zip . > /dev/null
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.check.outputs.ready == 'true'
         with:
           name: laserfoundry-windows-x64
           path: laserfoundry-windows-x64.zip
           overwrite: true
 
+  # Signs, notarizes and staples the macOS app (packaging/macos/). Same triggers and environment as the Windows job, and the
+  # same rule: with any secret missing it warns and leaves the unsigned tarball in place. Otherwise it replaces the artifact
+  # with a zip holding the notarized LaserFoundry.app and the signed command-line tool.
+  sign-macos:
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: macos-latest
+    environment: release
+    steps:
+      - name: Check the signing secrets
+        id: check
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          missing=""
+          for n in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
+            [ -n "${!n}" ] || missing="$missing $n"
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning::macOS signing skipped, the release environment lacks:$missing. The macOS build stays unsigned."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.check.outputs.ready == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.check.outputs.ready == 'true'
+        with:
+          name: laserfoundry-macos-arm64
+          path: unsigned
+      - name: Unpack
+        if: steps.check.outputs.ready == 'true'
+        run: mkdir bin && tar xzf unsigned/laserfoundry-macos-arm64.tar.gz -C bin
+      - name: Import the certificate
+        if: steps.check.outputs.ready == 'true'
+        id: keychain
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: echo "path=$(packaging/macos/import-cert.sh | tail -1)" >> "$GITHUB_OUTPUT"
+      - name: Sign, notarize and staple
+        if: steps.check.outputs.ready == 'true'
+        env:
+          KEYCHAIN: ${{ steps.keychain.outputs.path }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: packaging/macos/package.sh bin signed
+      - name: Remove the keychain
+        if: always() && steps.keychain.outputs.path != ''
+        run: security delete-keychain "${{ steps.keychain.outputs.path }}" || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.check.outputs.ready == 'true'
+        with:
+          name: laserfoundry-macos-arm64
+          path: signed/laserfoundry-macos-arm64.zip
+          overwrite: true
+
   # Only this job can write to the repository: the builds above run with a read-only token.
   release:
     if: github.event_name == 'release'
-    needs: [build, sign]
+    needs: [build, sign-windows, sign-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write

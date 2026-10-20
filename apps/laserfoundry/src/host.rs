@@ -3,8 +3,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, mpsc};
 
 use laserfoundry_device::Transport;
+use laserfoundry_fontlib::FontLibError;
 use laserfoundry_mcp::link::LinkServer;
-use laserfoundry_ui_egui::{LaserFoundryApp, Platform};
+use laserfoundry_ui_egui::{FontDownload, FontDownloadFailure, LaserFoundryApp, Platform};
 
 pub struct Host {
     pub app: LaserFoundryApp,
@@ -28,7 +29,7 @@ type HttpAnswer = Result<(u16, String), String>;
 #[derive(Default)]
 pub struct DesktopPlatform {
     /// The font library download in progress, if any: its result arrives here.
-    font_job: Mutex<Option<mpsc::Receiver<Result<String, String>>>>,
+    font_job: Mutex<Option<mpsc::Receiver<Result<FontDownload, FontDownloadFailure>>>>,
     /// The AI or account request in flight, if any: its answer arrives here.
     http_job: Mutex<Option<mpsc::Receiver<HttpAnswer>>>,
 }
@@ -81,21 +82,14 @@ impl Platform for DesktopPlatform {
         std::thread::spawn(move || {
             let cancel = AtomicBool::new(false);
             let result = laserfoundry_fontlib::download(&dest, &laserfoundry_fontlib::Source::default(), set, &cancel, &mut |_, _| {})
-                .map(|s| {
-                    format!(
-                        "Font library: {} downloaded, {} already there, in {}. The Foundry fonts are under Library fonts in the text inspector.",
-                        s.fetched,
-                        s.kept,
-                        dest.display()
-                    )
-                })
-                .map_err(|e| e.to_string());
+                .map(|s| FontDownload::Saved { fetched: s.fetched, kept: s.kept, folder: dest.display().to_string() })
+                .map_err(failure);
             let _ = sender.send(result);
         });
         true
     }
 
-    fn take_font_library_result(&self) -> Option<Result<String, String>> {
+    fn take_font_library_result(&self) -> Option<Result<FontDownload, FontDownloadFailure>> {
         let mut job = self.font_job.lock().ok()?;
         match job.as_ref()?.try_recv() {
             Ok(result) => {
@@ -105,7 +99,7 @@ impl Platform for DesktopPlatform {
             Err(mpsc::TryRecvError::Empty) => None,
             Err(mpsc::TryRecvError::Disconnected) => {
                 *job = None;
-                Some(Err("the font download stopped unexpectedly".into()))
+                Some(Err(FontDownloadFailure::Stopped))
             }
         }
     }
@@ -193,6 +187,18 @@ impl Platform for DesktopPlatform {
     #[cfg(not(feature = "serial"))]
     fn open_serial(&self, _port: &str) -> Result<Box<dyn Transport + Send>, String> {
         Err("this build has no serial support".into())
+    }
+}
+
+/// The interface words a failed font download in the person's language, so only what went wrong is passed on.
+fn failure(error: FontLibError) -> FontDownloadFailure {
+    match error {
+        FontLibError::Network(detail) => FontDownloadFailure::Unreachable(detail),
+        FontLibError::BadListing(detail) => FontDownloadFailure::BadListing(detail),
+        FontLibError::TooLarge => FontDownloadFailure::TooLarge,
+        FontLibError::Write { path, reason } => FontDownloadFailure::Write { path, reason },
+        FontLibError::Cancelled => FontDownloadFailure::Cancelled,
+        FontLibError::NoFolder => FontDownloadFailure::NoFolder,
     }
 }
 

@@ -2743,7 +2743,7 @@ mod font_library_tests {
     use super::*;
 
     /// A desktop-like host: downloads are allowed and finish when the test says so.
-    struct Desktop(Rc<RefCell<Option<Result<String, String>>>>, Rc<RefCell<Vec<bool>>>);
+    struct Desktop(Rc<RefCell<Option<Result<FontDownload, FontDownloadFailure>>>>, Rc<RefCell<Vec<bool>>>);
 
     impl Platform for Desktop {
         fn pick_open(&self, _: &str, _: &[&str]) -> Option<std::path::PathBuf> {
@@ -2763,7 +2763,7 @@ mod font_library_tests {
             self.1.borrow().len() == 1
         }
 
-        fn take_font_library_result(&self) -> Option<Result<String, String>> {
+        fn take_font_library_result(&self) -> Option<Result<FontDownload, FontDownloadFailure>> {
             self.0.borrow_mut().take()
         }
 
@@ -2830,10 +2830,16 @@ mod font_library_tests {
         assert!(h.app.font_download_running);
         h.frame(vec![]);
         assert!(h.app.font_download_running, "still waiting for the result");
-        *result.borrow_mut() = Some(Ok("Font library: 3 downloaded".into()));
+        *result.borrow_mut() = Some(Ok(FontDownload::Saved { fetched: 3, kept: 1, folder: "/fonts".into() }));
         h.frame(vec![]);
         assert!(!h.app.font_download_running);
-        assert_eq!(h.app.status, Some(("Font library: 3 downloaded".into(), false)));
+        assert_eq!(
+            h.app.status,
+            Some((
+                "Font library: 3 downloaded, 1 already there, in /fonts. The Foundry fonts are under Library fonts in the text inspector.".into(),
+                false
+            ))
+        );
 
         // When the host refuses a start (one is already running there), that is said and nothing is waited for.
         h.app.download_font_library(false);
@@ -2841,9 +2847,68 @@ mod font_library_tests {
         assert!(matches!(&h.app.status, Some((text, false)) if text.contains("already running")), "{:?}", h.app.status);
 
         h.app.font_download_running = true; // a failed download reports its reason as an error
-        *result.borrow_mut() = Some(Err("could not reach the font library".into()));
+        *result.borrow_mut() = Some(Err(FontDownloadFailure::Unreachable("timed out".into())));
         h.frame(vec![]);
-        assert_eq!(h.app.status, Some(("could not reach the font library".into(), true)));
+        assert_eq!(h.app.status, Some(("could not reach the font library: timed out".into(), true)));
+    }
+
+    #[test]
+    fn font_download_results_read_the_same_in_english() {
+        crate::i18n::set_active(None);
+        let saved = FontDownload::Saved { fetched: 2, kept: 5, folder: "/data/fonts".into() };
+        assert_eq!(
+            saved.text(),
+            "Font library: 2 downloaded, 5 already there, in /data/fonts. The Foundry fonts are under Library fonts in the text inspector."
+        );
+        assert_eq!(FontDownload::Loaded { fonts: 4 }.text(), "Font library: 4 fonts ready under Library fonts in the text inspector.");
+        for (failure, english) in [
+            (FontDownloadFailure::Unreachable("dns".into()), "could not reach the font library: dns"),
+            (FontDownloadFailure::BadListing("cut".into()), "the font library listing is not what was expected: cut"),
+            (FontDownloadFailure::TooLarge, "the font library is larger than this program will download; refusing"),
+            (FontDownloadFailure::Write { path: "a/b".into(), reason: "full".into() }, "could not write a/b: full"),
+            (FontDownloadFailure::Cancelled, "the download was cancelled"),
+            (FontDownloadFailure::NoFolder, "no folder is available to keep the fonts in"),
+            (FontDownloadFailure::Stopped, "the font download stopped unexpectedly"),
+            (FontDownloadFailure::SiteUnavailable("404".into()), "The font library is not available from this site (404)"),
+            (FontDownloadFailure::NoUsableFonts, "The font library on this site has no usable fonts"),
+            (FontDownloadFailure::Other("as found".into()), "as found"),
+        ] {
+            assert_eq!(failure.text(), english);
+        }
+    }
+
+    #[test]
+    fn a_finished_download_is_worded_in_the_chosen_language() {
+        // Regression: the host used to send finished English sentences from its worker thread, where no translation is
+        // active, so these messages were never translated. The words are now chosen where the catalog is.
+        let catalog = crate::i18n::parse(
+            r#"{"strings":{
+                "Font library: {fetched} downloaded, {kept} already there, in {folder}. The Foundry fonts are under Library fonts in the text inspector.":"Schriften: {fetched} geladen, {kept} schon da, in {folder}.",
+                "could not reach the font library: {detail}":"Schriftenbibliothek nicht erreichbar: {detail}",
+                "the download was cancelled":"Der Download wurde abgebrochen"
+            }}"#,
+        )
+        .unwrap();
+        let result = Rc::new(RefCell::new(None));
+        let mut h = app_on(Box::new(Desktop(Rc::clone(&result), Rc::new(RefCell::new(Vec::new())))));
+        crate::i18n::set_active(Some(catalog));
+
+        h.app.font_download_running = true;
+        *result.borrow_mut() = Some(Ok(FontDownload::Saved { fetched: 3, kept: 1, folder: "/fonts".into() }));
+        h.frame(vec![]);
+        assert_eq!(h.app.status, Some(("Schriften: 3 geladen, 1 schon da, in /fonts.".into(), false)));
+
+        h.app.font_download_running = true;
+        *result.borrow_mut() = Some(Err(FontDownloadFailure::Unreachable("timed out".into())));
+        h.frame(vec![]);
+        assert_eq!(h.app.status, Some(("Schriftenbibliothek nicht erreichbar: timed out".into(), true)));
+
+        h.app.font_download_running = true;
+        *result.borrow_mut() = Some(Err(FontDownloadFailure::Cancelled));
+        h.frame(vec![]);
+        assert_eq!(h.app.status, Some(("Der Download wurde abgebrochen".into(), true)));
+
+        crate::i18n::set_active(None);
     }
 
     #[test]

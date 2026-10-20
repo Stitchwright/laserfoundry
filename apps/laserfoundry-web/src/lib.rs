@@ -17,7 +17,7 @@ mod web {
     use std::rc::Rc;
 
     use laserfoundry_device::Transport;
-    use laserfoundry_ui_egui::{LaserFoundryApp, Platform, Upload};
+    use laserfoundry_ui_egui::{FontDownload, FontDownloadFailure, LaserFoundryApp, Platform, Upload};
     use wasm_bindgen::prelude::*;
     use wasm_bindgen_futures::{JsFuture, spawn_local};
 
@@ -189,7 +189,7 @@ mod web {
                     if let (Some(storage), Ok(text)) = (local_storage(), serde_json::to_string(&folders)) {
                         let _ = storage.set_item(FONTS_KEY, &text);
                     }
-                    format!("Font library: {} fonts ready under Library fonts in the text inspector.", folders.len())
+                    FontDownload::Loaded { fonts: folders.len() }
                 });
                 let mut job = job.borrow_mut();
                 job.running = false;
@@ -198,7 +198,7 @@ mod web {
             true
         }
 
-        fn take_font_library_result(&self) -> Option<Result<String, String>> {
+        fn take_font_library_result(&self) -> Option<Result<FontDownload, FontDownloadFailure>> {
             self.font_job.borrow_mut().result.take()
         }
 
@@ -435,7 +435,7 @@ mod web {
     #[derive(Default)]
     struct FontJob {
         running: bool,
-        result: Option<Result<String, String>>,
+        result: Option<Result<FontDownload, FontDownloadFailure>>,
     }
 
     /// The AI or account request in flight (or its answer, not yet taken).
@@ -509,25 +509,24 @@ mod web {
 
     /// Downloads the fonts the site carries (only `only`, when given) into the engine's font registry.
     /// Returns the folders that loaded.
-    async fn load_fonts(only: Option<Vec<String>>) -> Result<Vec<String>, String> {
-        let index = fetch_text("fonts/index.json", crate::fontindex::MAX_INDEX_BYTES)
-            .await
-            .map_err(|e| format!("The font library is not available from this site ({e})"))?;
+    async fn load_fonts(only: Option<Vec<String>>) -> Result<Vec<String>, FontDownloadFailure> {
+        let index = fetch_text("fonts/index.json", crate::fontindex::MAX_INDEX_BYTES).await.map_err(FontDownloadFailure::SiteUnavailable)?;
         let mut loaded = Vec::new();
-        for entry in crate::fontindex::parse_index(&index)? {
+        for entry in crate::fontindex::parse_index(&index).map_err(FontDownloadFailure::Other)? {
             if only.as_ref().is_some_and(|names| !names.contains(&entry.folder)) {
                 continue;
             }
             let base = format!("fonts/{}/", entry.folder);
-            let info = fetch_text(&format!("{base}font.json"), entry.font_json_bytes as usize + 1024).await?;
-            let glyphs = fetch_text(&format!("{base}glyphs.stitchfoundry"), entry.glyphs_bytes as usize + 1024).await?;
+            let info = fetch_text(&format!("{base}font.json"), entry.font_json_bytes as usize + 1024).await.map_err(FontDownloadFailure::Other)?;
+            let glyphs =
+                fetch_text(&format!("{base}glyphs.stitchfoundry"), entry.glyphs_bytes as usize + 1024).await.map_err(FontDownloadFailure::Other)?;
             match laserfoundry_engine::fontlib::register(&entry.folder, &info, &glyphs) {
                 Ok(()) => loaded.push(entry.folder),
                 Err(e) => log::warn!("skipping the font {}: {e}", entry.folder),
             }
         }
         if loaded.is_empty() && only.is_none() {
-            return Err("The font library on this site has no usable fonts".into());
+            return Err(FontDownloadFailure::NoUsableFonts);
         }
         Ok(loaded)
     }
@@ -541,7 +540,7 @@ mod web {
         }
         spawn_local(async move {
             if let Err(e) = load_fonts(Some(remembered)).await {
-                log::warn!("could not restore the installed fonts: {e}");
+                log::warn!("could not restore the installed fonts: {}", e.text());
             }
         });
     }

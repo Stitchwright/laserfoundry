@@ -29,7 +29,7 @@ mod theme;
 mod timeline_ui;
 mod view;
 
-pub use platform::{NoPlatform, Platform, Upload};
+pub use platform::{FontDownload, FontDownloadFailure, NoPlatform, Platform, Upload};
 
 use crate::i18n::{tr, trf};
 use std::path::PathBuf;
@@ -672,8 +672,8 @@ impl LaserFoundryApp {
             Some(result) => {
                 self.font_download_running = false;
                 match result {
-                    Ok(summary) => self.say(summary),
-                    Err(reason) => self.status = Some((reason, true)),
+                    Ok(done) => self.say(done.text()),
+                    Err(failure) => self.status = Some((failure.text(), true)),
                 }
             }
             None => ctx.request_repaint_after(Duration::from_millis(300)),

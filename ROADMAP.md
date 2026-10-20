@@ -704,3 +704,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   downloads and which builds are signed, what the app does, and the known limits, with the point that nothing machine-side has
   run on real hardware at the top. `docs/releasing.md` links it. Checked by reading every claim against the ROADMAP; not
   checked: the notes on a real release page (the release is not published yet).
+- **2026-10-20 — font-download messages are translatable.** The result of the font library download reached the interface as a
+  finished English sentence, built on the download's worker thread, where the person's translation is not active, so it was never
+  translated. The host now sends figures and a reason (`FontDownload`, `FontDownloadFailure` in `crates/ui-egui/src/platform.rs`) and
+  the interface words them with `tr`/`trf!`, in the desktop and browser hosts alike. The English wording is unchanged. Checked with a
+  test of every English sentence, a test that loads a catalog and sees the status line translated (it fails if `tr` is removed), and
+  `cargo xtask ci` (the browser host is compiled for wasm). Not done: the system's or network's own error text inside a failure
+  stays as reported, and the browser build's fetch errors stay English; no translation ships.

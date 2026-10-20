@@ -2,11 +2,78 @@ use std::path::PathBuf;
 
 use laserfoundry_device::Transport;
 
+use crate::i18n::{tr, trf};
+
 /// A file the person picked in a browser-style host: its name and contents.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Upload {
     pub name: String,
     pub bytes: Vec<u8>,
+}
+
+/// What a finished font library download achieved. The host sends these figures, not sentences, because it finishes on
+/// another thread, where the person's translation is not active; the interface words them (see [`FontDownload::text`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FontDownload {
+    /// Files written to the font folder (the desktop app).
+    Saved { fetched: usize, kept: usize, folder: String },
+    /// Fonts loaded from the site itself (the browser build).
+    Loaded { fonts: usize },
+}
+
+/// Why a font library download did not finish. Details that come from the system or the network (an error from the
+/// operating system, a bad address) stay as they were reported; the rest of each sentence is translated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FontDownloadFailure {
+    Unreachable(String),
+    BadListing(String),
+    TooLarge,
+    Write {
+        path: String,
+        reason: String,
+    },
+    Cancelled,
+    NoFolder,
+    /// The background download ended without reporting.
+    Stopped,
+    /// The browser build's site has no font library to read.
+    SiteUnavailable(String),
+    NoUsableFonts,
+    /// Any other reason, already worded by whatever found it.
+    Other(String),
+}
+
+impl FontDownload {
+    /// The sentence to show, in the person's language.
+    pub fn text(&self) -> String {
+        match self {
+            Self::Saved { fetched, kept, folder } => trf!(
+                "Font library: {fetched} downloaded, {kept} already there, in {folder}. The Foundry fonts are under Library fonts in the text inspector.",
+                fetched = fetched,
+                kept = kept,
+                folder = folder
+            ),
+            Self::Loaded { fonts } => trf!("Font library: {fonts} fonts ready under Library fonts in the text inspector.", fonts = fonts),
+        }
+    }
+}
+
+impl FontDownloadFailure {
+    /// The sentence to show, in the person's language.
+    pub fn text(&self) -> String {
+        match self {
+            Self::Unreachable(detail) => trf!("could not reach the font library: {detail}", detail = detail),
+            Self::BadListing(detail) => trf!("the font library listing is not what was expected: {detail}", detail = detail),
+            Self::TooLarge => tr("the font library is larger than this program will download; refusing"),
+            Self::Write { path, reason } => trf!("could not write {path}: {reason}", path = path, reason = reason),
+            Self::Cancelled => tr("the download was cancelled"),
+            Self::NoFolder => tr("no folder is available to keep the fonts in"),
+            Self::Stopped => tr("the font download stopped unexpectedly"),
+            Self::SiteUnavailable(detail) => trf!("The font library is not available from this site ({detail})", detail = detail),
+            Self::NoUsableFonts => tr("The font library on this site has no usable fonts"),
+            Self::Other(text) => text.clone(),
+        }
+    }
 }
 
 /// What the host operating system provides. Keeping this behind a trait keeps file dialogs and
@@ -105,8 +172,8 @@ pub trait Platform {
         false
     }
 
-    /// Once, after a started download has finished: a summary, or the reason it failed.
-    fn take_font_library_result(&self) -> Option<Result<String, String>> {
+    /// Once, after a started download has finished: what it achieved, or the reason it failed.
+    fn take_font_library_result(&self) -> Option<Result<FontDownload, FontDownloadFailure>> {
         None
     }
 

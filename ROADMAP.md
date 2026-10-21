@@ -813,3 +813,21 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   finish quickly and a part bigger than the region keeps the first cell size; the work reported and bounded); the first fails with refinement
   turned off (tried). Not done (gap 23, reworded): a big job with a very tight fit can still leave a part out, and there is no exact-geometry
   compaction (sliding parts together after placing).
+- **2026-10-21 — Marlin controller link (simulator-only).** `Link::connect_with(transport, Protocol)` (and `connect_inline_with`) pick the protocol;
+  `Protocol::Marlin` is new, `Protocol::Grbl` is what `connect` has always meant. The app chooses it from the machine's G-code setting when it
+  connects (Marlin gets the Marlin link and, for the in-app simulator, a `SimulatedMarlin`; Smoothieware keeps the GRBL link, which it documents
+  support for), and refuses to run a job if the setting was changed after connecting. What the Marlin link does differently: one line in flight
+  at a time (Marlin tells the host nothing about free buffer space), `ok` or `ok ...` as the acknowledgement, `M114` for the position (only
+  when idle, one request outstanding, marked as work coordinates), `M400` after the last line and the job is finished when it is answered,
+  Pause stops sending (moves already queued still run: documented), Stop sends `M410` then `M5` (never a reset byte or any GRBL real-time
+  byte), a job ends at the first `Error:` or `echo:Unknown command` with the same stop, jogs/home/unlock/zero are single commands per line
+  (Marlin runs only the first command on a line) with `M5` first, `$$` settings are refused. Answers owed for lines sent before a job starts
+  are used up first so they are not credited to the job. `parse_status` also reads the older comma form Smoothieware uses
+  (`<Idle,MPos:..,WPos:..>`), and `parse_marlin_position` reads `M114`. Checked with 17 link tests on a scripted wire and on `SimulatedMarlin`
+  (flow control, pause, stop bytes, errors, completion, a flood of junk, no GRBL byte ever sent, the whole thing end to end with the laser state),
+  the parsers, two panel tests and the fuzz entry `controller_line`, which now also runs both protocols against arbitrary replies. Mutations
+  of the stop sequence, the owed answers, pause, the one-line window and error handling each fail tests (tried). **Not checked against any real
+  controller:** the simulator is written from the same public docs, so it can share my misreadings; `docs/hardware-bringup.md` has a Marlin
+  section listing what to try first, with Stop and the laser state first. Not done: Marlin `M114` during a job, `ok` accounting if a firmware
+  drops an acknowledgement, Smoothieware-specific settings.
+

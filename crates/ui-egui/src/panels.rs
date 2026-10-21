@@ -364,8 +364,14 @@ fn laser(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
         if dialect != m.dialect {
             app.run("machine.set", json!({ "dialect": dialect }));
         }
-        if dialect != laserfoundry_doc::Dialect::Grbl {
-            ui.weak(tr("Written from the firmware's public documentation and untested on a machine. Use Frame at 0% power first. The controller-link features ($$, jog) are GRBL only."));
+        match dialect {
+            laserfoundry_doc::Dialect::Grbl => {}
+            laserfoundry_doc::Dialect::Marlin => {
+                ui.weak(tr("Written from the firmware's public documentation and untested on a machine. Use Frame at 0% power first. The Marlin link (jog, run, pause, stop) is experimental and has only been tried against a simulator: pausing cannot stop moves the controller has already queued, and stopping sends M410 then M5. The $$ settings editor is GRBL only."));
+            }
+            laserfoundry_doc::Dialect::Smoothie => {
+                ui.weak(tr("Written from the firmware's public documentation and untested on a machine. Use Frame at 0% power first. Smoothieware is driven with the GRBL link (? status, ! hold, Ctrl-X reset), which it understands, but nothing has been tried on a real one."));
+            }
         }
         rotary_section(app, ui, &m);
         let mut dynamic = m.dynamic_power;

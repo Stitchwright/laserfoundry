@@ -1594,6 +1594,39 @@ mod machine_tests {
         h.app.snap.as_ref().and_then(|s| s.status.as_ref()).and_then(|st| st.position).map(|(x, y, _)| (x, y))
     }
 
+    #[test]
+    fn a_marlin_machine_is_driven_with_the_marlin_link_and_changing_the_dialect_afterwards_is_refused() {
+        let mut h = Harness::new();
+        h.app.run("machine.set", json!({"dialect": "marlin"}));
+        assert_eq!(h.app.link_protocol(), laserfoundry_device::Protocol::Marlin);
+        h.app.connect();
+        pump(&mut h, "the first position report", |h| position(h).is_some());
+        assert_eq!(h.app.link.as_ref().map(|l| l.protocol()), Some(laserfoundry_device::Protocol::Marlin));
+        let status = h.app.snap.as_ref().and_then(|s| s.status.clone()).unwrap();
+        assert!(status.position_is_work, "Marlin reports work coordinates, which cannot be placed on the bed");
+
+        h.app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 20, "height": 20}));
+        h.app.run("job.gcode", json!({}));
+        let program = h.app.session.last_gcode.clone().unwrap();
+        assert!(program.contains("M3 I S0"), "the Marlin dialect's program: {program}");
+        h.app.start_job(program);
+        pump(&mut h, "the job to finish", |h| matches!(h.app.snap.as_ref().map(|s| &s.job), Some(JobState::Finished(_))));
+        assert!(matches!(h.app.snap.as_ref().map(|s| &s.job), Some(JobState::Finished(Ok(_)))), "{:?}", h.app.snap.as_ref().map(|s| &s.console));
+
+        // The link keeps the protocol it was opened with: a program for another dialect is not sent down it.
+        h.app.run("machine.set", json!({"dialect": "grbl"}));
+        h.app.start_job("G21\n".into());
+        assert!(h.app.status.as_ref().is_some_and(|(m, err)| *err && m.contains("changed after connecting")), "{:?}", h.app.status);
+        assert!(!h.app.job_active());
+    }
+
+    #[test]
+    fn smoothieware_uses_the_grbl_link() {
+        let mut h = Harness::new();
+        h.app.run("machine.set", json!({"dialect": "smoothie"}));
+        assert_eq!(h.app.link_protocol(), laserfoundry_device::Protocol::Grbl);
+    }
+
     fn connected() -> Harness {
         let mut h = Harness::new();
         h.app.connect();

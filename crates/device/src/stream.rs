@@ -35,6 +35,15 @@ pub struct StreamReport {
     pub lines: usize,
 }
 
+/// How many lines the streamer may have outstanding at once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Window {
+    /// As many as fit GRBL's RX buffer (character counting).
+    Bytes,
+    /// At most this many, however short (a firmware with no way to count free buffer space).
+    Lines(usize),
+}
+
 /// The protocol state of one program being streamed: which lines are in flight and how many
 /// bytes of GRBL's RX buffer they occupy. Shared by [`stream_program`] and the persistent link.
 pub(crate) struct JobStream {
@@ -45,12 +54,17 @@ pub(crate) struct JobStream {
     in_flight_bytes: usize,
     next: usize,
     acked: usize,
+    window: Window,
 }
 
 impl JobStream {
     pub(crate) fn new(program: &str) -> Result<Self, DeviceError> {
+        Self::with_window(program, Window::Bytes)
+    }
+
+    pub(crate) fn with_window(program: &str, window: Window) -> Result<Self, DeviceError> {
         let (numbers, lines): (Vec<usize>, Vec<String>) = prepare_numbered(program)?.into_iter().unzip();
-        Ok(Self { lines, numbers, in_flight: VecDeque::new(), in_flight_bytes: 0, next: 0, acked: 0 })
+        Ok(Self { lines, numbers, in_flight: VecDeque::new(), in_flight_bytes: 0, next: 0, acked: 0, window })
     }
 
     pub(crate) fn progress(&self) -> Progress {
@@ -69,7 +83,11 @@ impl JobStream {
     pub(crate) fn pump(&mut self, transport: &mut dyn Transport) -> Result<(), DeviceError> {
         while let Some(line) = self.lines.get(self.next) {
             let cost = line.len() + 1;
-            if self.in_flight_bytes + cost > GRBL_RX_BUFFER - 1 {
+            let full = match self.window {
+                Window::Bytes => self.in_flight_bytes + cost > GRBL_RX_BUFFER - 1,
+                Window::Lines(n) => self.in_flight.len() >= n.max(1),
+            };
+            if full {
                 break;
             }
             transport.write_all(format!("{line}\n").as_bytes())?;

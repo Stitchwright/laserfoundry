@@ -140,6 +140,7 @@ the artwork has no size
 the artwork has too many shapes
 the controller raised ALARM:{0} {1}; clear it (unlock/home) before running again
 the controller rejected line {line} ({text}) with error:{code} {hint}
+the controller reported: {0}
 the download was cancelled
 the file has no ENTITIES section
 the file is too large

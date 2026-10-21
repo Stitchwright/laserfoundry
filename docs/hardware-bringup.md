@@ -87,3 +87,33 @@ Jog and jog-to, frame, a short cut, pause and resume, stop (soft reset), run fro
 unplugged cable, the controller settings editor's writes, the laser-mode refusal, and the first-use behaviour of
 a real serial port (baud rate, line endings, buffer sizes). Please try them one at a time, in that order, and
 say which worked.
+
+## Marlin and Smoothieware controllers
+
+Set **G-code** to the firmware in the machine panel *before* connecting. The link speaks the protocol chosen when it
+was opened; if the setting is changed afterwards, running a job is refused until you disconnect and connect again.
+
+**Smoothieware** is driven with the GRBL link: `?` status reports (the older comma-separated form is read), `!` hold,
+`~` resume and Ctrl-X reset, which it documents. Nothing has been tried on a real board.
+
+**Marlin** has its own link, written from Marlin's public G-code index and tried only against a simulator
+(`SimulatedMarlin`), which reproduces what the program relies on: one command per line, `ok` after each line, `M114`
+for the position, no real-time bytes. It differs from the GRBL link in ways to watch for:
+
+- **Stop** sends `M410` (quick stop, clear the planner) then `M5` (laser off). There is no reset byte. If your firmware
+  predates `M410`, or the laser stays on after Stop, **cut power**: that is the one thing to report first.
+- **Pause** stops sending lines, but moves Marlin has already queued still run (up to its planner depth, often 16). It
+  cannot freeze the head the way GRBL's feed hold does.
+- **One line at a time:** each line is sent only after the previous `ok`, which is slower than GRBL's streaming but is
+  the only flow control Marlin offers. A long job may run more slowly than the feed rate asks for on short segments.
+- **Finishing:** after the last line the program sends `M400` and calls the job finished when that is answered.
+- **Position** comes from `M114` and is in the work coordinates in force (it shifts with `G92`), so the head is not drawn
+  on the bed. **Absolute jogs** are in those work coordinates too (Marlin has no `G53` by default).
+- A job stops at the first `Error:` line, or at `echo:Unknown command` (a dialect the firmware lacks, such as `M3 I` without
+  laser support), and sends `M410` then `M5`.
+- Not available: the `$$` settings editor, the laser-mode check, and the status states (Marlin does not say Hold or Alarm).
+
+Please report, in this order: whether the position shows after connecting, Jog, Home (`G28 X Y`), Frame at 0% power, a short
+job at low power, Pause and Resume, then Stop with the laser enabled. For each, bring back the console log (every line sent
+and received is in it) and the firmware's version (`M115`).
+

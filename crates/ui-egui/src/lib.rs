@@ -1087,6 +1087,15 @@ impl LaserFoundryApp {
         }
         let inline = self.platform.inline_link();
         let transport: Result<Box<dyn laserfoundry_device::Transport + Send>, String> = match &self.target {
+            Target::Simulator if self.link_protocol() == laserfoundry_device::Protocol::Marlin => {
+                let mut sim = laserfoundry_device::SimulatedMarlin::new();
+                if inline {
+                    sim.set_non_blocking(true);
+                } else {
+                    sim.set_latency(std::time::Duration::from_millis(3));
+                }
+                Ok(Box::new(sim))
+            }
             Target::Simulator => {
                 let mut sim = SimulatedGrbl::new();
                 if inline {
@@ -1110,7 +1119,8 @@ impl LaserFoundryApp {
     fn start_link(&mut self, transport: Result<Box<dyn laserfoundry_device::Transport + Send>, String>) {
         match transport {
             Ok(t) => {
-                self.link = Some(if self.platform.inline_link() { Link::connect_inline(t) } else { Link::connect(t) });
+                let protocol = self.link_protocol();
+                self.link = Some(if self.platform.inline_link() { Link::connect_inline_with(t, protocol) } else { Link::connect_with(t, protocol) });
                 self.settings_asked = false;
                 self.say(tr("Connected"));
             }
@@ -1141,9 +1151,23 @@ impl LaserFoundryApp {
         self.say(tr("Disconnected"));
     }
 
+    /// The controller protocol the machine's G-code setting calls for: Marlin has its own, Smoothieware speaks GRBL's.
+    pub(crate) fn link_protocol(&self) -> laserfoundry_device::Protocol {
+        match self.session.doc.machine.dialect {
+            laserfoundry_doc::Dialect::Marlin => laserfoundry_device::Protocol::Marlin,
+            laserfoundry_doc::Dialect::Grbl | laserfoundry_doc::Dialect::Smoothie => laserfoundry_device::Protocol::Grbl,
+        }
+    }
+
     pub(crate) fn start_job(&mut self, program: String) {
-        if self.link.is_none() {
+        let Some(link) = &self.link else {
             self.status = Some((tr("Connect to a machine (or the simulator) first"), true));
+            return;
+        };
+        // The G-code was written for the dialect now selected; the link talks the protocol chosen when it was opened.
+        if link.protocol() != self.link_protocol() {
+            self.status =
+                Some((tr("The machine's G-code setting changed after connecting: disconnect and connect again before running a job"), true));
             return;
         }
         // A controller that is in an alarm, holding, homing or otherwise busy would refuse or garble the program.
@@ -1253,7 +1277,7 @@ impl LaserFoundryApp {
         };
         match self.platform.open_serial(&port) {
             Ok(t) => {
-                self.link = Some(Link::connect(t));
+                self.link = Some(Link::connect_with(t, self.link_protocol()));
                 self.settings_asked = false;
                 self.reconnect = None;
                 self.say(tr("Reconnected. Nothing is running; start the job again if you want to continue."));

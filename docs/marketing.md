@@ -135,8 +135,8 @@ optional AI features use credits, through a Foundry Account.
 **Do I need an account?** Not for designing, previewing, saving or running a job. A Foundry Account is only for
 the AI features.
 
-**Which lasers work?** GRBL controllers (most hobby diode lasers). Marlin and Smoothieware output exists but is
-untested on hardware. Other controller types are not supported yet.
+**Which lasers work?** GRBL controllers (most hobby diode lasers). Marlin and Smoothieware output and a Marlin
+controller link exist but are untested on hardware. Other controller types are not supported yet.
 
 **Does it work in my browser?** Yes. Chrome, Edge and other Chromium browsers can also connect to the laser over
 Web Serial. Firefox and Safari can design and export G-code but can't connect to the machine directly.

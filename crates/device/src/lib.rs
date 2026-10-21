@@ -9,6 +9,7 @@ pub mod linebuf;
 mod link;
 pub mod settings;
 mod sim;
+mod sim_marlin;
 mod status;
 mod stream;
 
@@ -18,7 +19,8 @@ pub mod serial;
 pub use codes::{alarm_hint, alarm_text, error_hint, error_text};
 pub use link::{CONSOLE_LIMIT, JobState, Link, LinkError, MAX_FEED, MAX_JOG_MM, MAX_TRAVEL_MM, Snapshot, jog_line, jog_to_line};
 pub use sim::SimulatedGrbl;
-pub use status::{MachineState, Status, parse_status};
+pub use sim_marlin::SimulatedMarlin;
+pub use status::{MachineState, Status, parse_marlin_position, parse_status};
 pub use stream::{Progress, RESTART_BACKUP_LINES, StreamOptions, StreamReport, restart_line, stream_program};
 
 use std::io;
@@ -28,6 +30,21 @@ use thiserror::Error;
 
 /// GRBL's serial RX buffer, in bytes.
 pub const GRBL_RX_BUFFER: usize = 128;
+
+/// Which firmware family a [`Link`] talks to. Smoothieware speaks GRBL's protocol (single-byte real-time commands, `?` status
+/// reports, `ok`/`error:` replies), so it uses [`Protocol::Grbl`]; Marlin does not, and needs [`Protocol::Marlin`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Protocol {
+    #[default]
+    Grbl,
+    /// Marlin: one command per line, each answered `ok` once it is queued; no real-time commands, no `?` reports (position is asked
+    /// for with `M114`), `M410` stops motion and `M5` switches the laser off. Written from Marlin's public G-code index and untested
+    /// on a machine.
+    Marlin,
+}
+
+/// What a Marlin link sends to stop a job: stop all motion and clear the planner (`M410`), then switch the laser off (`M5`).
+pub const MARLIN_STOP: &[u8] = b"M410\nM5\n";
 
 /// Real-time commands (single bytes, processed immediately, never buffered).
 pub mod realtime {
@@ -59,6 +76,8 @@ pub enum DeviceError {
     MachineAlarm,
     #[error("no response from the controller for {0} s")]
     Timeout(u64),
+    #[error("the controller reported: {0}")]
+    Reported(String),
     #[error("job cancelled")]
     Cancelled,
 }

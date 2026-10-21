@@ -312,6 +312,10 @@ fn edit_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
             ui.close();
         }
     }
+    if ui.button(tr("Select by Size…")).clicked() {
+        app.select_size_open = true;
+        ui.close();
+    }
     ui.separator();
     if ui.button(tr("Keyboard shortcuts…")).clicked() {
         app.shortcuts_open = true;

@@ -748,3 +748,11 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   later steps, as with ordinary undo. Checked with four engine tests (labels, jumping to the start, the middle and the newest step, bad
   positions, redo dropped by a new action) and a panel test that renders the window and jumps. Not done: the panel test calls the command
   rather than clicking a row (the row positions are not exposed to the frame tests), and nothing was looked at on screen.
+- **2026-10-21 — select by size.** `edit.select_by_size {min_width?, max_width?, min_height?, max_height?, in_selection?}` selects the shapes
+  whose bounds fit every limit given (mm, inclusive); a group is judged by the bounds of all its members and selected whole; `in_selection`
+  narrows the current selection instead of searching the document. At least one limit is required; negative, non-finite or huge values are
+  refused and the selection is untouched. It is not an undo step (selection only). Grouping uses a map and the selection a set, so large
+  documents stay linear. **Edit > Select by Size…** opens a window with a tick box and a value per limit, an "only within the current
+  selection" option and a Select button, and the status line says how many were selected. Checked with five engine tests (each limit and
+  combinations, inclusive edges, narrowing, groups, refused input) and a panel test of the parameters and the selection; the group test fails
+  when grouping is removed (tried). Not done: no limit on area or layer, and the window was not looked at on screen or clicked in a frame test.

@@ -21,6 +21,7 @@ mod platform;
 mod recent;
 mod recovery;
 mod register_ui;
+mod select_size_ui;
 mod settings_ui;
 mod shortcuts;
 pub(crate) mod snap;
@@ -177,6 +178,8 @@ pub struct LaserFoundryApp {
     shortcuts: shortcuts::Shortcuts,
     shortcuts_open: bool,
     history_open: bool,
+    select_size_open: bool,
+    size_filter: select_size_ui::SizeFilter,
     /// The fonts must be rebuilt (a translation with its own font was loaded or removed).
     fonts_dirty: bool,
     /// The action waiting for its new key combination.
@@ -368,6 +371,8 @@ impl LaserFoundryApp {
             shortcuts,
             shortcuts_open: false,
             history_open: false,
+            select_size_open: false,
+            size_filter: select_size_ui::SizeFilter::default(),
             fonts_dirty: false,
             capturing: None,
             shortcut_error: None,
@@ -864,6 +869,7 @@ impl LaserFoundryApp {
     fn dialogs(&mut self, ctx: &egui::Context) {
         shortcuts::window(self, ctx);
         history_ui::window(self, ctx);
+        select_size_ui::window(self, ctx);
         if self.pending_recovery.is_some() {
             let mut choice = None;
             egui::Modal::new(egui::Id::new("recovery")).show(ctx, |ui| {

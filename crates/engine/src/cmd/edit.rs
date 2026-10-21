@@ -26,6 +26,16 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         run: select_all,
     },
     CommandSpec {
+        id: "edit.select_by_size",
+        label: "Select by Size",
+        menu: "Edit",
+        shortcut: None,
+        params_doc: "{min_width?, max_width?, min_height?, max_height?, in_selection?}  — mm; selects the shapes whose bounds are within every limit given \
+                     (a group is judged as one); in_selection narrows the current selection instead of searching everything; at least one limit",
+        mutates: false,
+        run: select_by_size,
+    },
+    CommandSpec {
         id: "edit.delete",
         label: "Delete",
         menu: "Edit",
@@ -181,6 +191,63 @@ fn select(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 fn select_all(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     s.selection = s.doc.shapes.iter().map(|sh| sh.id).collect();
     Ok(json!({ "selected": s.selection }))
+}
+
+#[derive(Deserialize)]
+struct SizeParams {
+    min_width: Option<f64>,
+    max_width: Option<f64>,
+    min_height: Option<f64>,
+    max_height: Option<f64>,
+    #[serde(default)]
+    in_selection: bool,
+}
+
+fn select_by_size(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let p: SizeParams = parse(params)?;
+    let limits = [p.min_width, p.max_width, p.min_height, p.max_height];
+    if limits.iter().all(Option::is_none) {
+        return Err(EngineError::BadParams("give at least one of min_width, max_width, min_height, max_height".into()));
+    }
+    let given: Vec<f64> = limits.iter().flatten().copied().collect();
+    finite(&given)?;
+    if given.iter().any(|v| *v < 0.0) {
+        return Err(EngineError::BadParams("size limits cannot be negative".into()));
+    }
+    // A group is one candidate with the bounds of all its members; an ungrouped shape is its own.
+    let mut candidates: Vec<(Vec<ShapeId>, Rect)> = Vec::new();
+    let mut group_at: std::collections::HashMap<_, usize> = std::collections::HashMap::new();
+    let current: std::collections::HashSet<ShapeId> = s.selection.iter().copied().collect();
+    for shape in &s.doc.shapes {
+        if p.in_selection && !current.contains(&shape.id) {
+            continue;
+        }
+        let Some(bounds) = shape.world_bounds() else { continue };
+        match shape.group.and_then(|g| group_at.get(&g).copied()) {
+            Some(at) => {
+                candidates[at].0.push(shape.id);
+                candidates[at].1 = candidates[at].1.union(bounds);
+            }
+            None => {
+                if let Some(g) = shape.group {
+                    group_at.insert(g, candidates.len());
+                }
+                candidates.push((vec![shape.id], bounds));
+            }
+        }
+    }
+    // Tolerance so a 10 mm shape drawn as 10.000000001 still matches "max 10".
+    const EPS: f64 = 1e-6;
+    let fits = |b: &Rect| {
+        p.min_width.is_none_or(|v| b.width() >= v - EPS)
+            && p.max_width.is_none_or(|v| b.width() <= v + EPS)
+            && p.min_height.is_none_or(|v| b.height() >= v - EPS)
+            && p.max_height.is_none_or(|v| b.height() <= v + EPS)
+    };
+    let matched: Vec<ShapeId> = candidates.iter().filter(|(_, b)| fits(b)).flat_map(|(ids, _)| ids.iter().copied()).collect();
+    let matched: std::collections::HashSet<ShapeId> = matched.into_iter().collect();
+    s.selection = s.doc.shapes.iter().map(|sh| sh.id).filter(|id| matched.contains(id)).collect();
+    Ok(json!({ "selected": s.selection, "count": s.selection.len() }))
 }
 
 fn delete(s: &mut Session, params: &Value) -> Result<Value, EngineError> {

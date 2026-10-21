@@ -67,6 +67,7 @@ file is larger than {1} MB
 file is not a LaserFoundry document
 gap must be a finite number
 give a path, or include: true to get the text
+give at least one of min_width, max_width, min_height, max_height
 give either path or data
 give either path or data_base64
 image is too large
@@ -119,6 +120,7 @@ shape {id} does not exist
 shape {id} is not an image
 shape {id} is not text
 shapes contain a non-finite or out-of-range coordinate
+size limits cannot be negative
 size_mm must be between {1} and {2}
 sizes must be positive, finite and the shape must have extent in that direction
 spacing must be a finite number between 0 and 10

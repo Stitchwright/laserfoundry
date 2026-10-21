@@ -12,6 +12,83 @@ fn rect(s: &mut Session) -> u64 {
     v["id"].as_u64().unwrap()
 }
 
+mod select_by_size_tests {
+    use super::*;
+
+    fn sized(s: &mut Session, w: f64, h: f64) -> u64 {
+        let v = s.execute("shape.rectangle", &json!({"x": 0, "y": 0, "width": w, "height": h})).unwrap();
+        v["id"].as_u64().unwrap()
+    }
+
+    fn picked(s: &mut Session, params: Value) -> Vec<u64> {
+        let v = s.execute("edit.select_by_size", &params).unwrap();
+        v["selected"].as_array().unwrap().iter().map(|i| i.as_u64().unwrap()).collect()
+    }
+
+    #[test]
+    fn selects_shapes_within_every_limit_given() {
+        let mut s = Session::new();
+        let (small, wide, tall, big) = (sized(&mut s, 5.0, 5.0), sized(&mut s, 50.0, 5.0), sized(&mut s, 5.0, 50.0), sized(&mut s, 50.0, 50.0));
+        assert_eq!(picked(&mut s, json!({"max_width": 10})), vec![small, tall]);
+        assert_eq!(picked(&mut s, json!({"min_width": 10})), vec![wide, big]);
+        assert_eq!(picked(&mut s, json!({"max_width": 10, "max_height": 10})), vec![small]);
+        assert_eq!(picked(&mut s, json!({"min_width": 10, "min_height": 10})), vec![big]);
+        assert_eq!(picked(&mut s, json!({"min_height": 4, "max_height": 6})), vec![small, wide]);
+        assert!(picked(&mut s, json!({"min_width": 500})).is_empty() && s.selection.is_empty(), "nothing matches: nothing is selected");
+    }
+
+    #[test]
+    fn limits_are_inclusive() {
+        let mut s = Session::new();
+        let a = sized(&mut s, 10.0, 10.0);
+        assert_eq!(picked(&mut s, json!({"max_width": 10})), vec![a]);
+        assert_eq!(picked(&mut s, json!({"min_width": 10})), vec![a]);
+        assert!(picked(&mut s, json!({"max_width": 9.9})).is_empty());
+    }
+
+    #[test]
+    fn can_narrow_the_current_selection_instead_of_searching_everything() {
+        let mut s = Session::new();
+        let (a, b, c) = (sized(&mut s, 5.0, 5.0), sized(&mut s, 6.0, 6.0), sized(&mut s, 7.0, 7.0));
+        s.execute("edit.select", &json!({"ids": [b, c]})).unwrap();
+        assert_eq!(picked(&mut s, json!({"max_width": 6.5, "in_selection": true})), vec![b]);
+        assert_eq!(picked(&mut s, json!({"max_width": 6.5})), vec![a, b], "without it, everything is searched");
+    }
+
+    #[test]
+    fn a_group_is_judged_by_its_combined_size() {
+        let mut s = Session::new();
+        let a = sized(&mut s, 5.0, 5.0);
+        let v = s.execute("shape.rectangle", &json!({"x": 100, "y": 0, "width": 5, "height": 5})).unwrap();
+        let b = v["id"].as_u64().unwrap();
+        let lone = sized(&mut s, 5.0, 5.0);
+        s.execute("edit.select", &json!({"ids": [a, b]})).unwrap();
+        s.execute("edit.group", &json!({})).unwrap();
+        // Each member is 5 mm wide but together they span 105 mm.
+        assert_eq!(picked(&mut s, json!({"max_width": 10})), vec![lone]);
+        assert_eq!(picked(&mut s, json!({"min_width": 100})), vec![a, b]);
+    }
+
+    #[test]
+    fn refuses_missing_negative_and_non_finite_limits_and_changes_nothing() {
+        let mut s = Session::new();
+        let a = sized(&mut s, 5.0, 5.0);
+        s.execute("edit.select", &json!({"ids": [a]})).unwrap();
+        for bad in [
+            json!({}),
+            json!({"in_selection": true}),
+            json!({"min_width": -1}),
+            json!({"max_height": 1e300}),
+            json!({"min_width": "wide"}),
+            json!([1]),
+        ] {
+            assert!(s.execute("edit.select_by_size", &bad).is_err(), "{bad}");
+        }
+        assert_eq!(s.selection, vec![a]);
+        assert!(!s.can_undo() || s.history().0.iter().all(|l| *l != "Select by Size"), "selecting is not an undo step");
+    }
+}
+
 mod history_tests {
     use super::*;
 

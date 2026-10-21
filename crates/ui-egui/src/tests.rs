@@ -1493,6 +1493,22 @@ mod shortcut_tests {
     }
 
     #[test]
+    fn the_select_by_size_window_builds_parameters_from_ticked_limits_and_selects() {
+        let mut h = Harness::new();
+        h.app.run("shape.rectangle", serde_json::json!({"x": 0, "y": 0, "width": 5, "height": 5}));
+        h.app.run("shape.rectangle", serde_json::json!({"x": 0, "y": 0, "width": 50, "height": 50}));
+        h.app.select_size_open = true;
+        h.app.size_filter.limits[1] = (true, 10.0);
+        h.app.size_filter.limits[2] = (false, 99.0);
+        assert_eq!(h.app.size_filter.params(), serde_json::json!({"max_width": 10.0, "in_selection": false}), "unticked limits are left out");
+        h.frame(vec![]);
+        assert!(h.app.select_size_open, "the window stays open across frames");
+        let result = h.app.run("edit.select_by_size", h.app.size_filter.params()).unwrap();
+        assert_eq!(result["count"], 1);
+        assert_eq!(h.app.session.selection.len(), 1);
+    }
+
+    #[test]
     fn capturing_a_new_chord_binds_it_and_reports_conflicts() {
         let mut h = Harness::new();
         h.app.shortcuts_open = true;

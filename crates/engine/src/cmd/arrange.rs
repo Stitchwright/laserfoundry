@@ -38,7 +38,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         label: "Nest",
         menu: "Arrange",
         shortcut: None,
-        params_doc: "{ids?, x?, y?, width?, height? (the region in mm; default the whole bed), gap? (mm between parts, default 2), margin? (mm kept free at the region's edge, default 0), rotations? (evenly spaced turns tried for each part, 1 keeps their angles, default 4), resolution? (cell size in mm; default chosen from the region)}  — packs the selection into the region without overlaps, a group moving as one part; parts that do not fit stay where they were, are listed in `unplaced` and become the selection; avoid_others? (default true: keep the gap from every shape that is not being nested, except those on layers whose output is off, such as a backdrop photo; false ignores them; `avoided` says how many were kept clear of)",
+        params_doc: "{ids?, x?, y?, width?, height? (the region in mm; default the whole bed), gap? (mm between parts, default 2), margin? (mm kept free at the region's edge, default 0), rotations? (evenly spaced turns tried for each part, 1 keeps their angles, default 4), resolution? (cell size in mm; default chosen from the region)}  — packs the selection into the region without overlaps, a group moving as one part; parts that do not fit stay where they were, are listed in `unplaced` and become the selection; avoid_others? (default true: keep the gap from every shape that is not being nested, except those on layers whose output is off, such as a backdrop photo; false ignores them; `avoided` says how many were kept clear of), use_holes? (default false: let parts go inside the holes of others, a closed outline wholly inside another closed outline of the same shape or group being taken as a hole; wrong for outlines that are engraved solid)",
         mutates: true,
         run: nest,
     },
@@ -143,6 +143,8 @@ struct NestParams {
     resolution: Option<f64>,
     #[serde(default = "default_true")]
     avoid_others: bool,
+    #[serde(default)]
+    use_holes: bool,
 }
 
 fn default_true() -> bool {
@@ -208,7 +210,7 @@ fn nest(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     }
     let avoided = obstacles.len();
 
-    let options = Options { gap: p.gap, margin: p.margin, rotations: p.rotations, resolution: p.resolution };
+    let options = Options { gap: p.gap, margin: p.margin, rotations: p.rotations, resolution: p.resolution, use_holes: p.use_holes };
     let result = laserfoundry_nest::nest_around(&parts, &obstacles, Rect::new(x, y, x + width, y + height), &options)
         .map_err(|e| EngineError::BadParams(e.to_string()))?;
 

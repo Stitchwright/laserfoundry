@@ -740,6 +740,28 @@ mod nest_tests {
     }
 
     #[test]
+    fn use_holes_lets_a_part_go_inside_a_group_with_a_hole_and_is_off_by_default() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 64, "bed_height": 64})).unwrap();
+        // A plate and the shape cut out of it, grouped: one part with a 40 mm hole.
+        let (plate, hole) = (block(&mut s, 300.0, 300.0, 60.0, 60.0), block(&mut s, 310.0, 310.0, 40.0, 40.0));
+        s.execute("edit.select", &json!({"ids": [plate, hole]})).unwrap();
+        s.execute("edit.group", &json!({})).unwrap();
+        let small = block(&mut s, 500.0, 500.0, 20.0, 20.0);
+        let ids = json!([plate, hole, small]);
+
+        let solid = s.execute("arrange.nest", &json!({"ids": ids, "gap": 2, "rotations": 1})).unwrap();
+        assert_eq!((solid["placed"].as_u64(), solid["unplaced"].clone()), (Some(1), json!([small])), "by default the hole is solid: {solid}");
+
+        let result = s.execute("arrange.nest", &json!({"ids": ids, "gap": 2, "rotations": 1, "use_holes": true})).unwrap();
+        // `placed` counts parts: the grouped plate and hole are one, the small square the other.
+        assert_eq!((result["placed"].as_u64(), result["unplaced"].clone()), (Some(2), json!([])), "{result}");
+        let (h, m) = (bounds(&s, hole), bounds(&s, small));
+        assert!(m.x0 >= h.x0 + 2.0 - 1e-6 && m.y0 >= h.y0 + 2.0 - 1e-6 && m.x1 <= h.x1 - 2.0 + 1e-6 && m.y1 <= h.y1 - 2.0 + 1e-6, "{m:?} in {h:?}");
+        assert!(s.execute("arrange.nest", &json!({"ids": ids, "use_holes": "yes"})).is_err(), "the flag is a boolean");
+    }
+
+    #[test]
     fn a_group_that_stays_is_one_obstacle_and_a_backdrop_layer_is_not_one() {
         let mut s = Session::new();
         s.execute("machine.set", &json!({"bed_width": 100, "bed_height": 60})).unwrap();

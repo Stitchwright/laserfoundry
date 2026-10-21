@@ -5,7 +5,8 @@
 //! placed one at a time, largest first, at the first free spot found scanning from the top-left, trying each allowed rotation.
 //! The masks are conservative: a cell counts as taken if any piece of the part touches it, so parts never overlap, and the gap
 //! between parts is made by thickening each mask before it is tested, so the real distance is at least the gap asked for. The
-//! price is resolution: a part can waste up to about one cell of room on each side. Holes in a part are not used by other parts.
+//! price is resolution: a part can waste up to about one cell of room on each side. Holes in a part are solid unless
+//! [`Options::use_holes`] is set, when a closed outline wholly inside another closed outline of the same part leaves its inside free.
 //! Shapes that stay where they are (obstacles) are drawn on the grid first, so parts keep the gap from them as from each other.
 //!
 //! Nothing here panics on odd input: numbers are checked, sizes and the amount of work are capped, and parts that cannot be
@@ -18,6 +19,10 @@ mod tests;
 
 /// Most parts one nesting may place.
 pub const MAX_PARTS: usize = 500;
+/// Most closed outlines in one part that are examined for holes; a part with more is treated as solid.
+const MAX_HOLE_OUTLINES: usize = 64;
+/// Most points in one part that are examined for holes; a part with more is treated as solid.
+const MAX_HOLE_POINTS: usize = 4_000;
 /// Most obstacles (shapes to keep clear of) one nesting will look at.
 pub const MAX_OBSTACLES: usize = 5_000;
 /// Most points, over all parts and obstacles, one nesting will look at.
@@ -53,11 +58,15 @@ pub struct Options {
     pub rotations: u32,
     /// Cell size in mm; `None` picks one from the size of the region. Smaller packs tighter and takes longer.
     pub resolution: Option<f64>,
+    /// Let parts go inside the holes of other parts: a closed outline lying wholly inside another closed outline of the same part
+    /// is taken to be a hole (as in a cut part), and its inside stays free. Wrong for outlines that are engraved solid, so it is
+    /// off by default.
+    pub use_holes: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { gap: 2.0, margin: 0.0, rotations: 4, resolution: None }
+        Self { gap: 2.0, margin: 0.0, rotations: 4, resolution: None, use_holes: false }
     }
 }
 
@@ -150,10 +159,11 @@ pub fn nest_around(parts: &[Part], obstacles: &[Part], region: Rect, options: &O
         let Some(part) = parts.get(index) else { continue };
         let Some(b) = bounds(part) else { continue };
         let center = b.center();
+        let depths = if options.use_holes { hole_depths(part) } else { None };
         let mut best: Option<Fit> = None;
         for turn in 0..turns {
             let angle = std::f64::consts::TAU * f64::from(turn) / f64::from(turns);
-            let Some(mask) = Mask::of(part, center, angle, cell, grid.cols, grid.rows) else { continue };
+            let Some(mask) = Mask::of(part, center, angle, cell, grid.cols, grid.rows, depths.as_deref()) else { continue };
             let probe = mask.probe(gap_cells);
             let limit = best.as_ref().map_or(usize::MAX, |f| f.bottom);
             let found = grid.first_fit(&mask, &probe, limit, &mut work);
@@ -266,7 +276,9 @@ struct Mask {
 
 impl Mask {
     /// The mask of `part` turned by `angle` about `center`; `None` when it is too big for a grid of `grid_cols` by `grid_rows`.
-    fn of(part: &Part, center: Point, angle: f64, cell: f64, grid_cols: usize, grid_rows: usize) -> Option<Mask> {
+    ///
+    /// With `depths` (how many outlines enclose each outline, see [`hole_depths`]) the inside of every outline of odd depth is left free.
+    fn of(part: &Part, center: Point, angle: f64, cell: f64, grid_cols: usize, grid_rows: usize, depths: Option<&[usize]>) -> Option<Mask> {
         let (sin, cos) = angle.sin_cos();
         let turn = |p: &Point| {
             let (dx, dy) = (p.x - center.x, p.y - center.y);
@@ -287,9 +299,32 @@ impl Mask {
         let (cols, rows) = (across.floor() as usize + 1, down.floor() as usize + 1);
         let mut mask = Mask { cols, rows, cells: vec![false; cols * rows], min };
         let mut scan = Scan::new(rows);
-        for (line, points) in part.outlines.iter().zip(&turned) {
-            let cells: Vec<(f64, f64)> = points.iter().map(|p| ((p.x - min.x) / cell, (p.y - min.y) / cell)).collect();
-            mask.draw(&cells, line.closed, &mut scan);
+        let drawn: Vec<(bool, Vec<(f64, f64)>)> = part
+            .outlines
+            .iter()
+            .zip(&turned)
+            .map(|(line, points)| (line.closed, points.iter().map(|p| ((p.x - min.x) / cell, (p.y - min.y) / cell)).collect()))
+            .collect();
+        match depths {
+            None => {
+                for (closed, cells) in &drawn {
+                    mask.draw(cells, *closed, &mut scan);
+                }
+            }
+            Some(depths) => {
+                // Outer outlines are filled, the holes in them cleared, the islands in those filled again, and so on inwards; every
+                // outline's own cells are marked last so a rim thinner than a cell is never lost.
+                let mut order: Vec<usize> = (0..drawn.len()).collect();
+                order.sort_by_key(|&i| depths.get(i).copied().unwrap_or(0));
+                for i in order {
+                    if let Some((true, cells)) = drawn.get(i).filter(|(closed, cells)| *closed && cells.len() >= 3) {
+                        mask.fill(cells, &mut scan, depths.get(i).copied().unwrap_or(0) % 2 == 0);
+                    }
+                }
+                for (closed, cells) in &drawn {
+                    mask.walls(cells, *closed);
+                }
+            }
         }
         Some(mask)
     }
@@ -318,7 +353,7 @@ impl Mask {
                         }
                     }
                     if closed {
-                        mask.fill(&cells, &mut scan);
+                        mask.fill(&cells, &mut scan, true);
                     }
                 }
             }
@@ -327,13 +362,17 @@ impl Mask {
     }
 
     fn mark(&mut self, x: i64, y: i64) {
+        self.set(x, y, true);
+    }
+
+    fn set(&mut self, x: i64, y: i64, value: bool) {
         if x >= 0
             && y >= 0
             && (x as usize) < self.cols
             && (y as usize) < self.rows
             && let Some(c) = self.cells.get_mut(y as usize * self.cols + x as usize)
         {
-            *c = true;
+            *c = value;
         }
     }
 
@@ -343,6 +382,14 @@ impl Mask {
 
     /// Marks the cells one outline touches, and for a closed one the cells inside it.
     fn draw(&mut self, cells: &[(f64, f64)], closed: bool, scan: &mut Scan) {
+        self.walls(cells, closed);
+        if closed && cells.len() >= 3 {
+            self.fill(cells, scan, true);
+        }
+    }
+
+    /// Marks only the cells one outline passes through (a single point marks its cell).
+    fn walls(&mut self, cells: &[(f64, f64)], closed: bool) {
         match cells {
             [] => {}
             [only] => self.mark(only.0.floor() as i64, only.1.floor() as i64),
@@ -354,7 +401,6 @@ impl Mask {
                 }
                 if let (true, Some(first), Some(last)) = (closed && cells.len() >= 3, cells.first(), cells.last()) {
                     self.segment(*last, *first);
-                    self.fill(cells, scan);
                 }
             }
         }
@@ -402,8 +448,8 @@ impl Mask {
         self.mark(ex, ey);
     }
 
-    /// Marks the cells whose centres are inside a closed outline (even-odd), using one list of crossings per row.
-    fn fill(&mut self, cells: &[(f64, f64)], scan: &mut Scan) {
+    /// Sets to `value` the cells whose centres are inside a closed outline (even-odd), using one list of crossings per row.
+    fn fill(&mut self, cells: &[(f64, f64)], scan: &mut Scan, value: bool) {
         let edges = cells.iter().zip(cells.iter().cycle().skip(1));
         for (a, b) in edges.take(cells.len()) {
             if a.1 == b.1 {
@@ -423,7 +469,7 @@ impl Mask {
                 let start = (a - 0.5).ceil().max(0.0) as i64;
                 let end = ((b - 0.5).floor() as i64).min(self.cols as i64 - 1);
                 for x in start..=end {
-                    self.mark(x, row as i64);
+                    self.set(x, row as i64, value);
                 }
             }
         }
@@ -463,6 +509,62 @@ impl Mask {
         }
         out
     }
+}
+
+/// For each outline of `part`, how many other closed outlines of it enclose it wholly (so an even number means solid material and an
+/// odd number a hole), or `None` when the part is too big to examine. An outline counts as enclosed only when every point of it is
+/// inside the other and no edge touches an edge of the other, so outlines that cross or overlap are never taken for holes.
+fn hole_depths(part: &Part) -> Option<Vec<usize>> {
+    let closed: Vec<usize> = (0..part.outlines.len()).filter(|&i| part.outlines.get(i).is_some_and(|l| l.closed && l.points.len() >= 3)).collect();
+    let points: usize = part.outlines.iter().map(|l| l.points.len()).sum();
+    if closed.len() < 2 || closed.len() > MAX_HOLE_OUTLINES || points > MAX_HOLE_POINTS {
+        return None;
+    }
+    let mut depths = vec![0_usize; part.outlines.len()];
+    for &i in &closed {
+        let Some(inner) = part.outlines.get(i) else { continue };
+        for &j in &closed {
+            if i != j && part.outlines.get(j).is_some_and(|outer| encloses(outer, inner)) {
+                depths[i] += 1;
+            }
+        }
+    }
+    Some(depths)
+}
+
+/// True when `inner` lies wholly inside `outer`, touching none of its edges.
+fn encloses(outer: &Polyline, inner: &Polyline) -> bool {
+    if !inner.points.iter().all(|p| inside(outer, *p)) {
+        return false;
+    }
+    let edges = |l: &Polyline| -> Vec<(Point, Point)> {
+        l.points.iter().copied().zip(l.points.iter().copied().cycle().skip(1)).take(l.points.len()).collect()
+    };
+    let outer_edges = edges(outer);
+    !edges(inner).iter().any(|(a, b)| outer_edges.iter().any(|(c, d)| touches(*a, *b, *c, *d)))
+}
+
+/// Even-odd test: is `p` inside the closed outline?
+fn inside(outline: &Polyline, p: Point) -> bool {
+    let pts = &outline.points;
+    let mut hit = false;
+    for (a, b) in pts.iter().zip(pts.iter().cycle().skip(1)).take(pts.len()) {
+        if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            hit = !hit;
+        }
+    }
+    hit
+}
+
+/// True when segment `a`-`b` and segment `c`-`d` cross or touch.
+fn touches(a: Point, b: Point, c: Point, d: Point) -> bool {
+    let turn = |o: Point, p: Point, q: Point| (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+    let on = |o: Point, p: Point, q: Point| q.x >= o.x.min(p.x) && q.x <= o.x.max(p.x) && q.y >= o.y.min(p.y) && q.y <= o.y.max(p.y);
+    let (d1, d2, d3, d4) = (turn(c, d, a), turn(c, d, b), turn(a, b, c), turn(a, b, d));
+    if ((d1 > 0.0 && d2 < 0.0) || (d1 < 0.0 && d2 > 0.0)) && ((d3 > 0.0 && d4 < 0.0) || (d3 < 0.0 && d4 > 0.0)) {
+        return true;
+    }
+    (d1 == 0.0 && on(c, d, a)) || (d2 == 0.0 && on(c, d, b)) || (d3 == 0.0 && on(a, b, c)) || (d4 == 0.0 && on(a, b, d))
 }
 
 /// The part of the segment `a`-`b` inside the box `x0..=x1` by `y0..=y1` (Liang-Barsky), or `None` when none of it is.

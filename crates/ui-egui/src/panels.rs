@@ -1112,6 +1112,9 @@ fn nest_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     });
     ui.checkbox(&mut app.nest_avoid, tr("Keep clear of other shapes"))
         .on_hover_text(tr("Shapes that are not selected stay where they are and the nested parts keep the gap from them"));
+    ui.checkbox(&mut app.nest_holes, tr("Use holes in parts")).on_hover_text(tr(
+        "Let parts go inside the holes of others (a closed outline wholly inside another one of the same part counts as a hole). Not for outlines you engrave solid",
+    ));
     if ui
         .button(tr("Nest in the bed"))
         .on_hover_text(tr("Pack the selection into the bed without overlaps; what does not fit stays where it is, selected"))
@@ -1123,7 +1126,8 @@ fn nest_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
 
 /// Nests the selection into the bed with the panel's settings and says how it went.
 pub(crate) fn nest_selection(app: &mut LaserFoundryApp) {
-    let params = json!({ "gap": app.nest_gap, "rotations": if app.nest_turn { 4 } else { 1 }, "avoid_others": app.nest_avoid });
+    let params =
+        json!({ "gap": app.nest_gap, "rotations": if app.nest_turn { 4 } else { 1 }, "avoid_others": app.nest_avoid, "use_holes": app.nest_holes });
     let Some(result) = app.run("arrange.nest", params) else { return };
     let placed = result["placed"].as_u64().unwrap_or(0);
     let left = result["unplaced"].as_array().map_or(0, Vec::len);

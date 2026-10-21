@@ -781,3 +781,15 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   limits; the clipping), two engine tests and a panel test. The obstacle tests fail when obstacles are not drawn on the grid and hang when
   segments are not clipped (both tried). Not done (gap 23): holes in parts, several sheets, finer than the cell grid; the new box was not looked
   at on screen.
+- **2026-10-21 — nesting can use the holes in parts.** `arrange.nest` takes `use_holes` (default false). When set, a closed outline that lies
+  wholly inside another closed outline of the same part (a shape, or a group, which nests as one part) is taken to be a hole and its inside is left
+  free, so smaller parts can be placed in it, keeping the gap from the hole's wall; an island inside a hole is solid again, and so on inwards.
+  An outline counts as enclosed only when every point of it is inside the other and no edge touches an edge of the other, so overlapping,
+  crossing, touching or doubled outlines are never taken for holes; a part with more than 64 closed outlines or 4,000 points is treated as solid.
+  Every outline's own cells are marked last, so a rim thinner than a cell is never lost. It is off by default because a nested outline that is
+  engraved solid (a Fill layer) is not a hole; shapes that stay on the bed (obstacles) are always solid. The Nest section has a "Use holes in parts"
+  box. Checked with eight crate tests (a part goes in the hole only when asked, and the gap to the wall holds; an island is not room; overlapping,
+  crossing, touching and doubled outlines are not holes; depths; a 0.4 mm rim; random plates and parts turned 0 to 8 ways, checked with independent
+  even-odd and edge-distance code; holes make room solid parts do not), one engine test and one panel test. They fail when the final wall pass is
+  removed, when the edge-touch test is removed and when islands are not filled again (all three tried; the island case needed its own test, as the
+  first one did not catch it). Not done (gap 23): several sheets, packing finer than the cell grid; the new box was not looked at on screen.

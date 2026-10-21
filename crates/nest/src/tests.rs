@@ -234,8 +234,13 @@ mod packing_tests {
                     Part { outlines: vec![Polyline::new(points, true)] }
                 })
                 .collect();
-            let options =
-                Options { gap: [0.0, 1.0, 2.5, 4.0][round % 4], rotations: [1, 4, 8][round % 3], margin: [0.0, 3.0][round % 2], resolution: None };
+            let options = Options {
+                gap: [0.0, 1.0, 2.5, 4.0][round % 4],
+                rotations: [1, 4, 8][round % 3],
+                margin: [0.0, 3.0][round % 2],
+                resolution: None,
+                use_holes: false,
+            };
             let result = nest(&parts, region(120.0, 90.0), &options).unwrap();
             assert!(!result.placed.is_empty(), "round {round}");
             check(&parts, &result, region(120.0, 90.0), &options);
@@ -363,7 +368,13 @@ mod obstacle_tests {
                 })
                 .collect();
             let parts: Vec<Part> = (0..10).map(|_| rect(0.0, 0.0, 6.0 + next() * 10.0, 6.0 + next() * 10.0)).collect();
-            let options = Options { gap: [0.0, 1.5, 3.0][round % 3], rotations: [1, 4][round % 2], margin: [0.0, 2.0][round % 2], resolution: None };
+            let options = Options {
+                gap: [0.0, 1.5, 3.0][round % 3],
+                rotations: [1, 4][round % 2],
+                margin: [0.0, 2.0][round % 2],
+                resolution: None,
+                use_holes: false,
+            };
             let result = nest_around(&parts, &obstacles, region(120.0, 90.0), &options).unwrap();
             check(&parts, &result, region(120.0, 90.0), &options);
             // Only obstacles inside the region matter to a part, but clearance from all of them holds a fortiori.
@@ -396,12 +407,191 @@ mod obstacle_tests {
     }
 }
 
+mod hole_tests {
+    use super::*;
+
+    /// A square plate with a square hole in it, as one part: the plate is `size` mm across and `wall` mm thick all round.
+    fn ring(x: f64, y: f64, size: f64, wall: f64) -> Part {
+        let mut part = rect(x, y, size, size);
+        part.outlines.extend(rect(x + wall, y + wall, size - 2.0 * wall, size - 2.0 * wall).outlines);
+        part
+    }
+
+    /// Material by the even-odd rule over all of a part's closed outlines (a hole is not material).
+    fn material(p: Point, lines: &[Polyline]) -> bool {
+        lines.iter().filter(|l| inside(p, l)).count() % 2 == 1
+    }
+
+    /// The least distance between the edges of two sets of outlines, ignoring which lies inside which.
+    fn edge_distance(a: &[Polyline], b: &[Polyline]) -> f64 {
+        let mut least = f64::INFINITY;
+        for (a0, a1) in a.iter().flat_map(edges) {
+            for (b0, b1) in b.iter().flat_map(edges) {
+                if segments_cross(a0, a1, b0, b1) {
+                    return 0.0;
+                }
+                least =
+                    least.min(point_segment(a0, b0, b1)).min(point_segment(a1, b0, b1)).min(point_segment(b0, a0, a1)).min(point_segment(b1, a0, a1));
+            }
+        }
+        least
+    }
+
+    /// Nothing placed touches or overlaps anything else, with holes allowed: edges keep the gap, and no point of one part is in the
+    /// other's material.
+    fn check_with_holes(parts: &[Part], result: &Nesting, gap: f64) {
+        let placed: Vec<Vec<Polyline>> = result.placed.iter().map(|p| moved(&parts[p.part], p)).collect();
+        for i in 0..placed.len() {
+            for j in (i + 1)..placed.len() {
+                let d = edge_distance(&placed[i], &placed[j]);
+                assert!(d > 0.0 && d >= gap - 1e-6, "parts {i} and {j} are {d} mm apart (gap {gap})");
+                for (from, to) in [(i, j), (j, i)] {
+                    let stray = placed[from].iter().flat_map(|l| l.points.iter()).find(|p| material(**p, &placed[to]));
+                    assert!(stray.is_none(), "part {from} has a point in the material of part {to}: {stray:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_small_part_goes_inside_the_hole_of_a_big_one_only_when_asked() {
+        // The region is barely bigger than the plate: the 20 mm square can only go in its 40 mm hole.
+        let parts = vec![ring(0.0, 0.0, 60.0, 10.0), rect(0.0, 0.0, 20.0, 20.0)];
+        let options = Options { gap: 2.0, rotations: 1, use_holes: true, ..Options::default() };
+        let result = nest(&parts, region(64.0, 64.0), &options).unwrap();
+        assert_eq!(result.placed.len(), 2, "{:?}", result.unplaced);
+        check_with_holes(&parts, &result, 2.0);
+        let plate = result.placed.iter().find(|p| p.part == 0).unwrap();
+        let square = result.placed.iter().find(|p| p.part == 1).unwrap();
+        let (hole, sq) = (box_of(&moved(&parts[0], plate)[1..]), box_of(&moved(&parts[1], square)));
+        assert!(
+            sq.x0 >= hole.x0 + 2.0 - 1e-6 && sq.y0 >= hole.y0 + 2.0 - 1e-6 && sq.x1 <= hole.x1 - 2.0 + 1e-6 && sq.y1 <= hole.y1 - 2.0 + 1e-6,
+            "{sq:?} in {hole:?}"
+        );
+
+        let off = Options { use_holes: false, ..options };
+        let solid = nest(&parts, region(64.0, 64.0), &off).unwrap();
+        assert_eq!((solid.placed.len(), solid.unplaced.clone()), (1, vec![1]), "by default a hole is solid");
+    }
+
+    #[test]
+    fn an_island_inside_a_hole_is_solid_again() {
+        // Plate 90 mm, hole 70 mm, island 30 mm in the middle of the hole (all one part).
+        let mut part = ring(0.0, 0.0, 90.0, 10.0);
+        part.outlines.extend(rect(30.0, 30.0, 30.0, 30.0).outlines);
+        // The strip of hole beside the island is 20 mm wide, so 12 mm squares with 2 mm gaps fit it comfortably.
+        let parts = vec![part, rect(0.0, 0.0, 12.0, 12.0), rect(0.0, 0.0, 12.0, 12.0), rect(0.0, 0.0, 12.0, 12.0)];
+        let options = Options { gap: 2.0, rotations: 1, use_holes: true, ..Options::default() };
+        let result = nest(&parts, region(94.0, 94.0), &options).unwrap();
+        assert_eq!(result.placed.len(), 4, "{:?}", result.unplaced);
+        check_with_holes(&parts, &result, 2.0);
+        let plate = result.placed.iter().find(|p| p.part == 0).unwrap();
+        let island = box_of(&moved(&parts[0], plate)[2..]);
+        for p in result.placed.iter().filter(|p| p.part != 0) {
+            let b = box_of(&moved(&parts[p.part], p));
+            let apart =
+                b.x1 <= island.x0 - 2.0 + 1e-6 || b.x0 >= island.x1 + 2.0 - 1e-6 || b.y1 <= island.y0 - 2.0 + 1e-6 || b.y0 >= island.y1 + 2.0 - 1e-6;
+            assert!(apart, "{b:?} is on the island {island:?}");
+        }
+    }
+
+    #[test]
+    fn a_part_is_not_put_inside_an_island_in_a_hole() {
+        // The strip of hole round the island is 20 mm wide, too narrow for a 20 mm square and its gaps; the island itself is 30 mm
+        // across, so the square would fit there if the island were mistaken for room.
+        let mut part = ring(0.0, 0.0, 90.0, 10.0);
+        part.outlines.extend(rect(30.0, 30.0, 30.0, 30.0).outlines);
+        let parts = vec![part, rect(0.0, 0.0, 20.0, 20.0)];
+        let options = Options { gap: 2.0, rotations: 1, use_holes: true, ..Options::default() };
+        let result = nest(&parts, region(94.0, 94.0), &options).unwrap();
+        assert_eq!((result.placed.len(), result.unplaced.clone()), (1, vec![1]), "nothing may go on the island");
+    }
+
+    #[test]
+    fn outlines_that_overlap_or_cross_are_not_holes() {
+        let two = Part { outlines: rect(0.0, 0.0, 30.0, 30.0).outlines.into_iter().chain(rect(15.0, 15.0, 30.0, 30.0).outlines).collect() };
+        assert_eq!(hole_depths(&two), Some(vec![0, 0]), "the overlap of two plates is not a hole");
+        // A plate with a hole whose edge touches the plate's edge is not a hole either.
+        let touching = Part { outlines: rect(0.0, 0.0, 30.0, 30.0).outlines.into_iter().chain(rect(0.0, 5.0, 10.0, 10.0).outlines).collect() };
+        assert_eq!(hole_depths(&touching), Some(vec![0, 0]));
+        let same = Part { outlines: rect(0.0, 0.0, 30.0, 30.0).outlines.into_iter().chain(rect(0.0, 0.0, 30.0, 30.0).outlines).collect() };
+        assert_eq!(hole_depths(&same), Some(vec![0, 0]), "a doubled outline is not a hole");
+        // A crescent: the small outline's corners are inside the big one but its edge leaves it.
+        let notched = Polyline::new(
+            vec![
+                Point::new(0.0, 0.0),
+                Point::new(40.0, 0.0),
+                Point::new(40.0, 40.0),
+                Point::new(25.0, 40.0),
+                Point::new(25.0, 10.0),
+                Point::new(15.0, 10.0),
+                Point::new(15.0, 40.0),
+                Point::new(0.0, 40.0),
+            ],
+            true,
+        );
+        let across = Polyline::new(vec![Point::new(5.0, 20.0), Point::new(35.0, 20.0), Point::new(35.0, 25.0), Point::new(5.0, 25.0)], true);
+        assert_eq!(hole_depths(&Part { outlines: vec![notched, across] }), Some(vec![0, 0]), "an outline that crosses the other's edge is no hole");
+    }
+
+    #[test]
+    fn depths_count_the_outlines_that_enclose_each_one() {
+        let mut part = ring(0.0, 0.0, 90.0, 10.0);
+        part.outlines.extend(rect(30.0, 30.0, 30.0, 30.0).outlines);
+        part.outlines.push(Polyline::new(vec![Point::new(-5.0, -5.0), Point::new(200.0, 200.0)], false));
+        assert_eq!(hole_depths(&part), Some(vec![0, 1, 2, 0]), "plate, hole, island, and an open line that is ignored");
+        assert_eq!(hole_depths(&rect(0.0, 0.0, 10.0, 10.0)), None, "one outline has nothing to examine");
+        let many = Part { outlines: (0..=MAX_HOLE_OUTLINES).map(|k| rect(f64::from(k as u32) * 3.0, 0.0, 2.0, 2.0).outlines.remove(0)).collect() };
+        assert_eq!(hole_depths(&many), None, "too many outlines are treated as solid");
+        let dense = Part { outlines: vec![Polyline::new(vec![Point::ORIGIN; MAX_HOLE_POINTS], true), rect(0.0, 0.0, 1.0, 1.0).outlines.remove(0)] };
+        assert_eq!(hole_depths(&dense), None, "too many points are treated as solid");
+    }
+
+    #[test]
+    fn a_rim_thinner_than_a_cell_is_never_built_on() {
+        // A 0.4 mm rim round a 49.2 mm hole, with 1 mm cells: the rim's cells must stay taken.
+        let parts = vec![ring(0.0, 0.0, 50.0, 0.4), rect(0.0, 0.0, 4.0, 4.0), rect(0.0, 0.0, 4.0, 4.0), rect(0.0, 0.0, 4.0, 4.0)];
+        let options = Options { gap: 0.5, rotations: 1, use_holes: true, resolution: Some(1.0), ..Options::default() };
+        let result = nest(&parts, region(54.0, 54.0), &options).unwrap();
+        assert_eq!(result.placed.len(), 4, "{:?}", result.unplaced);
+        check_with_holes(&parts, &result, 0.5);
+    }
+
+    #[test]
+    fn random_plates_and_parts_with_holes_never_overlap_when_turned() {
+        let mut seed = 31_u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((seed >> 33) as f64) / f64::from(1u32 << 31)
+        };
+        for round in 0..8 {
+            let mut parts: Vec<Part> = (0..3).map(|_| ring(0.0, 0.0, 40.0 + next() * 20.0, 4.0 + next() * 6.0)).collect();
+            parts.extend((0..12).map(|_| rect(0.0, 0.0, 4.0 + next() * 10.0, 4.0 + next() * 10.0)));
+            let options = Options { gap: [0.0, 1.0, 2.5][round % 3], rotations: [1, 4, 8][round % 3], use_holes: true, ..Options::default() };
+            let result = nest(&parts, region(150.0, 100.0), &options).unwrap();
+            assert!(result.placed.len() >= 8, "round {round}: {} placed", result.placed.len());
+            check_with_holes(&parts, &result, options.gap);
+        }
+    }
+
+    #[test]
+    fn holes_make_room_that_solid_parts_do_not() {
+        let parts: Vec<Part> = std::iter::once(ring(0.0, 0.0, 70.0, 12.0)).chain((0..6).map(|_| rect(0.0, 0.0, 16.0, 16.0))).collect();
+        let on = Options { gap: 2.0, rotations: 1, use_holes: true, ..Options::default() };
+        let off = Options { use_holes: false, ..on };
+        let with = nest(&parts, region(74.0, 74.0), &on).unwrap();
+        let without = nest(&parts, region(74.0, 74.0), &off).unwrap();
+        assert!(with.placed.len() > without.placed.len(), "{} with holes, {} without", with.placed.len(), without.placed.len());
+        check_with_holes(&parts, &with, 2.0);
+    }
+}
+
 mod mask_tests {
     use super::*;
 
     fn mask_of(part: &Part, cell: f64) -> Mask {
         let b = bounds(part).unwrap();
-        Mask::of(part, b.center(), 0.0, cell, 1000, 1000).unwrap()
+        Mask::of(part, b.center(), 0.0, cell, 1000, 1000, None).unwrap()
     }
 
     #[test]
@@ -445,7 +635,7 @@ mod mask_tests {
     #[test]
     fn a_part_too_big_for_the_grid_has_no_mask() {
         let big = rect(0.0, 0.0, 1e12, 1e12);
-        assert!(Mask::of(&big, Point::ORIGIN, 0.0, 0.1, 100, 100).is_none());
+        assert!(Mask::of(&big, Point::ORIGIN, 0.0, 0.1, 100, 100, None).is_none());
     }
 }
 

@@ -1936,6 +1936,28 @@ mod timeline_ui_tests {
     }
 
     #[test]
+    fn nesting_from_the_panel_passes_the_use_holes_choice_on() {
+        let mut h = Harness::new();
+        h.app.run("machine.set", json!({"bed_width": 64, "bed_height": 64}));
+        let plate = h.app.run("shape.rectangle", json!({"x": 300, "y": 300, "width": 60, "height": 60})).unwrap()["id"].as_u64().unwrap();
+        let hole = h.app.run("shape.rectangle", json!({"x": 310, "y": 310, "width": 40, "height": 40})).unwrap()["id"].as_u64().unwrap();
+        h.app.run("edit.select", json!({"ids": [plate, hole]}));
+        h.app.run("edit.group", Value::Null);
+        h.app.run("shape.rectangle", json!({"x": 500, "y": 500, "width": 20, "height": 20}));
+        h.app.run("edit.select_all", Value::Null);
+        h.app.nest_turn = false;
+        assert!(!h.app.nest_holes, "holes are off by default");
+        crate::panels::nest_selection(&mut h.app);
+        // The plate and its hole are one part, so one part is placed and the small square is left.
+        assert_eq!(h.app.status, Some(("Placed 1; 1 did not fit and are selected".into(), false)), "{:?}", h.app.status);
+        // Only what did not fit stayed selected; select everything again for the second try.
+        h.app.run("edit.select_all", Value::Null);
+        h.app.nest_holes = true;
+        crate::panels::nest_selection(&mut h.app);
+        assert_eq!(h.app.status, Some(("Placed 2 in the bed".into(), false)), "{:?}", h.app.status);
+    }
+
+    #[test]
     fn the_preview_and_the_timeline_agree_on_how_long_an_operation_takes_with_cornering() {
         let mut h = Harness::new();
         h.app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 50, "height": 30}));

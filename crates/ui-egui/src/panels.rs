@@ -1110,6 +1110,10 @@ fn nest_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
         ui.add(egui::DragValue::new(&mut app.nest_gap).range(0.0..=100.0).speed(0.1).prefix("gap ").suffix(" mm"));
         ui.checkbox(&mut app.nest_turn, tr("Allow turning")).on_hover_text(tr("Try each part at 0, 90, 180 and 270 degrees"));
     });
+    ui.horizontal(|ui| {
+        ui.add(egui::DragValue::new(&mut app.nest_sheets).range(1..=20).prefix("sheets "))
+            .on_hover_text(tr("Parts that do not fit the bed go on further sheets laid out to the right of it, 20 mm apart"));
+    });
     ui.checkbox(&mut app.nest_avoid, tr("Keep clear of other shapes"))
         .on_hover_text(tr("Shapes that are not selected stay where they are and the nested parts keep the gap from them"));
     ui.checkbox(&mut app.nest_holes, tr("Use holes in parts")).on_hover_text(tr(
@@ -1126,16 +1130,19 @@ fn nest_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
 
 /// Nests the selection into the bed with the panel's settings and says how it went.
 pub(crate) fn nest_selection(app: &mut LaserFoundryApp) {
-    let params =
-        json!({ "gap": app.nest_gap, "rotations": if app.nest_turn { 4 } else { 1 }, "avoid_others": app.nest_avoid, "use_holes": app.nest_holes });
+    let params = json!({ "gap": app.nest_gap, "rotations": if app.nest_turn { 4 } else { 1 }, "avoid_others": app.nest_avoid, "use_holes": app.nest_holes, "sheets": app.nest_sheets });
     let Some(result) = app.run("arrange.nest", params) else { return };
     let placed = result["placed"].as_u64().unwrap_or(0);
     let left = result["unplaced"].as_array().map_or(0, Vec::len);
-    if left == 0 {
-        app.say(trf!("Placed {placed} in the bed", placed = placed));
-    } else {
-        app.say(trf!("Placed {placed}; {left} did not fit and are selected", placed = placed, left = left));
-    }
+    let sheets = result["per_sheet"].as_array().map_or(1, Vec::len);
+    app.say(match (sheets > 1, left == 0) {
+        (false, true) => trf!("Placed {placed} in the bed", placed = placed),
+        (false, false) => trf!("Placed {placed}; {left} did not fit and are selected", placed = placed, left = left),
+        (true, true) => trf!("Placed {placed} on {sheets} sheets", placed = placed, sheets = sheets),
+        (true, false) => {
+            trf!("Placed {placed} on {sheets} sheets; {left} did not fit and are selected", placed = placed, sheets = sheets, left = left)
+        }
+    });
 }
 
 /// Per-shape cut settings that replace the layer's.

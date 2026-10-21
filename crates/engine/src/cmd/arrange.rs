@@ -38,7 +38,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         label: "Nest",
         menu: "Arrange",
         shortcut: None,
-        params_doc: "{ids?, x?, y?, width?, height? (the region in mm; default the whole bed), gap? (mm between parts, default 2), margin? (mm kept free at the region's edge, default 0), rotations? (evenly spaced turns tried for each part, 1 keeps their angles, default 4), resolution? (cell size in mm; default chosen from the region)}  — packs the selection into the region without overlaps, a group moving as one part; parts that do not fit stay where they were, are listed in `unplaced` and become the selection; avoid_others? (default true: keep the gap from every shape that is not being nested, except those on layers whose output is off, such as a backdrop photo; false ignores them; `avoided` says how many were kept clear of), use_holes? (default false: let parts go inside the holes of others, a closed outline wholly inside another closed outline of the same shape or group being taken as a hole; wrong for outlines that are engraved solid)",
+        params_doc: "{ids?, x?, y?, width?, height? (the region in mm; default the whole bed), gap? (mm between parts, default 2), margin? (mm kept free at the region's edge, default 0), rotations? (evenly spaced turns tried for each part, 1 keeps their angles, default 4), resolution? (cell size in mm; default chosen from the region)}  — packs the selection into the region without overlaps, a group moving as one part; parts that do not fit stay where they were, are listed in `unplaced` and become the selection; avoid_others? (default true: keep the gap from every shape that is not being nested, except those on layers whose output is off, such as a backdrop photo; false ignores them; `avoided` says how many were kept clear of), sheets? (1 to 20, default 1: parts that do not fit the region go on further sheets, copies of it laid out to the right, sheet_gap? mm apart (default 20); `per_sheet` says how many went on each), use_holes? (default false: let parts go inside the holes of others, a closed outline wholly inside another closed outline of the same shape or group being taken as a hole; wrong for outlines that are engraved solid)",
         mutates: true,
         run: nest,
     },
@@ -145,6 +145,21 @@ struct NestParams {
     avoid_others: bool,
     #[serde(default)]
     use_holes: bool,
+    #[serde(default = "default_sheets")]
+    sheets: u32,
+    #[serde(default = "default_sheet_gap")]
+    sheet_gap: f64,
+}
+
+/// Most sheets one nesting may fill.
+const MAX_SHEETS: u32 = 20;
+
+fn default_sheets() -> u32 {
+    1
+}
+
+fn default_sheet_gap() -> f64 {
+    20.0
 }
 
 fn default_true() -> bool {
@@ -164,7 +179,10 @@ fn nest(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let bed = (s.doc.machine.bed_width, s.doc.machine.bed_height);
     let (x, y) = (p.x.unwrap_or(0.0), p.y.unwrap_or(0.0));
     let (width, height) = (p.width.unwrap_or(bed.0), p.height.unwrap_or(bed.1));
-    finite(&[x, y, width, height, p.gap, p.margin, p.resolution.unwrap_or(1.0)])?;
+    finite(&[x, y, width, height, p.gap, p.margin, p.resolution.unwrap_or(1.0), p.sheet_gap])?;
+    if !(1..=MAX_SHEETS).contains(&p.sheets) || p.sheet_gap < 0.0 {
+        return Err(EngineError::BadParams(format!("sheets is 1 to {MAX_SHEETS} and the space between them cannot be negative")));
+    }
     let ids = s.doc.expand_groups(&selected(s, &p.ids)?);
 
     // A group is one part; every other shape is a part of its own.
@@ -211,11 +229,34 @@ fn nest(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let avoided = obstacles.len();
 
     let options = Options { gap: p.gap, margin: p.margin, rotations: p.rotations, resolution: p.resolution, use_holes: p.use_holes };
-    let result = laserfoundry_nest::nest_around(&parts, &obstacles, Rect::new(x, y, x + width, y + height), &options)
-        .map_err(|e| EngineError::BadParams(e.to_string()))?;
+
+    // Sheet 0 is the region asked for; each further sheet is a copy of it to the right, `sheet_gap` apart, and takes what the sheets
+    // before it could not fit. Every sheet keeps clear of the same obstacles. Stops at the first sheet that places nothing.
+    let mut remaining: Vec<usize> = (0..parts.len()).collect();
+    let mut placements = Vec::new();
+    let (mut per_sheet, mut cell, mut stopped_early) = (Vec::new(), 0.0, false);
+    for sheet in 0..p.sheets {
+        if remaining.is_empty() {
+            break;
+        }
+        let left = x + f64::from(sheet) * (width + p.sheet_gap);
+        let todo: Vec<Part> = remaining.iter().filter_map(|i| parts.get(*i).cloned()).collect();
+        let result = laserfoundry_nest::nest_around(&todo, &obstacles, Rect::new(left, y, left + width, y + height), &options)
+            .map_err(|e| EngineError::BadParams(e.to_string()))?;
+        (cell, stopped_early) = (result.cell, stopped_early || result.stopped_early);
+        if result.placed.is_empty() {
+            break;
+        }
+        per_sheet.push(result.placed.len());
+        for mut placement in result.placed {
+            placement.part = remaining.get(placement.part).copied().unwrap_or(usize::MAX);
+            placements.push(placement);
+        }
+        remaining = result.unplaced.iter().filter_map(|i| remaining.get(*i).copied()).collect();
+    }
 
     let mut placed_ids = Vec::new();
-    for placement in &result.placed {
+    for placement in &placements {
         let m = placement.affine();
         for id in units.get(placement.part).into_iter().flatten() {
             if let Some(shape) = s.doc.shape_mut(*id) {
@@ -224,15 +265,16 @@ fn nest(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
             }
         }
     }
-    let unplaced_ids: Vec<ShapeId> = result.unplaced.iter().filter_map(|i| units.get(*i)).flatten().copied().collect();
+    let unplaced_ids: Vec<ShapeId> = remaining.iter().filter_map(|i| units.get(*i)).flatten().copied().collect();
     s.selection = if unplaced_ids.is_empty() { placed_ids.clone() } else { unplaced_ids.clone() };
     Ok(json!({
-        "placed": result.placed.len(),
+        "placed": placements.len(),
         "unplaced": unplaced_ids,
         "ids": placed_ids,
-        "cell": result.cell,
-        "stopped_early": result.stopped_early,
+        "cell": cell,
+        "stopped_early": stopped_early,
         "avoided": avoided,
+        "per_sheet": per_sheet,
     }))
 }
 

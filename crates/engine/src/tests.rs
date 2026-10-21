@@ -740,6 +740,90 @@ mod nest_tests {
     }
 
     #[test]
+    fn parts_that_do_not_fit_go_on_further_sheets_laid_out_to_the_right() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 70, "bed_height": 40})).unwrap();
+        // Two 30 x 30 squares fill a 70 x 40 sheet, so six of them need three.
+        let ids: Vec<u64> = (0..6).map(|k| block(&mut s, 300.0 + f64::from(k) * 40.0, 300.0, 30.0, 30.0)).collect();
+        let before: Vec<_> = ids.iter().map(|id| bounds(&s, *id)).collect();
+
+        let one = s.execute("arrange.nest", &json!({"ids": ids, "gap": 2, "rotations": 1})).unwrap();
+        assert_eq!(
+            (one["placed"].as_u64(), one["unplaced"].as_array().map(Vec::len), one["per_sheet"].clone()),
+            (Some(2), Some(4), json!([2])),
+            "{one}"
+        );
+        s.execute("edit.undo", &Value::Null).unwrap();
+        assert_eq!(ids.iter().map(|id| bounds(&s, *id)).collect::<Vec<_>>(), before, "one undo puts everything back");
+
+        let two = s.execute("arrange.nest", &json!({"ids": ids, "gap": 2, "rotations": 1, "sheets": 2})).unwrap();
+        assert_eq!(
+            (two["placed"].as_u64(), two["per_sheet"].clone(), two["unplaced"].clone()),
+            (Some(4), json!([2, 2]), json!([ids[4], ids[5]])),
+            "{two}"
+        );
+        s.execute("edit.undo", &Value::Null).unwrap();
+
+        let three = s.execute("arrange.nest", &json!({"ids": ids, "gap": 2, "rotations": 1, "sheets": 5})).unwrap();
+        assert_eq!(
+            (three["placed"].as_u64(), three["per_sheet"].clone(), three["unplaced"].clone()),
+            (Some(6), json!([2, 2, 2]), json!([])),
+            "stops when nothing is left: {three}"
+        );
+        let mut on_sheet = [0; 3];
+        for id in &ids {
+            let b = bounds(&s, *id);
+            // Sheet k spans x from k * (70 + 20) to k * 90 + 70.
+            let k = (b.x0 / 90.0).floor() as usize;
+            assert!(
+                b.x0 >= k as f64 * 90.0 - 1e-6 && b.x1 <= k as f64 * 90.0 + 70.0 + 1e-6 && b.y0 >= -1e-6 && b.y1 <= 40.0 + 1e-6,
+                "{id} is not on a sheet: {b:?}"
+            );
+            on_sheet[k] += 1;
+        }
+        assert_eq!(on_sheet, [2, 2, 2]);
+        assert_eq!(s.selection.len(), 6, "everything placed is selected");
+        s.execute("edit.undo", &Value::Null).unwrap();
+        assert_eq!(ids.iter().map(|id| bounds(&s, *id)).collect::<Vec<_>>(), before, "one undo puts all three sheets back");
+    }
+
+    #[test]
+    fn the_space_between_sheets_is_the_one_asked_for_and_a_part_too_big_for_any_sheet_is_left() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 70, "bed_height": 40})).unwrap();
+        let small: Vec<u64> = (0..3).map(|_| block(&mut s, 300.0, 300.0, 30.0, 30.0)).collect();
+        let huge = block(&mut s, 500.0, 500.0, 200.0, 200.0);
+        let all = json!([small[0], small[1], small[2], huge]);
+        let result = s.execute("arrange.nest", &json!({"ids": all, "gap": 2, "rotations": 1, "sheets": 4, "sheet_gap": 5})).unwrap();
+        assert_eq!((result["per_sheet"].clone(), result["unplaced"].clone()), (json!([2, 1]), json!([huge])), "{result}");
+        let second = small.iter().map(|id| bounds(&s, *id)).filter(|b| b.x0 > 70.0).collect::<Vec<_>>();
+        assert_eq!(second.len(), 1);
+        assert!(second[0].x0 >= 75.0 - 1e-6 && second[0].x0 < 90.0, "the second sheet starts 5 mm after the first, not 20: {:?}", second[0]);
+        assert_eq!(s.selection, vec![huge], "what fits no sheet stays selected");
+    }
+
+    #[test]
+    fn bad_sheet_settings_are_refused_and_change_nothing() {
+        let mut s = Session::new();
+        let id = block(&mut s, 10.0, 10.0, 5.0, 5.0);
+        let before = bounds(&s, id);
+        for bad in [
+            json!({"sheets": 0}),
+            json!({"sheets": 21}),
+            json!({"sheets": -1}),
+            json!({"sheets": 2.5}),
+            json!({"sheets": "two"}),
+            json!({"sheets": 2, "sheet_gap": -1}),
+            json!({"sheets": 2, "sheet_gap": 1e300}),
+            json!({"sheets": 2, "sheet_gap": "wide"}),
+        ] {
+            assert!(s.execute("arrange.nest", &bad).is_err(), "{bad}");
+        }
+        assert_eq!(bounds(&s, id), before);
+        assert!(s.execute("arrange.nest", &json!({"sheets": 20})).is_ok(), "the limit itself is allowed");
+    }
+
+    #[test]
     fn use_holes_lets_a_part_go_inside_a_group_with_a_hole_and_is_off_by_default() {
         let mut s = Session::new();
         s.execute("machine.set", &json!({"bed_width": 64, "bed_height": 64})).unwrap();

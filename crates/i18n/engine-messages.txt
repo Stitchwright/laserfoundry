@@ -121,6 +121,7 @@ shape {id} does not exist
 shape {id} is not an image
 shape {id} is not text
 shapes contain a non-finite or out-of-range coordinate
+sheets is 1 to {MAX_SHEETS} and the space between them cannot be negative
 size limits cannot be negative
 size_mm must be between {1} and {2}
 sizes must be positive, finite and the shape must have extent in that direction

@@ -1958,6 +1958,28 @@ mod timeline_ui_tests {
     }
 
     #[test]
+    fn nesting_from_the_panel_can_fill_further_sheets_and_says_so() {
+        let mut h = Harness::new();
+        h.app.run("machine.set", json!({"bed_width": 70, "bed_height": 40}));
+        for k in 0..5 {
+            h.app.run("shape.rectangle", json!({"x": 300.0 + f64::from(k) * 40.0, "y": 300, "width": 30, "height": 30}));
+        }
+        h.app.run("edit.select_all", Value::Null);
+        h.app.nest_turn = false;
+        assert_eq!(h.app.nest_sheets, 1, "one sheet by default");
+        crate::panels::nest_selection(&mut h.app);
+        assert_eq!(h.app.status, Some(("Placed 2; 3 did not fit and are selected".into(), false)), "{:?}", h.app.status);
+        h.app.run("edit.select_all", Value::Null);
+        h.app.nest_sheets = 2;
+        crate::panels::nest_selection(&mut h.app);
+        assert_eq!(h.app.status, Some(("Placed 4 on 2 sheets; 1 did not fit and are selected".into(), false)), "{:?}", h.app.status);
+        h.app.run("edit.select_all", Value::Null);
+        h.app.nest_sheets = 3;
+        crate::panels::nest_selection(&mut h.app);
+        assert_eq!(h.app.status, Some(("Placed 5 on 3 sheets".into(), false)), "{:?}", h.app.status);
+    }
+
+    #[test]
     fn the_preview_and_the_timeline_agree_on_how_long_an_operation_takes_with_cornering() {
         let mut h = Harness::new();
         h.app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 50, "height": 30}));

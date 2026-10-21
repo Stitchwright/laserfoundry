@@ -793,3 +793,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   even-odd and edge-distance code; holes make room solid parts do not), one engine test and one panel test. They fail when the final wall pass is
   removed, when the edge-touch test is removed and when islands are not filled again (all three tried; the island case needed its own test, as the
   first one did not catch it). Not done (gap 23): several sheets, packing finer than the cell grid; the new box was not looked at on screen.
+- **2026-10-21 — nesting onto several sheets.** `arrange.nest` takes `sheets` (1 to 20, default 1) and `sheet_gap` (mm, default 20). Parts that do not
+  fit the region go on sheet 2, a copy of the region laid out to its right `sheet_gap` away, and what that cannot take goes on sheet 3, and so on;
+  it stops when nothing is left or a sheet takes nothing (so a part too big for any sheet is left where it was, selected). Each sheet keeps clear
+  of the same obstacles and uses the same gap, margin, turns and holes setting; one undo puts every sheet's parts back. The result gains
+  `per_sheet` (how many went on each sheet) and the status line says "Placed N on M sheets". The Nest section has a "sheets" box. The sheets are
+  laid out beside the bed, not on it: moving a sheet onto the bed is up to the person. Done in the command, not the nest crate (each sheet is
+  one ordinary nesting). Checked with three engine tests (six squares on one, two and three sheets, every shape inside its sheet and the
+  spacing; the spacing asked for and a part too big for any sheet; bad counts and spacings refused with nothing moved) and a panel test of the
+  status lines; the sheet tests fail when the offset is removed (tried). Not done (gap 23): packing finer than the cell grid; the new box was
+  not looked at on screen.

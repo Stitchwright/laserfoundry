@@ -14,4 +14,4 @@ Every known shortfall, ranked. This is the work list; pick from the top. Scores 
 | 20 | Galvo/fibre/CO2-RF controllers (proprietary protocols); a tilted or 3D Z map; chuck rotary with steps-per-rotation |  Hardware variants |
 | 21 | Translations: the detail inside a font-download failure (the system's or network's own words) is still English; the browser build has no font for non-Latin scripts; no translation ships (see `translations.md`) | Users outside English-speaking markets |
 | 22 | AI features and accounts: try them against a real service and key and tune the prompts; the apps now default to the shared Foundry service (`cloud.stitchfoundry.app`) but have not been tried against it signed in; terms of service for the service | The AI menu is built and tested only against scripted answers |
-| 23 | Nesting refinements: fit several sheets, and pack tighter than the cell grid allows (it wastes up to about a cell per side; see `crates/nest`) | Material use on real jobs |
+| 23 | Nesting refinements: and pack tighter than the cell grid allows (it wastes up to about a cell per side; see `crates/nest`) | Material use on real jobs |

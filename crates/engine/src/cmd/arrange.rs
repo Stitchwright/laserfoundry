@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use laserfoundry_doc::{GroupId, ShapeId};
 use laserfoundry_geom::{Affine, Point, Rect};
@@ -38,7 +38,7 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         label: "Nest",
         menu: "Arrange",
         shortcut: None,
-        params_doc: "{ids?, x?, y?, width?, height? (the region in mm; default the whole bed), gap? (mm between parts, default 2), margin? (mm kept free at the region's edge, default 0), rotations? (evenly spaced turns tried for each part, 1 keeps their angles, default 4), resolution? (cell size in mm; default chosen from the region)}  — packs the selection into the region without overlaps, a group moving as one part; parts that do not fit stay where they were, are listed in `unplaced` and become the selection. Other shapes on the bed are ignored",
+        params_doc: "{ids?, x?, y?, width?, height? (the region in mm; default the whole bed), gap? (mm between parts, default 2), margin? (mm kept free at the region's edge, default 0), rotations? (evenly spaced turns tried for each part, 1 keeps their angles, default 4), resolution? (cell size in mm; default chosen from the region)}  — packs the selection into the region without overlaps, a group moving as one part; parts that do not fit stay where they were, are listed in `unplaced` and become the selection; avoid_others? (default true: keep the gap from every shape that is not being nested, except those on layers whose output is off, such as a backdrop photo; false ignores them; `avoided` says how many were kept clear of)",
         mutates: true,
         run: nest,
     },
@@ -141,6 +141,12 @@ struct NestParams {
     #[serde(default = "default_rotations")]
     rotations: u32,
     resolution: Option<f64>,
+    #[serde(default = "default_true")]
+    avoid_others: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_nest_gap() -> f64 {
@@ -182,9 +188,29 @@ fn nest(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         .map(|members| Part { outlines: members.iter().filter_map(|id| s.doc.shape(*id)).flat_map(|shape| shape.world_polylines()).collect() })
         .collect();
 
+    // Shapes that stay put are kept clear of, as one obstacle per group, unless their layer is not output (a backdrop).
+    let mut obstacles: Vec<Part> = Vec::new();
+    if p.avoid_others {
+        let moving: HashSet<ShapeId> = units.iter().flatten().copied().collect();
+        let mut by_group: HashMap<GroupId, usize> = HashMap::new();
+        for shape in s.doc.shapes.iter().filter(|shape| !moving.contains(&shape.id) && s.doc.layer(shape.layer).is_some_and(|l| l.output)) {
+            let at = match shape.group {
+                Some(g) => *by_group.entry(g).or_insert(obstacles.len()),
+                None => obstacles.len(),
+            };
+            if at == obstacles.len() {
+                obstacles.push(Part::default());
+            }
+            if let Some(o) = obstacles.get_mut(at) {
+                o.outlines.extend(shape.world_polylines());
+            }
+        }
+    }
+    let avoided = obstacles.len();
+
     let options = Options { gap: p.gap, margin: p.margin, rotations: p.rotations, resolution: p.resolution };
-    let result =
-        laserfoundry_nest::nest(&parts, Rect::new(x, y, x + width, y + height), &options).map_err(|e| EngineError::BadParams(e.to_string()))?;
+    let result = laserfoundry_nest::nest_around(&parts, &obstacles, Rect::new(x, y, x + width, y + height), &options)
+        .map_err(|e| EngineError::BadParams(e.to_string()))?;
 
     let mut placed_ids = Vec::new();
     for placement in &result.placed {
@@ -204,6 +230,7 @@ fn nest(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         "ids": placed_ids,
         "cell": result.cell,
         "stopped_early": result.stopped_early,
+        "avoided": avoided,
     }))
 }
 

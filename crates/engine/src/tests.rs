@@ -708,6 +708,57 @@ mod nest_tests {
     }
 
     #[test]
+    fn nesting_keeps_clear_of_the_shapes_that_stay_unless_told_not_to() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 100, "bed_height": 60})).unwrap();
+        let wall = block(&mut s, 0.0, 20.0, 100.0, 10.0);
+        let post = block(&mut s, 40.0, 40.0, 10.0, 10.0);
+        let wall_box = bounds(&s, wall);
+        let movers: Vec<u64> = (0..4).map(|_| block(&mut s, 300.0, 300.0, 18.0, 8.0)).collect();
+        let result = s.execute("arrange.nest", &json!({"ids": movers, "gap": 3})).unwrap();
+        assert_eq!((result["placed"].as_u64(), result["avoided"].as_u64()), (Some(4), Some(2)), "{result}");
+        assert_eq!(bounds(&s, wall), wall_box, "the shapes that stay are not moved");
+        for id in &movers {
+            let b = bounds(&s, *id);
+            for other in [wall, post] {
+                assert!(apart(b, bounds(&s, other), 3.0), "{id} is too close to {other}: {b:?}");
+            }
+        }
+        // With the shapes ignored the same request may land on them.
+        let mut t = Session::new();
+        t.execute("machine.set", &json!({"bed_width": 100, "bed_height": 60})).unwrap();
+        block(&mut t, 0.0, 0.0, 100.0, 60.0);
+        let movers: Vec<u64> = (0..2).map(|_| block(&mut t, 300.0, 300.0, 18.0, 8.0)).collect();
+        let blocked = t.execute("arrange.nest", &json!({"ids": movers, "gap": 3})).unwrap();
+        assert_eq!(
+            (blocked["placed"].as_u64(), blocked["unplaced"].as_array().map(Vec::len)),
+            (Some(0), Some(2)),
+            "a full bed leaves no room: {blocked}"
+        );
+        let ignored = t.execute("arrange.nest", &json!({"ids": movers, "gap": 3, "avoid_others": false})).unwrap();
+        assert_eq!((ignored["placed"].as_u64(), ignored["avoided"].as_u64()), (Some(2), Some(0)), "{ignored}");
+    }
+
+    #[test]
+    fn a_group_that_stays_is_one_obstacle_and_a_backdrop_layer_is_not_one() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 100, "bed_height": 60})).unwrap();
+        let (a, b) = (block(&mut s, 0.0, 0.0, 10.0, 10.0), block(&mut s, 90.0, 50.0, 10.0, 10.0));
+        s.execute("edit.select", &json!({"ids": [a, b]})).unwrap();
+        s.execute("edit.group", &json!({})).unwrap();
+        // A backdrop on a layer that does not output covers the whole bed.
+        s.execute("layer.set", &json!({"id": 5, "output": false})).unwrap();
+        s.execute("shape.rectangle", &json!({"x": 0, "y": 0, "width": 100, "height": 60, "layer": 5})).unwrap();
+        let mover = block(&mut s, 300.0, 300.0, 20.0, 20.0);
+        let result = s.execute("arrange.nest", &json!({"ids": [mover], "gap": 2})).unwrap();
+        assert_eq!((result["placed"].as_u64(), result["avoided"].as_u64()), (Some(1), Some(1)), "one group, and the backdrop is ignored: {result}");
+        let m = bounds(&s, mover);
+        for other in [a, b] {
+            assert!(apart(m, bounds(&s, other), 2.0), "{m:?}");
+        }
+    }
+
+    #[test]
     fn nesting_packs_the_selection_into_the_bed_and_one_undo_puts_it_back() {
         let mut s = Session::new();
         s.execute("machine.set", &json!({"bed_width": 100, "bed_height": 60})).unwrap();

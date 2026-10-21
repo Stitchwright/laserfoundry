@@ -1110,6 +1110,8 @@ fn nest_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
         ui.add(egui::DragValue::new(&mut app.nest_gap).range(0.0..=100.0).speed(0.1).prefix("gap ").suffix(" mm"));
         ui.checkbox(&mut app.nest_turn, tr("Allow turning")).on_hover_text(tr("Try each part at 0, 90, 180 and 270 degrees"));
     });
+    ui.checkbox(&mut app.nest_avoid, tr("Keep clear of other shapes"))
+        .on_hover_text(tr("Shapes that are not selected stay where they are and the nested parts keep the gap from them"));
     if ui
         .button(tr("Nest in the bed"))
         .on_hover_text(tr("Pack the selection into the bed without overlaps; what does not fit stays where it is, selected"))
@@ -1121,7 +1123,7 @@ fn nest_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
 
 /// Nests the selection into the bed with the panel's settings and says how it went.
 pub(crate) fn nest_selection(app: &mut LaserFoundryApp) {
-    let params = json!({ "gap": app.nest_gap, "rotations": if app.nest_turn { 4 } else { 1 } });
+    let params = json!({ "gap": app.nest_gap, "rotations": if app.nest_turn { 4 } else { 1 }, "avoid_others": app.nest_avoid });
     let Some(result) = app.run("arrange.nest", params) else { return };
     let placed = result["placed"].as_u64().unwrap_or(0);
     let left = result["unplaced"].as_array().map_or(0, Vec::len);

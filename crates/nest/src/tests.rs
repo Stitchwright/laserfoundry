@@ -254,6 +254,148 @@ mod packing_tests {
     }
 }
 
+mod obstacle_tests {
+    use super::*;
+
+    /// Every placed part keeps at least `gap` from every obstacle that is not itself outside the picture.
+    fn clear_of(parts: &[Part], result: &Nesting, obstacles: &[Part], gap: f64) {
+        for p in &result.placed {
+            let lines = moved(&parts[p.part], p);
+            for (k, o) in obstacles.iter().enumerate() {
+                let d = distance(&lines, &o.outlines);
+                assert!(d > 0.0, "part {} touches or overlaps obstacle {k}", p.part);
+                assert!(d >= gap - 1e-6, "part {} is {d} mm from obstacle {k}, less than the gap {gap}", p.part);
+            }
+        }
+    }
+
+    #[test]
+    fn parts_keep_the_gap_from_shapes_that_stay() {
+        let parts: Vec<Part> = (0..6).map(|_| rect(0.0, 0.0, 12.0, 12.0)).collect();
+        let obstacles = vec![rect(10.0, 10.0, 30.0, 30.0), rect(60.0, 0.0, 5.0, 50.0)];
+        let options = Options { gap: 3.0, ..Options::default() };
+        let result = nest_around(&parts, &obstacles, region(100.0, 60.0), &options).unwrap();
+        assert!(result.placed.len() >= 5, "{} placed", result.placed.len());
+        check(&parts, &result, region(100.0, 60.0), &options);
+        clear_of(&parts, &result, &obstacles, 3.0);
+    }
+
+    #[test]
+    fn a_region_that_is_blocked_places_nothing_and_reports_every_part() {
+        let parts: Vec<Part> = (0..3).map(|_| rect(0.0, 0.0, 10.0, 10.0)).collect();
+        let result = nest_around(&parts, &[rect(-5.0, -5.0, 100.0, 100.0)], region(50.0, 50.0), &Options::default()).unwrap();
+        assert_eq!((result.placed.len(), result.unplaced.clone()), (0, vec![0, 1, 2]));
+    }
+
+    #[test]
+    fn a_part_goes_into_the_one_gap_that_is_big_enough() {
+        // Two walls leave a 16 mm slot; the 14 mm part with a 1 mm gap fits only there.
+        let walls = vec![rect(0.0, 20.0, 30.0, 4.0), rect(46.0, 0.0, 4.0, 4.0), rect(0.0, 0.0, 30.0, 4.0), rect(30.0, 0.0, 4.0, 24.0)];
+        let parts = vec![rect(0.0, 0.0, 14.0, 14.0)];
+        let options = Options { gap: 1.0, rotations: 1, ..Options::default() };
+        let result = nest_around(&parts, &walls, Rect::new(0.0, 0.0, 50.0, 24.0), &options).unwrap();
+        assert_eq!(result.placed.len(), 1);
+        let b = box_of(&moved(&parts[0], &result.placed[0]));
+        assert!(b.x0 > 34.0 && b.x1 < 50.0 && b.y1 <= 24.0, "went to the open side: {b:?}");
+        clear_of(&parts, &result, &walls, 1.0);
+        let no_room =
+            nest_around(&parts, &walls, Rect::new(0.0, 0.0, 50.0, 24.0), &Options { gap: 4.0, rotations: 1, ..Options::default() }).unwrap();
+        assert_eq!(no_room.placed.len(), 0, "with a 4 mm gap the slot is too small");
+    }
+
+    #[test]
+    fn obstacles_outside_or_with_bad_numbers_change_nothing() {
+        let parts: Vec<Part> = (0..5).map(|_| rect(0.0, 0.0, 10.0, 10.0)).collect();
+        let options = Options::default();
+        let plain = nest(&parts, region(60.0, 40.0), &options).unwrap();
+        let bad = Part { outlines: vec![Polyline::new(vec![Point::new(f64::NAN, 1.0), Point::new(5.0, 5.0), Point::new(9.0, 1.0)], true)] };
+        let infinite = line((f64::INFINITY, 0.0), (0.0, 0.0));
+        let elsewhere =
+            vec![rect(1e9, 1e9, 10.0, 10.0), rect(-1e12, -1e12, 5.0, 5.0), line((-1e15, 100.0), (1e15, 100.0)), bad, infinite, Part::default()];
+        let result = nest_around(&parts, &elsewhere, region(60.0, 40.0), &options).unwrap();
+        assert_eq!(result, plain);
+    }
+
+    #[test]
+    fn a_huge_shape_that_crosses_the_region_blocks_only_where_it_crosses() {
+        // A 10 mm wide band, a billion mm long, runs across the middle of a 100 x 100 region.
+        let band = rect(-5e8, 45.0, 1e9, 10.0);
+        let parts: Vec<Part> = (0..4).map(|_| rect(0.0, 0.0, 20.0, 20.0)).collect();
+        let options = Options { gap: 2.0, rotations: 1, ..Options::default() };
+        let result = nest_around(&parts, std::slice::from_ref(&band), region(100.0, 100.0), &options).unwrap();
+        assert_eq!(result.placed.len(), 4, "{:?}", result.unplaced);
+        clear_of(&parts, &result, &[band], 2.0);
+    }
+
+    #[test]
+    fn an_open_line_blocks_only_its_own_path() {
+        let parts = vec![rect(0.0, 0.0, 10.0, 10.0)];
+        let wall = line((0.0, 25.0), (40.0, 25.0));
+        let options = Options { gap: 2.0, rotations: 1, ..Options::default() };
+        // The region is 40 x 40: the part must sit above or below the line, never across it.
+        let result = nest_around(&parts, std::slice::from_ref(&wall), region(40.0, 40.0), &options).unwrap();
+        assert_eq!(result.placed.len(), 1);
+        clear_of(&parts, &result, &[wall], 2.0);
+    }
+
+    #[test]
+    fn random_obstacles_are_never_touched() {
+        let mut seed = 7_u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((seed >> 33) as f64) / f64::from(1u32 << 31)
+        };
+        for round in 0..6 {
+            // Some obstacles hang over the edge of the region, some are triangles, some are open lines.
+            let obstacles: Vec<Part> = (0..8)
+                .map(|k| {
+                    let (x, y) = (-20.0 + next() * 160.0, -20.0 + next() * 130.0);
+                    match k % 3 {
+                        0 => rect(x, y, 5.0 + next() * 25.0, 5.0 + next() * 25.0),
+                        1 => Part {
+                            outlines: vec![Polyline::new(
+                                vec![Point::new(x, y), Point::new(x + 20.0 * next(), y + 5.0), Point::new(x + 8.0, y + 25.0 * next())],
+                                true,
+                            )],
+                        },
+                        _ => line((x, y), (x + 40.0 * next() - 20.0, y + 40.0 * next() - 20.0)),
+                    }
+                })
+                .collect();
+            let parts: Vec<Part> = (0..10).map(|_| rect(0.0, 0.0, 6.0 + next() * 10.0, 6.0 + next() * 10.0)).collect();
+            let options = Options { gap: [0.0, 1.5, 3.0][round % 3], rotations: [1, 4][round % 2], margin: [0.0, 2.0][round % 2], resolution: None };
+            let result = nest_around(&parts, &obstacles, region(120.0, 90.0), &options).unwrap();
+            check(&parts, &result, region(120.0, 90.0), &options);
+            // Only obstacles inside the region matter to a part, but clearance from all of them holds a fortiori.
+            clear_of(&parts, &result, &obstacles, options.gap);
+        }
+    }
+
+    #[test]
+    fn thousands_of_obstacles_are_handled_quickly_and_too_many_are_refused() {
+        let obstacles: Vec<Part> = (0..2000).map(|k| rect(f64::from(k % 100) * 3.0, f64::from(k / 100) * 3.0 + 200.0, 1.0, 1.0)).collect();
+        let parts: Vec<Part> = (0..10).map(|_| rect(0.0, 0.0, 15.0, 15.0)).collect();
+        let start = Instant::now();
+        let result = nest_around(&parts, &obstacles, region(300.0, 200.0), &Options::default()).unwrap();
+        assert_eq!(result.placed.len(), 10, "obstacles below the region do not matter");
+        assert!(start.elapsed().as_secs() < 20, "took {:?}", start.elapsed());
+        let too_many = vec![rect(0.0, 0.0, 1.0, 1.0); MAX_OBSTACLES + 1];
+        assert_eq!(nest_around(&parts, &too_many, region(300.0, 200.0), &Options::default()), Err(NestError::TooManyObstacles));
+        let heavy = Part { outlines: vec![Polyline::new(vec![Point::ORIGIN; MAX_POINTS / 2 + 1], true); 2] };
+        assert_eq!(nest_around(&parts, &[heavy], region(50.0, 50.0), &Options::default()), Err(NestError::TooComplex), "obstacle points count too");
+    }
+
+    #[test]
+    fn clipping_keeps_only_the_part_of_a_segment_inside_the_box() {
+        assert_eq!(clip((-10.0, 5.0), (30.0, 5.0), 0.0, 0.0, 20.0, 10.0), Some(((0.0, 5.0), (20.0, 5.0))));
+        assert_eq!(clip((5.0, 5.0), (6.0, 6.0), 0.0, 0.0, 20.0, 10.0), Some(((5.0, 5.0), (6.0, 6.0))), "inside stays whole");
+        assert_eq!(clip((-10.0, -10.0), (-1.0, 50.0), 0.0, 0.0, 20.0, 10.0), None, "wholly outside");
+        assert_eq!(clip((25.0, 0.0), (25.0, 10.0), 0.0, 0.0, 20.0, 10.0), None, "parallel and outside");
+        assert!(clip((-1e15, -1e15), (1e15, 1e15), 0.0, 0.0, 20.0, 10.0).is_some_and(|(a, b)| a.0 >= -1e-6 && b.0 <= 20.0 + 1e-6));
+        assert_eq!(clip((3.0, 3.0), (3.0, 3.0), 0.0, 0.0, 20.0, 10.0), Some(((3.0, 3.0), (3.0, 3.0))), "a point inside");
+    }
+}
+
 mod mask_tests {
     use super::*;
 

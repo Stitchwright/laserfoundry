@@ -6,6 +6,7 @@
 //! The masks are conservative: a cell counts as taken if any piece of the part touches it, so parts never overlap, and the gap
 //! between parts is made by thickening each mask before it is tested, so the real distance is at least the gap asked for. The
 //! price is resolution: a part can waste up to about one cell of room on each side. Holes in a part are not used by other parts.
+//! Shapes that stay where they are (obstacles) are drawn on the grid first, so parts keep the gap from them as from each other.
 //!
 //! Nothing here panics on odd input: numbers are checked, sizes and the amount of work are capped, and parts that cannot be
 //! placed are reported, not forced in.
@@ -17,7 +18,9 @@ mod tests;
 
 /// Most parts one nesting may place.
 pub const MAX_PARTS: usize = 500;
-/// Most points, over all parts, one nesting will look at.
+/// Most obstacles (shapes to keep clear of) one nesting will look at.
+pub const MAX_OBSTACLES: usize = 5_000;
+/// Most points, over all parts and obstacles, one nesting will look at.
 pub const MAX_POINTS: usize = 5_000_000;
 /// Most rotations tried for each part.
 pub const MAX_ROTATIONS: u32 = 72;
@@ -96,6 +99,8 @@ pub enum NestError {
     Option(&'static str),
     #[error("at most {MAX_PARTS} parts can be nested at once")]
     TooManyParts,
+    #[error("at most {MAX_OBSTACLES} shapes can be kept clear of")]
+    TooManyObstacles,
     #[error("part {0} has a coordinate that is not a finite number")]
     NotFinite(usize),
     #[error("the parts have too many points to nest")]
@@ -104,6 +109,13 @@ pub enum NestError {
 
 /// Packs `parts` into `region` (workspace mm).
 pub fn nest(parts: &[Part], region: Rect, options: &Options) -> Result<Nesting, NestError> {
+    nest_around(parts, &[], region, options)
+}
+
+/// Packs `parts` into `region` (workspace mm) without touching `obstacles`: shapes that stay where they are. Parts keep the gap
+/// from them as from each other. An obstacle may lie partly or wholly outside the region; one with a coordinate that is not a
+/// finite number is ignored (it cannot be drawn on the grid), and a closed outline is solid, as for a part.
+pub fn nest_around(parts: &[Part], obstacles: &[Part], region: Rect, options: &Options) -> Result<Nesting, NestError> {
     check_options(options)?;
     if ![region.x0, region.y0, region.x1, region.y1].iter().all(|v| v.is_finite()) {
         return Err(NestError::Region);
@@ -113,12 +125,17 @@ pub fn nest(parts: &[Part], region: Rect, options: &Options) -> Result<Nesting, 
     if !(width > 0.0 && height > 0.0) {
         return Err(NestError::Region);
     }
-    check_parts(parts)?;
+    check_parts(parts, obstacles)?;
 
     let cell = choose_cell(width, height, options);
     let gap_cells = (options.gap / cell).ceil() as usize;
     let mut grid = Grid::new((width / cell).floor() as usize, (height / cell).floor() as usize, gap_cells);
     let mut out = Nesting { cell, ..Nesting::default() };
+    for obstacle in obstacles {
+        if let Some(mask) = Mask::of_obstacle(obstacle, Point::new(inner.x0, inner.y0), cell, grid.cols, grid.rows) {
+            grid.occupy(&mask, 0, 0);
+        }
+    }
 
     // Biggest first: the big parts are the hard ones to fit, and small ones fill in around them.
     let area = |i: usize| parts.get(i).and_then(bounds).map_or(0.0, |b| b.width() * b.height());
@@ -185,11 +202,14 @@ fn check_options(o: &Options) -> Result<(), NestError> {
     Ok(())
 }
 
-fn check_parts(parts: &[Part]) -> Result<(), NestError> {
+fn check_parts(parts: &[Part], obstacles: &[Part]) -> Result<(), NestError> {
     if parts.len() > MAX_PARTS {
         return Err(NestError::TooManyParts);
     }
-    let mut points = 0_usize;
+    if obstacles.len() > MAX_OBSTACLES {
+        return Err(NestError::TooManyObstacles);
+    }
+    let mut points = obstacles.iter().flat_map(|o| &o.outlines).fold(0_usize, |n, line| n.saturating_add(line.points.len()));
     for (index, part) in parts.iter().enumerate() {
         for line in &part.outlines {
             points = points.saturating_add(line.points.len());
@@ -272,6 +292,38 @@ impl Mask {
             mask.draw(&cells, line.closed, &mut scan);
         }
         Some(mask)
+    }
+
+    /// The cells an obstacle touches within a grid of `cols` by `rows` cells whose top-left corner is at `origin` (workspace mm);
+    /// the mask is the size of the grid. `None` when nothing of the obstacle reaches the grid.
+    fn of_obstacle(part: &Part, origin: Point, cell: f64, cols: usize, rows: usize) -> Option<Mask> {
+        let mut mask = Mask { cols, rows, cells: vec![false; cols * rows], min: origin };
+        let mut scan = Scan::new(rows);
+        // Cells further out than this cannot touch the grid; segments are cut here so a far-away point costs nothing.
+        let (w, h) = (cols as f64 + 1.0, rows as f64 + 1.0);
+        for line in &part.outlines {
+            if line.points.iter().any(|p| !(p.x.is_finite() && p.y.is_finite())) {
+                continue;
+            }
+            let cells: Vec<(f64, f64)> = line.points.iter().map(|p| ((p.x - origin.x) / cell, (p.y - origin.y) / cell)).collect();
+            match cells.as_slice() {
+                [] => {}
+                [only] => mask.mark(only.0.floor() as i64, only.1.floor() as i64),
+                _ => {
+                    let closed = line.closed && cells.len() >= 3;
+                    let edges = cells.iter().zip(cells.iter().skip(1)).chain(closed.then(|| cells.last().zip(cells.first())).flatten());
+                    for (a, b) in edges {
+                        if let Some((a, b)) = clip(*a, *b, -1.0, -1.0, w, h) {
+                            mask.segment(a, b);
+                        }
+                    }
+                    if closed {
+                        mask.fill(&cells, &mut scan);
+                    }
+                }
+            }
+        }
+        mask.cells.iter().any(|c| *c).then_some(mask)
     }
 
     fn mark(&mut self, x: i64, y: i64) {
@@ -411,6 +463,27 @@ impl Mask {
         }
         out
     }
+}
+
+/// The part of the segment `a`-`b` inside the box `x0..=x1` by `y0..=y1` (Liang-Barsky), or `None` when none of it is.
+fn clip(a: (f64, f64), b: (f64, f64), x0: f64, y0: f64, x1: f64, y1: f64) -> Option<((f64, f64), (f64, f64))> {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let (mut t0, mut t1) = (0.0_f64, 1.0_f64);
+    for (p, q) in [(-dx, a.0 - x0), (dx, x1 - a.0), (-dy, a.1 - y0), (dy, y1 - a.1)] {
+        if p == 0.0 {
+            if q < 0.0 {
+                return None;
+            }
+        } else {
+            let r = q / p;
+            if p < 0.0 {
+                t0 = t0.max(r);
+            } else {
+                t1 = t1.min(r);
+            }
+        }
+    }
+    (t0 <= t1).then_some(((a.0 + t0 * dx, a.1 + t0 * dy), (a.0 + t1 * dx, a.1 + t1 * dy)))
 }
 
 /// Running totals: element `k` is how many of the first `k` flags are set.

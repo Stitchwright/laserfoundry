@@ -768,3 +768,16 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   scaling, the folder scan, the window drawing the built-in sample and knowing the selected text's font). Looked at in the running app (headless):
   the menu entry and the window with the built-in font's sample; the library and folder lists, **Use** and the inspector button were not
   looked at or clicked (no fonts or network here).
+- **2026-10-21 — nesting keeps clear of the shapes that stay.** `arrange.nest` no longer ignores the rest of the bed: every shape that is not
+  being nested (a group counts once) is an obstacle and the nested parts keep the gap from it, as from each other. Shapes on a layer whose
+  output is off (a backdrop photo, say) are not obstacles. `avoid_others` (default true) turns this off; the result says how many shapes were
+  kept clear of (`avoided`). The nest crate gained `nest_around(parts, obstacles, region, options)` (`nest` calls it with none): each obstacle
+  is drawn on the grid before any part is placed, segments are clipped to the region first so a shape far outside (or a billion mm long) costs
+  nothing, obstacles with a non-finite coordinate are ignored, and at most 5,000 obstacles are taken (more is an error that names the limit;
+  `avoid_others: false` is the way round it); their points count towards the point limit. The Nest section has a "Keep clear of other shapes"
+  box. **Behaviour change:** a nest of part of the drawing used to land on top of the other shapes; it now goes round them. Checked with nine
+  crate tests (the gap held against random obstacles, partly outside and open lines, using independent distance code; a part goes only into the
+  slot that is big enough; a blocked region reports every part; obstacles outside or with bad numbers change nothing; 2,000 obstacles quickly;
+  limits; the clipping), two engine tests and a panel test. The obstacle tests fail when obstacles are not drawn on the grid and hang when
+  segments are not clipped (both tried). Not done (gap 23): holes in parts, several sheets, finer than the cell grid; the new box was not looked
+  at on screen.

@@ -1916,6 +1916,26 @@ mod timeline_ui_tests {
     }
 
     #[test]
+    fn nesting_from_the_panel_keeps_clear_of_unselected_shapes_when_asked() {
+        let mut h = Harness::new();
+        h.app.run("machine.set", json!({"bed_width": 60, "bed_height": 40}));
+        let wall = h.app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 60, "height": 22})).unwrap()["id"].as_u64().unwrap();
+        let part = h.app.run("shape.rectangle", json!({"x": 300, "y": 300, "width": 15, "height": 15})).unwrap()["id"].as_u64().unwrap();
+        h.app.nest_turn = false;
+        h.app.nest_gap = 2.0;
+        assert!(h.app.nest_avoid, "keeping clear is the default");
+        crate::panels::nest_selection(&mut h.app);
+        let (w, p) = (h.app.session.doc.shape(wall).unwrap().world_bounds().unwrap(), h.app.session.doc.shape(part).unwrap().world_bounds().unwrap());
+        assert!(p.y0 >= w.y1 + 2.0 - 1e-6 && p.y1 <= 40.0 + 1e-6, "below the wall, inside the bed: {p:?} {w:?}");
+
+        h.app.run("edit.select", json!({"ids": [part]}));
+        h.app.nest_avoid = false;
+        crate::panels::nest_selection(&mut h.app);
+        let p = h.app.session.doc.shape(part).unwrap().world_bounds().unwrap();
+        assert!(p.y0 < 22.0, "ignoring the wall, the first free spot is the top-left corner: {p:?}");
+    }
+
+    #[test]
     fn the_preview_and_the_timeline_agree_on_how_long_an_operation_takes_with_cornering() {
         let mut h = Harness::new();
         h.app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 50, "height": 30}));

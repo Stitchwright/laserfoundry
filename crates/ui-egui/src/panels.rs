@@ -876,6 +876,9 @@ fn text_properties(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
             app.note_unsupported(&v);
             app.text_buffer = None;
         }
+        if ui.button(tr("Font manager…")).on_hover_text(tr("See every font drawn, then pick one")).clicked() {
+            app.fonts_open = true;
+        }
         if style.font.is_some() && ui.button(tr("Built-in")).clicked() {
             app.run("text.edit", json!({ "id": id, "font": "" }));
             app.text_buffer = None;

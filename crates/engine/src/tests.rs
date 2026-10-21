@@ -1511,6 +1511,55 @@ mod import_tests {
     }
 
     #[test]
+    fn preview_lays_a_sample_out_without_touching_the_document() {
+        let dir = std::env::temp_dir().join(format!("lf-engine-fontpreview-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let font = dir.join("tiny.ttf");
+        std::fs::write(&font, laserfoundry_text::testfont::tiny_font()).unwrap();
+        let mut s = Session::new();
+        let before = (s.doc.clone(), s.history().0.len());
+
+        let built_in = s.execute("text.preview", &json!({})).unwrap();
+        assert!(
+            !built_in["paths"].as_array().unwrap().is_empty() && built_in["width"].as_f64().unwrap() > 5.0,
+            "the default sample draws: {built_in}"
+        );
+        let tall = s.execute("text.preview", &json!({"text": "AB", "height": 40})).unwrap();
+        let small = s.execute("text.preview", &json!({"text": "AB", "height": 10})).unwrap();
+        assert!(tall["height"].as_f64().unwrap() > 3.0 * small["height"].as_f64().unwrap(), "the height scales the sample");
+        for path in tall["paths"].as_array().unwrap() {
+            for pt in path["points"].as_array().unwrap() {
+                assert!(pt[0].as_f64().unwrap() >= -1e-9 && pt[1].as_f64().unwrap() >= -1e-9, "points start at the top-left corner");
+            }
+        }
+        let filled = s.execute("text.preview", &json!({"font": font, "text": "AB", "height": 14})).unwrap();
+        assert!(filled["paths"].as_array().unwrap().iter().any(|p| p["closed"] == true), "outline fonts give closed outlines");
+        assert!((filled["height"].as_f64().unwrap() - 14.0).abs() < 0.2, "{filled}");
+
+        assert_eq!((s.doc.clone(), s.history().0.len()), before, "a preview changes nothing and is not an undo step");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn preview_refuses_bad_input_with_an_error() {
+        let mut s = Session::new();
+        let long = "x".repeat(101);
+        for bad in [
+            json!({"text": long}),
+            json!({"text": "   "}),
+            json!({"height": 0}),
+            json!({"height": 1e9}),
+            json!({"height": -5}),
+            json!({"font": "/no/such/font.ttf"}),
+            json!({"font": "library:not-loaded"}),
+            json!({"text": 5}),
+        ] {
+            assert!(s.execute("text.preview", &bad).is_err(), "{bad}");
+        }
+        assert!(s.execute("text.preview", &json!({"text": "x".repeat(100)})).is_ok(), "exactly the limit is fine");
+    }
+
+    #[test]
     fn outline_text_from_a_font_file_is_filled_survives_without_the_font_and_can_switch_back() {
         let dir = std::env::temp_dir().join(format!("lf-engine-font-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();

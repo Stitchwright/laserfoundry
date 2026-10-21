@@ -36,6 +36,7 @@ a move lies far outside the job's declared extent
 a path needs at least {0} nodes
 a path needs between {minimum} and {MAX_NODES} nodes
 a preset needs a name
+a preview sample is at most {MAX_PREVIEW_CHARS} characters
 a test grid has 1 to {MAX_COLS_ROWS} columns and rows and at most {MAX_CELLS} cells
 an array may add at most {MAX_NEW_SHAPES} shapes
 an array must make between 1 and {MAX_COPIES} copies
@@ -156,6 +157,7 @@ the path is too short to follow
 the picture has no ink to trace (it is all paper-white)
 the picture is too large
 the picture is too large to send
+the preview height is 1 to 100 mm
 the program has {total} lines; line {line} does not exist
 the program is too long to resume
 the result is empty (the shapes do not overlap that way)

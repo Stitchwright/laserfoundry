@@ -756,3 +756,15 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   selection" option and a Select button, and the status line says how many were selected. Checked with five engine tests (each limit and
   combinations, inclusive edges, narrowing, groups, refused input) and a panel test of the parameters and the selection; the group test fails
   when grouping is removed (tried). Not done: no limit on area or layer, and the window was not looked at on screen or clicked in a frame test.
+- **2026-10-21 — font manager (browse and preview).** `text.preview {font?, text?, height?}` lays a sample out (default "Aa Bb Cc 123", at most
+  100 characters, 1 to 100 mm) in any font text accepts and returns its outlines in mm from the top-left corner with the size and any characters
+  the font lacks; it changes nothing and is not an undo step. **Edit > Font Manager…** (and a **Font manager…** button in the text
+  inspector) opens a window listing the built-in stroke font, the downloaded font library and the .ttf/.otf files beside a file you pick
+  ("Fonts from a folder…", desktop only; links are not followed, 400 files at most), each drawn as a sample, with an editable sample text, the
+  selected text's font marked "In use", and **Use** applying a font to the selected text (`text.edit`). Rows are laid out only when visible,
+  two per frame, so a large font does not stall the window; a font that fails to load says why in its row. Not done by choice: no adding or
+  removing fonts, no Ink/Stitch SVG fonts beyond what text already reads. Checked with two engine tests (sizes, the corner origin, closed
+  outlines from an outline font, nothing changed or undoable, bad text/height/font refused) and four panel tests (reading a result and junk,
+  scaling, the folder scan, the window drawing the built-in sample and knowing the selected text's font). Looked at in the running app (headless):
+  the menu entry and the window with the built-in font's sample; the library and folder lists, **Use** and the inspector button were not
+  looked at or clicked (no fonts or network here).

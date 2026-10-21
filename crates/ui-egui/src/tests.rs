@@ -1509,6 +1509,27 @@ mod shortcut_tests {
     }
 
     #[test]
+    fn the_font_manager_draws_samples_and_knows_the_selected_texts_font() {
+        let mut h = Harness::new();
+        assert_eq!(crate::font_ui::selected_text_font(&h.app), None, "nothing selected");
+        h.app.run("shape.rectangle", serde_json::json!({"x": 0, "y": 0, "width": 5, "height": 5}));
+        assert_eq!(crate::font_ui::selected_text_font(&h.app), None, "a rectangle is not text");
+        h.app.run("text.create", serde_json::json!({"text": "Hi", "x": 0, "y": 0}));
+        assert_eq!(crate::font_ui::selected_text_font(&h.app), Some(String::new()), "the built-in font is the empty value");
+        h.app.fonts_open = true;
+        h.frame(vec![]);
+        h.frame(vec![]);
+        assert!(h.app.fonts_open, "the window stays open across frames");
+        assert!(
+            matches!(h.app.font_manager.cache.get(""), Some(crate::font_ui::Preview::Ready { paths, .. }) if !paths.is_empty()),
+            "the built-in font's sample was laid out"
+        );
+        h.app.font_manager.sample = "Zz".into();
+        h.app.run("edit.select", serde_json::json!({"ids": []}));
+        assert_eq!(crate::font_ui::selected_text_font(&h.app), None);
+    }
+
+    #[test]
     fn capturing_a_new_chord_binds_it_and_reports_conflicts() {
         let mut h = Harness::new();
         h.app.shortcuts_open = true;

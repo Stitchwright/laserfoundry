@@ -3,6 +3,7 @@
 
 mod canvas;
 mod crop_ui;
+mod font_ui;
 mod geometry;
 mod head_ui;
 mod history_ui;
@@ -179,6 +180,8 @@ pub struct LaserFoundryApp {
     shortcuts_open: bool,
     history_open: bool,
     select_size_open: bool,
+    fonts_open: bool,
+    font_manager: font_ui::FontManager,
     size_filter: select_size_ui::SizeFilter,
     /// The fonts must be rebuilt (a translation with its own font was loaded or removed).
     fonts_dirty: bool,
@@ -372,6 +375,8 @@ impl LaserFoundryApp {
             shortcuts_open: false,
             history_open: false,
             select_size_open: false,
+            fonts_open: false,
+            font_manager: font_ui::FontManager::default(),
             size_filter: select_size_ui::SizeFilter::default(),
             fonts_dirty: false,
             capturing: None,
@@ -870,6 +875,7 @@ impl LaserFoundryApp {
         shortcuts::window(self, ctx);
         history_ui::window(self, ctx);
         select_size_ui::window(self, ctx);
+        font_ui::window(self, ctx);
         if self.pending_recovery.is_some() {
             let mut choice = None;
             egui::Modal::new(egui::Id::new("recovery")).show(ctx, |ui| {

@@ -27,6 +27,16 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         run: on_path,
     },
     CommandSpec {
+        id: "text.preview",
+        label: "Preview Font",
+        menu: "",
+        shortcut: None,
+        params_doc: "{font? (as for text.create; omit for the built-in font), text? (a sample, at most 100 characters, default \"Aa Bb Cc 123\"), height? (cap height mm, 1 to 100, default 10)}  \
+                     — changes nothing; returns {paths: [{closed, points: [[x, y]]}], width, height, unsupported}, the sample's outlines in mm from its top-left corner",
+        mutates: false,
+        run: preview,
+    },
+    CommandSpec {
         id: "text.edit",
         label: "Edit Text",
         menu: "Edit",
@@ -83,6 +93,42 @@ fn create(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let id = s.doc.add_shape(shape);
     s.selection = vec![id];
     Ok(json!({ "id": id, "unsupported": unsupported }))
+}
+
+/// Longest sample `text.preview` lays out, in characters.
+const MAX_PREVIEW_CHARS: usize = 100;
+const PREVIEW_SAMPLE: &str = "Aa Bb Cc 123";
+
+#[derive(Deserialize)]
+struct PreviewParams {
+    font: Option<String>,
+    text: Option<String>,
+    height: Option<f64>,
+}
+
+fn preview(_: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let p: PreviewParams = parse(params)?;
+    let text = p.text.unwrap_or_else(|| PREVIEW_SAMPLE.to_string());
+    if text.chars().count() > MAX_PREVIEW_CHARS {
+        return Err(EngineError::BadParams(format!("a preview sample is at most {MAX_PREVIEW_CHARS} characters")));
+    }
+    let height = p.height.unwrap_or(10.0);
+    if !(height.is_finite() && (1.0..=100.0).contains(&height)) {
+        return Err(EngineError::BadParams("the preview height is 1 to 100 mm".into()));
+    }
+    let settings = TextSettings { height, font: p.font.filter(|f| !f.is_empty()), ..TextSettings::default() };
+    let (path, unsupported) = generate(&text, &settings)?;
+    let lines = laserfoundry_geom::flatten(&path, 0.05);
+    let bounds = laserfoundry_geom::bounds_of_polylines(&lines);
+    let (x0, y0) = bounds.map_or((0.0, 0.0), |b| (b.x0, b.y0));
+    let round = |v: f64| (v * 1000.0).round() / 1000.0;
+    let paths: Vec<Value> = lines
+        .iter()
+        .map(|l| json!({ "closed": l.closed, "points": l.points.iter().map(|pt| [round(pt.x - x0), round(pt.y - y0)]).collect::<Vec<_>>() }))
+        .collect();
+    Ok(
+        json!({ "paths": paths, "width": bounds.map_or(0.0, |b| round(b.width())), "height": bounds.map_or(0.0, |b| round(b.height())), "unsupported": unsupported }),
+    )
 }
 
 #[derive(Deserialize)]

@@ -296,6 +296,10 @@ fn edit_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
         app.run("edit.redo", Value::Null);
         ui.close();
     }
+    if ui.button(tr("Undo History…")).clicked() {
+        app.history_open = true;
+        ui.close();
+    }
     ui.separator();
     for (label, id, action) in [
         ("Select All", "edit.select_all", Some(Action::SelectAll)),

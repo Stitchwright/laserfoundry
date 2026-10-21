@@ -137,6 +137,24 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
     CommandSpec { id: "edit.undo", label: "Undo", menu: "Edit", shortcut: Some("Ctrl+Z"), params_doc: "{}", mutates: false, run: undo },
     CommandSpec { id: "edit.redo", label: "Redo", menu: "Edit", shortcut: Some("Ctrl+Shift+Z"), params_doc: "{}", mutates: false, run: redo },
     CommandSpec {
+        id: "edit.history",
+        label: "Undo History",
+        menu: "",
+        shortcut: None,
+        params_doc: "{}  — {steps: [label], position}: every kept step, oldest first, and how many are applied",
+        mutates: false,
+        run: history,
+    },
+    CommandSpec {
+        id: "edit.history_goto",
+        label: "Go to History Step",
+        menu: "",
+        shortcut: None,
+        params_doc: "{position}  — undoes or redoes to that point (0 = before the oldest kept step)",
+        mutates: false,
+        run: history_goto,
+    },
+    CommandSpec {
         id: "command.batch",
         label: "Batch",
         menu: "",
@@ -478,6 +496,24 @@ fn undo(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
 
 fn redo(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     Ok(json!({ "redone": s.redo() }))
+}
+
+fn history(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
+    let (steps, position) = s.history();
+    Ok(json!({ "steps": steps, "position": position }))
+}
+
+#[derive(Deserialize)]
+struct GotoParams {
+    position: usize,
+}
+
+fn history_goto(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let p: GotoParams = serde_json::from_value(params.clone()).map_err(|e| EngineError::BadParams(e.to_string()))?;
+    if !s.goto_history(p.position) {
+        return Err(EngineError::BadParams(format!("position {} is outside the history", p.position)));
+    }
+    Ok(json!({ "position": s.history().1 }))
 }
 
 #[derive(Deserialize)]

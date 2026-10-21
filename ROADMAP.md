@@ -741,3 +741,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   into a 300 x 200 region in a fraction of a second. Not done (gap 23): holes in parts are not used, shapes already on the bed are ignored, no
   multiple sheets, and packing is only as fine as the cell grid. No fuzz target (it parses nothing); the engine's hostile-parameter sweep
   covers the command. Behaviour comes from the public literature on raster nesting; nothing was taken from any other program.
+- **2026-10-21 — undo history window.** Every undo step now carries the label of the command that made it. `edit.history` returns the kept
+  steps (oldest first) and how many are applied; `edit.history_goto {position}` undoes or redoes to that point (0 = before the oldest kept
+  step, out-of-range refused and nothing changes). **Edit > Undo History…** opens a window listing "Start" and each step, the current
+  point highlighted and steps that Redo would bring back shown faint; clicking a row jumps there. A new action after jumping back drops the
+  later steps, as with ordinary undo. Checked with four engine tests (labels, jumping to the start, the middle and the newest step, bad
+  positions, redo dropped by a new action) and a panel test that renders the window and jumps. Not done: the panel test calls the command
+  rather than clicking a row (the row positions are not exposed to the frame tests), and nothing was looked at on screen.

@@ -14,6 +14,8 @@ pub(crate) struct Snapshot {
     selection: Vec<ShapeId>,
     /// Estimated memory of `doc` (see [`Document::approx_bytes`]).
     bytes: usize,
+    /// The command whose step this entry belongs to (the label shown in the history list).
+    label: &'static str,
 }
 
 /// One open document with its selection and history.
@@ -82,7 +84,8 @@ impl Session {
         if !spec.mutates {
             return guard::guarded(|| (spec.run)(self, params));
         }
-        let before = self.snapshot();
+        let mut before = self.snapshot();
+        before.label = spec.label;
         match guard::guarded(|| (spec.run)(self, params)) {
             Ok(v) => {
                 self.push_undo(before);
@@ -119,7 +122,8 @@ impl Session {
 
     pub(crate) fn undo(&mut self) -> bool {
         let Some(prev) = self.undo.pop() else { return false };
-        let current = self.snapshot();
+        let mut current = self.snapshot();
+        current.label = prev.label;
         self.redo.push(current);
         self.restore(prev);
         true
@@ -127,9 +131,28 @@ impl Session {
 
     pub(crate) fn redo(&mut self) -> bool {
         let Some(next) = self.redo.pop() else { return false };
-        let current = self.snapshot();
+        let mut current = self.snapshot();
+        current.label = next.label;
         self.undo.push(current);
         self.restore(next);
+        true
+    }
+
+    /// The history as a list of step labels, oldest first, and how many of them are applied: steps
+    /// before that position are done, the rest can be redone.
+    pub fn history(&self) -> (Vec<&'static str>, usize) {
+        let steps = self.undo.iter().map(|s| s.label).chain(self.redo.iter().rev().map(|s| s.label)).collect();
+        (steps, self.undo.len())
+    }
+
+    /// Moves to `position` in the history (0 = before the oldest kept step) by undoing or redoing.
+    /// Returns false when the position is out of range.
+    pub(crate) fn goto_history(&mut self, position: usize) -> bool {
+        if position > self.undo.len() + self.redo.len() {
+            return false;
+        }
+        while self.undo.len() > position && self.undo() {}
+        while self.undo.len() < position && self.redo() {}
         true
     }
 
@@ -159,7 +182,7 @@ impl Session {
     }
 
     pub(crate) fn snapshot(&self) -> Snapshot {
-        Snapshot { doc: self.doc.clone(), selection: self.selection.clone(), bytes: self.doc.approx_bytes() }
+        Snapshot { doc: self.doc.clone(), selection: self.selection.clone(), bytes: self.doc.approx_bytes(), label: "" }
     }
 
     pub(crate) fn restore(&mut self, s: Snapshot) {

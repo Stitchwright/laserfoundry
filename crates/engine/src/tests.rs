@@ -27,6 +27,53 @@ mod history_tests {
     }
 
     #[test]
+    fn history_lists_labelled_steps_and_jumps_to_any_of_them() {
+        let mut s = Session::new();
+        rect(&mut s);
+        rect(&mut s);
+        s.execute("edit.select_all", &Value::Null).unwrap();
+        s.execute("edit.delete", &json!({})).unwrap();
+        let h = s.execute("edit.history", &Value::Null).unwrap();
+        let steps = h["steps"].as_array().unwrap();
+        assert!(steps.iter().all(|l| !l.as_str().unwrap().is_empty()), "every step has a label: {steps:?}");
+        let n = steps.len();
+        assert_eq!(h["position"], n);
+
+        s.execute("edit.history_goto", &json!({"position": 1})).unwrap();
+        assert_eq!(s.doc.shapes.len(), 1, "after the first rectangle only");
+        let h = s.execute("edit.history", &Value::Null).unwrap();
+        assert_eq!((h["position"].as_u64(), h["steps"].as_array().unwrap().len()), (Some(1), n), "the later steps stay redoable");
+
+        s.execute("edit.history_goto", &json!({"position": 0})).unwrap();
+        assert!(s.doc.shapes.is_empty() && !s.can_undo());
+        s.execute("edit.history_goto", &json!({"position": n})).unwrap();
+        assert!(s.doc.shapes.is_empty() && !s.can_redo(), "back at the newest step");
+        s.execute("edit.history_goto", &json!({"position": 2})).unwrap();
+        assert_eq!(s.doc.shapes.len(), 2);
+    }
+
+    #[test]
+    fn history_goto_rejects_positions_outside_the_history_and_changes_nothing() {
+        let mut s = Session::new();
+        rect(&mut s);
+        for bad in [json!({"position": 2}), json!({"position": 1000000}), json!({"position": -1}), json!({}), json!({"position": "x"})] {
+            assert!(s.execute("edit.history_goto", &bad).is_err(), "{bad}");
+        }
+        assert_eq!((s.doc.shapes.len(), s.history().1), (1, 1));
+    }
+
+    #[test]
+    fn a_new_action_after_jumping_back_drops_the_later_steps() {
+        let mut s = Session::new();
+        rect(&mut s);
+        rect(&mut s);
+        s.execute("edit.history_goto", &json!({"position": 1})).unwrap();
+        rect(&mut s);
+        let (steps, position) = s.history();
+        assert_eq!((steps.len(), position), (2, 2));
+    }
+
+    #[test]
     fn a_new_action_clears_redo() {
         let mut s = Session::new();
         rect(&mut s);

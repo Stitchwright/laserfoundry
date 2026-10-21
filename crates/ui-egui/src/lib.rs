@@ -5,6 +5,7 @@ mod canvas;
 mod crop_ui;
 mod geometry;
 mod head_ui;
+mod history_ui;
 /// Translation catalogs live in their own crate so the command line can use them too.
 pub(crate) mod i18n {
     pub use laserfoundry_i18n::*;
@@ -175,6 +176,7 @@ pub struct LaserFoundryApp {
     browser_recent: browser_recent::BrowserRecent,
     shortcuts: shortcuts::Shortcuts,
     shortcuts_open: bool,
+    history_open: bool,
     /// The fonts must be rebuilt (a translation with its own font was loaded or removed).
     fonts_dirty: bool,
     /// The action waiting for its new key combination.
@@ -365,6 +367,7 @@ impl LaserFoundryApp {
             browser_recent,
             shortcuts,
             shortcuts_open: false,
+            history_open: false,
             fonts_dirty: false,
             capturing: None,
             shortcut_error: None,
@@ -860,6 +863,7 @@ impl LaserFoundryApp {
 
     fn dialogs(&mut self, ctx: &egui::Context) {
         shortcuts::window(self, ctx);
+        history_ui::window(self, ctx);
         if self.pending_recovery.is_some() {
             let mut choice = None;
             egui::Modal::new(egui::Id::new("recovery")).show(ctx, |ui| {

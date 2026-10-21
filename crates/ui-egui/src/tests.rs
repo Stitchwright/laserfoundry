@@ -1476,6 +1476,23 @@ mod shortcut_tests {
     }
 
     #[test]
+    fn the_history_window_lists_steps_and_jumping_restores_the_document() {
+        let mut h = Harness::new();
+        for _ in 0..3 {
+            h.app.run("shape.rectangle", serde_json::json!({"x": 5, "y": 5, "width": 10, "height": 10}));
+        }
+        h.app.history_open = true;
+        h.frame(vec![]);
+        assert!(h.app.history_open, "the window stays open across frames");
+        let (steps, position) = h.app.session.history();
+        assert_eq!((steps.len(), position), (3, 3));
+        h.app.run("edit.history_goto", serde_json::json!({"position": 1}));
+        h.frame(vec![]);
+        assert_eq!(h.app.session.doc.shapes.len(), 1);
+        assert_eq!(h.app.session.history().0.len(), 3, "later steps are still listed, ready to redo");
+    }
+
+    #[test]
     fn capturing_a_new_chord_binds_it_and_reports_conflicts() {
         let mut h = Harness::new();
         h.app.shortcuts_open = true;

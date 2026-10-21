@@ -106,6 +106,7 @@ offset distance must be a finite number within ±{MAX_OFFSET_MM} mm
 only text needs converting; paths are already editable
 order must be between -1000 and 1000
 point ({x}, {y}) mm is outside the {w}×{h} mm work area
+position {1} is outside the history
 preset {1} has unusable settings
 radii must be positive
 radii must satisfy 0 < inner < outer and points must be between 3 and 100

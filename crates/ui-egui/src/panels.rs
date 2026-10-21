@@ -52,6 +52,7 @@ pub fn inspector(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
             image_properties(app, ui);
             shape_operations(app, ui);
             array_section(app, ui);
+            nest_section(app, ui);
             override_section(app, ui);
         });
         egui::CollapsingHeader::new("Laser").default_open(true).show(ui, |ui| laser(app, ui));
@@ -1092,6 +1093,39 @@ fn array_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     if ui.button(tr("Circular array")).on_hover_text(tr("Rotate copies about a centre this far below the selection")).clicked() {
         let params = json!({ "count": app.array_count, "radius": app.array_radius });
         app.run("arrange.circular", params);
+    }
+}
+
+/// Packs the selection into the bed.
+fn nest_section(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
+    if app.session.selection.is_empty() {
+        return;
+    }
+    ui.separator();
+    ui.label(egui::RichText::new(tr("Nest")).strong());
+    ui.horizontal(|ui| {
+        ui.add(egui::DragValue::new(&mut app.nest_gap).range(0.0..=100.0).speed(0.1).prefix("gap ").suffix(" mm"));
+        ui.checkbox(&mut app.nest_turn, tr("Allow turning")).on_hover_text(tr("Try each part at 0, 90, 180 and 270 degrees"));
+    });
+    if ui
+        .button(tr("Nest in the bed"))
+        .on_hover_text(tr("Pack the selection into the bed without overlaps; what does not fit stays where it is, selected"))
+        .clicked()
+    {
+        nest_selection(app);
+    }
+}
+
+/// Nests the selection into the bed with the panel's settings and says how it went.
+pub(crate) fn nest_selection(app: &mut LaserFoundryApp) {
+    let params = json!({ "gap": app.nest_gap, "rotations": if app.nest_turn { 4 } else { 1 } });
+    let Some(result) = app.run("arrange.nest", params) else { return };
+    let placed = result["placed"].as_u64().unwrap_or(0);
+    let left = result["unplaced"].as_array().map_or(0, Vec::len);
+    if left == 0 {
+        app.say(trf!("Placed {placed} in the bed", placed = placed));
+    } else {
+        app.say(trf!("Placed {placed}; {left} did not fit and are selected", placed = placed, left = left));
     }
 }
 

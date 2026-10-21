@@ -1,0 +1,13 @@
+[package]
+name = "laserfoundry-nest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "LaserFoundry nesting: packing parts into a region of the bed"
+
+[lints]
+workspace = true
+
+[dependencies]
+laserfoundry-geom = { workspace = true }
+thiserror = { workspace = true }

@@ -1861,6 +1861,7 @@ dependencies = [
  "laserfoundry-format",
  "laserfoundry-gcode",
  "laserfoundry-geom",
+ "laserfoundry-nest",
  "laserfoundry-pathops",
  "laserfoundry-svg",
  "laserfoundry-text",
@@ -1943,6 +1944,14 @@ dependencies = [
  "laserfoundry-engine",
  "log",
  "serde_json",
+]
+
+[[package]]
+name = "laserfoundry-nest"
+version = "0.1.0"
+dependencies = [
+ "laserfoundry-geom",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

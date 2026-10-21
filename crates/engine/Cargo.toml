@@ -13,6 +13,7 @@ laserfoundry-geom = { workspace = true }
 laserfoundry-doc = { workspace = true }
 laserfoundry-toolpath = { workspace = true }
 laserfoundry-text = { workspace = true }
+laserfoundry-nest = { workspace = true }
 laserfoundry-pathops = { workspace = true }
 laserfoundry-gcode = { workspace = true }
 laserfoundry-svg = { workspace = true }

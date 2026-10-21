@@ -566,6 +566,120 @@ mod array_tests {
     }
 }
 
+mod nest_tests {
+    use super::*;
+
+    fn block(s: &mut Session, x: f64, y: f64, w: f64, h: f64) -> u64 {
+        s.execute("shape.rectangle", &json!({"x": x, "y": y, "width": w, "height": h})).unwrap()["id"].as_u64().unwrap()
+    }
+
+    fn bounds(s: &Session, id: u64) -> laserfoundry_geom::Rect {
+        s.doc.shape(id).unwrap().world_bounds().unwrap()
+    }
+
+    /// True when the two shapes are at least `gap` mm apart (their boxes, which for rectangles is exact).
+    fn apart(a: laserfoundry_geom::Rect, b: laserfoundry_geom::Rect, gap: f64) -> bool {
+        let (dx, dy) = ((b.x0 - a.x1).max(a.x0 - b.x1), (b.y0 - a.y1).max(a.y0 - b.y1));
+        dx.max(dy) >= gap - 1e-6
+    }
+
+    #[test]
+    fn nesting_packs_the_selection_into_the_bed_and_one_undo_puts_it_back() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 100, "bed_height": 60})).unwrap();
+        // Scattered around well outside the 100 x 60 bed, and one too big to share a row with the others.
+        let ids: Vec<u64> =
+            [(300.0, 300.0, 30.0, 20.0), (500.0, 40.0, 25.0, 25.0), (-80.0, 10.0, 40.0, 15.0), (200.0, 200.0, 12.0, 12.0), (0.0, 400.0, 18.0, 30.0)]
+                .iter()
+                .map(|&(x, y, w, h)| block(&mut s, x, y, w, h))
+                .collect();
+        let before: Vec<_> = ids.iter().map(|id| bounds(&s, *id)).collect();
+        let result = s.execute("arrange.nest", &json!({"ids": ids, "gap": 3})).unwrap();
+        assert_eq!(result["placed"], 5, "{result}");
+        assert_eq!(result["unplaced"], json!([]));
+        let after: Vec<_> = ids.iter().map(|id| bounds(&s, *id)).collect();
+        for (i, a) in after.iter().enumerate() {
+            assert!(a.x0 >= -1e-6 && a.y0 >= -1e-6 && a.x1 <= 100.0 + 1e-6 && a.y1 <= 60.0 + 1e-6, "{i} is off the bed: {a:?}");
+            for (j, b) in after.iter().enumerate().skip(i + 1) {
+                assert!(apart(*a, *b, 3.0), "{i} and {j} are too close: {a:?} {b:?}");
+            }
+        }
+        assert_eq!(s.selection.len(), 5, "everything that was nested is selected");
+        s.execute("edit.undo", &Value::Null).unwrap();
+        let restored: Vec<_> = ids.iter().map(|id| bounds(&s, *id)).collect();
+        assert_eq!(restored, before, "one undo step restores every position");
+    }
+
+    #[test]
+    fn a_group_is_nested_as_one_part_and_keeps_its_shape() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 120, "bed_height": 80})).unwrap();
+        let a = block(&mut s, 200.0, 200.0, 20.0, 10.0);
+        let b = block(&mut s, 240.0, 200.0, 10.0, 10.0);
+        let c = block(&mut s, 300.0, 300.0, 30.0, 30.0);
+        s.execute("edit.group", &json!({"ids": [a, b]})).unwrap();
+        let apart_before = bounds(&s, b).x0 - bounds(&s, a).x0;
+        let result = s.execute("arrange.nest", &json!({"ids": [a, c], "rotations": 1})).unwrap();
+        assert_eq!(result["placed"], 2, "the group counts once, and its other member came along: {result}");
+        assert!((bounds(&s, b).x0 - bounds(&s, a).x0 - apart_before).abs() < 1e-6, "members keep their distance");
+        assert!(apart(bounds(&s, a), bounds(&s, c), 2.0) && apart(bounds(&s, b), bounds(&s, c), 2.0));
+        let whole = s.doc.bounds_of(&[a, b]).unwrap();
+        assert!(whole.x0 >= -1e-6 && whole.y0 >= -1e-6, "{whole:?}");
+    }
+
+    #[test]
+    fn parts_that_do_not_fit_stay_put_and_are_selected() {
+        let mut s = Session::new();
+        let small = block(&mut s, 5.0, 5.0, 10.0, 10.0);
+        let huge = block(&mut s, 500.0, 500.0, 900.0, 900.0);
+        let huge_before = bounds(&s, huge);
+        let result = s.execute("arrange.nest", &json!({"ids": [small, huge]})).unwrap();
+        assert_eq!((result["placed"].as_u64(), result["unplaced"].clone()), (Some(1), json!([huge])), "{result}");
+        assert_eq!(bounds(&s, huge), huge_before, "the part that did not fit has not moved");
+        assert_eq!(s.selection, vec![huge], "so the person can see what is left");
+    }
+
+    #[test]
+    fn nesting_uses_the_region_asked_for_and_can_turn_parts() {
+        let mut s = Session::new();
+        let strip = block(&mut s, 0.0, 0.0, 60.0, 10.0);
+        let region = json!({"ids": [strip], "x": 200, "y": 100, "width": 20, "height": 70});
+        let mut fixed = Session::new();
+        let other = block(&mut fixed, 0.0, 0.0, 60.0, 10.0);
+        let no_turns = json!({"ids": [other], "x": 200, "y": 100, "width": 20, "height": 70, "rotations": 1});
+        assert_eq!(fixed.execute("arrange.nest", &no_turns).unwrap()["placed"], 0, "60 mm cannot lie across a 20 mm region");
+        assert_eq!(s.execute("arrange.nest", &region).unwrap()["placed"], 1);
+        let b = bounds(&s, strip);
+        assert!(b.x0 >= 200.0 - 1e-6 && b.x1 <= 220.0 + 1e-6 && b.y0 >= 100.0 - 1e-6 && b.y1 <= 170.0 + 1e-6, "{b:?}");
+        assert!(b.height() > b.width(), "it was turned upright");
+    }
+
+    #[test]
+    fn bad_nesting_requests_are_refused_and_change_nothing() {
+        let mut s = Session::new();
+        let a = block(&mut s, 30.0, 30.0, 10.0, 10.0);
+        let before = bounds(&s, a);
+        for bad in [
+            json!({"gap": -1}),
+            json!({"gap": 1e9}),
+            json!({"margin": -5}),
+            json!({"margin": 1e6}),
+            json!({"rotations": 0}),
+            json!({"rotations": 1000}),
+            json!({"resolution": 0}),
+            json!({"width": 0}),
+            json!({"width": -10, "height": 10}),
+            json!({"x": 1e300}),
+            json!({"gap": "wide"}),
+            json!({"ids": [999]}),
+        ] {
+            assert!(s.execute("arrange.nest", &bad).is_err(), "{bad}");
+        }
+        assert_eq!(bounds(&s, a), before);
+        assert!(Session::new().execute("arrange.nest", &json!({})).is_err(), "nothing to nest");
+    }
+}
+
 mod path_ops_tests {
     use super::*;
 

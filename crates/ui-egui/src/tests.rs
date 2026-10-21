@@ -1841,6 +1841,27 @@ mod timeline_ui_tests {
     }
 
     #[test]
+    fn nesting_from_the_panel_says_how_it_went_and_selects_what_did_not_fit() {
+        let mut h = Harness::new();
+        h.app.run("machine.set", json!({"bed_width": 60, "bed_height": 40}));
+        for x in [200.0, 300.0, 400.0] {
+            h.app.run("shape.rectangle", json!({"x": x, "y": 200, "width": 15, "height": 15}));
+        }
+        h.app.run("edit.select_all", Value::Null);
+        h.app.nest_turn = false;
+        crate::panels::nest_selection(&mut h.app);
+        assert_eq!(h.app.status, Some(("Placed 3 in the bed".into(), false)));
+        assert!(h.app.session.doc.shapes.iter().all(|s| s.world_bounds().is_some_and(|b| b.x1 <= 60.0 + 1e-6 && b.y1 <= 40.0 + 1e-6)));
+
+        // A 50 x 50 part cannot fit a 60 x 40 bed: it is reported and stays selected.
+        h.app.run("shape.rectangle", json!({"x": 300, "y": 300, "width": 50, "height": 50}));
+        h.app.run("edit.select_all", Value::Null);
+        crate::panels::nest_selection(&mut h.app);
+        assert_eq!(h.app.status, Some(("Placed 3; 1 did not fit and are selected".into(), false)), "{:?}", h.app.status);
+        assert_eq!(h.app.session.selection.len(), 1);
+    }
+
+    #[test]
     fn the_preview_and_the_timeline_agree_on_how_long_an_operation_takes_with_cornering() {
         let mut h = Harness::new();
         h.app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 50, "height": 30}));

@@ -1,5 +1,8 @@
-use laserfoundry_doc::ShapeId;
-use laserfoundry_geom::{Affine, Point};
+use std::collections::HashMap;
+
+use laserfoundry_doc::{GroupId, ShapeId};
+use laserfoundry_geom::{Affine, Point, Rect};
+use laserfoundry_nest::{Options, Part};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -29,6 +32,15 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         params_doc: "{ids?, count, radius? (selection centre to array centre, default 30 mm), direction? (degrees toward the array centre, y down: 90 = below, default 90), angle? (total sweep, default 360)}  — copies rotate about the array centre",
         mutates: true,
         run: circular,
+    },
+    CommandSpec {
+        id: "arrange.nest",
+        label: "Nest",
+        menu: "Arrange",
+        shortcut: None,
+        params_doc: "{ids?, x?, y?, width?, height? (the region in mm; default the whole bed), gap? (mm between parts, default 2), margin? (mm kept free at the region's edge, default 0), rotations? (evenly spaced turns tried for each part, 1 keeps their angles, default 4), resolution? (cell size in mm; default chosen from the region)}  — packs the selection into the region without overlaps, a group moving as one part; parts that do not fit stay where they were, are listed in `unplaced` and become the selection. Other shapes on the bed are ignored",
+        mutates: true,
+        run: nest,
     },
 ];
 
@@ -113,6 +125,86 @@ fn circular(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     }
     s.selection = all.clone();
     Ok(json!({ "count": p.count, "ids": all }))
+}
+
+#[derive(Deserialize)]
+struct NestParams {
+    ids: Option<Vec<ShapeId>>,
+    x: Option<f64>,
+    y: Option<f64>,
+    width: Option<f64>,
+    height: Option<f64>,
+    #[serde(default = "default_nest_gap")]
+    gap: f64,
+    #[serde(default)]
+    margin: f64,
+    #[serde(default = "default_rotations")]
+    rotations: u32,
+    resolution: Option<f64>,
+}
+
+fn default_nest_gap() -> f64 {
+    2.0
+}
+
+fn default_rotations() -> u32 {
+    4
+}
+
+fn nest(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let p: NestParams = parse(params)?;
+    let bed = (s.doc.machine.bed_width, s.doc.machine.bed_height);
+    let (x, y) = (p.x.unwrap_or(0.0), p.y.unwrap_or(0.0));
+    let (width, height) = (p.width.unwrap_or(bed.0), p.height.unwrap_or(bed.1));
+    finite(&[x, y, width, height, p.gap, p.margin, p.resolution.unwrap_or(1.0)])?;
+    let ids = s.doc.expand_groups(&selected(s, &p.ids)?);
+
+    // A group is one part; every other shape is a part of its own.
+    let mut units: Vec<Vec<ShapeId>> = Vec::new();
+    let mut by_group: HashMap<GroupId, usize> = HashMap::new();
+    for id in ids {
+        let Some(group) = s.doc.shape(id).map(|shape| shape.group) else { continue };
+        match group.map(|g| (g, by_group.get(&g).copied())) {
+            Some((_, Some(unit))) => {
+                if let Some(members) = units.get_mut(unit) {
+                    members.push(id);
+                }
+            }
+            Some((g, None)) => {
+                by_group.insert(g, units.len());
+                units.push(vec![id]);
+            }
+            None => units.push(vec![id]),
+        }
+    }
+    let parts: Vec<Part> = units
+        .iter()
+        .map(|members| Part { outlines: members.iter().filter_map(|id| s.doc.shape(*id)).flat_map(|shape| shape.world_polylines()).collect() })
+        .collect();
+
+    let options = Options { gap: p.gap, margin: p.margin, rotations: p.rotations, resolution: p.resolution };
+    let result =
+        laserfoundry_nest::nest(&parts, Rect::new(x, y, x + width, y + height), &options).map_err(|e| EngineError::BadParams(e.to_string()))?;
+
+    let mut placed_ids = Vec::new();
+    for placement in &result.placed {
+        let m = placement.affine();
+        for id in units.get(placement.part).into_iter().flatten() {
+            if let Some(shape) = s.doc.shape_mut(*id) {
+                shape.transform = m * shape.transform;
+                placed_ids.push(*id);
+            }
+        }
+    }
+    let unplaced_ids: Vec<ShapeId> = result.unplaced.iter().filter_map(|i| units.get(*i)).flatten().copied().collect();
+    s.selection = if unplaced_ids.is_empty() { placed_ids.clone() } else { unplaced_ids.clone() };
+    Ok(json!({
+        "placed": result.placed.len(),
+        "unplaced": unplaced_ids,
+        "ids": placed_ids,
+        "cell": result.cell,
+        "stopped_early": result.stopped_early,
+    }))
 }
 
 fn check_count(n: u64) -> Result<(), EngineError> {

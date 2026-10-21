@@ -727,3 +727,17 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   `lightfoundry` address only to say not to use it), and the local git remote now points at `Stitchwright/laserfoundry`, so pushes
   no longer go through GitHub's redirect. Checked with `cargo xtask ci`. Not changed: the old name in earlier ROADMAP entries,
   which is history.
+- **2026-10-21 — nesting.** `arrange.nest` packs the selection into the bed, or a region (`x`, `y`, `width`, `height`), without overlaps:
+  a gap between parts (default 2 mm), a margin, and evenly spaced turns tried for each part (default 4, 1 keeps angles); a group is one
+  part and keeps its shape; parts that do not fit stay where they were, are returned in `unplaced` and become the selection. New crate
+  `laserfoundry-nest` (layer 1, in the wasm build), designed from the public pixel-based nesting approach and nothing else: the region is a
+  grid, each part a conservative mask of the cells it touches (outline cells plus inside cells), thickened by the gap, placed largest
+  first at the first free spot scanning from the top-left, the rotation whose bottom edge is highest winning. Work, sizes, parts (500),
+  points and rotations are capped. Interface: a Nest section in the selection panel, **Arrange > Nest in the Bed**, and a status line
+  saying how many were placed and how many did not fit. Checked with 21 crate tests, six engine tests (one undo restores every position,
+  groups, leftovers, a region, refused input) and a panel test; the key test applies each placement to the real outlines and checks with
+  independent segment-distance and point-in-polygon geometry that nothing overlaps, every gap holds and nothing leaves the region, over
+  random shapes, gaps, margins and rotations. It fails when the gap thickening or the inside fill is removed (both tried). 100 parts nest
+  into a 300 x 200 region in a fraction of a second. Not done (gap 23): holes in parts are not used, shapes already on the bed are ignored, no
+  multiple sheets, and packing is only as fine as the cell grid. No fuzz target (it parses nothing); the engine's hostile-parameter sweep
+  covers the command. Behaviour comes from the public literature on raster nesting; nothing was taken from any other program.

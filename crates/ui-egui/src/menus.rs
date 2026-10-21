@@ -338,6 +338,10 @@ pub(crate) fn arrange_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
                 }
             }
         });
+        if ui.button(tr("Nest in the Bed")).on_hover_text(tr("Pack the selection into the bed without overlaps")).clicked() {
+            crate::panels::nest_selection(app);
+            ui.close();
+        }
         ui.add_enabled_ui(app.session.selection.len() == 2, |ui| {
             if ui.button(tr("Text on Path")).on_hover_text(tr("Select a text and the shape to bend it along")).clicked() {
                 let is_text = |id: &u64| app.session.doc.shape(*id).is_some_and(|s| matches!(s.kind, laserfoundry_doc::ShapeKind::Text { .. }));

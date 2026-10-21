@@ -23,6 +23,10 @@ pub const MAX_PARTS: usize = 500;
 const MAX_HOLE_OUTLINES: usize = 64;
 /// Most points in one part that are examined for holes; a part with more is treated as solid.
 const MAX_HOLE_POINTS: usize = 4_000;
+/// Most finer tries made for parts that did not fit at the first cell size.
+const MAX_REFINEMENTS: usize = 2;
+/// How much more work a try with half-size cells is expected to take (four times the cells, four times the cells in each mask).
+const REFINE_COST: u64 = 16;
 /// Most obstacles (shapes to keep clear of) one nesting will look at.
 pub const MAX_OBSTACLES: usize = 5_000;
 /// Most points, over all parts and obstacles, one nesting will look at.
@@ -98,6 +102,8 @@ pub struct Nesting {
     pub cell: f64,
     /// True when the search hit its work limit; the parts it had not reached are in `unplaced`.
     pub stopped_early: bool,
+    /// Grid cells inspected in the search, a measure of the effort (at most about [`MAX_WORK`]).
+    pub work: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -124,7 +130,37 @@ pub fn nest(parts: &[Part], region: Rect, options: &Options) -> Result<Nesting, 
 /// Packs `parts` into `region` (workspace mm) without touching `obstacles`: shapes that stay where they are. Parts keep the gap
 /// from them as from each other. An obstacle may lie partly or wholly outside the region; one with a coordinate that is not a
 /// finite number is ignored (it cannot be drawn on the grid), and a closed outline is solid, as for a part.
+///
+/// With no `resolution` set, parts that do not fit trigger up to [`MAX_REFINEMENTS`] more tries with the cells halved each time,
+/// as long as the try is expected to stay within the work limit (halving the cell costs about sixteen times the work); the
+/// result that places the most parts is kept, the coarser one on a tie.
 pub fn nest_around(parts: &[Part], obstacles: &[Part], region: Rect, options: &Options) -> Result<Nesting, NestError> {
+    let mut best = pack(parts, obstacles, region, options)?;
+    if options.resolution.is_some() {
+        return Ok(best);
+    }
+    let mut tried = best.clone();
+    for _ in 0..MAX_REFINEMENTS {
+        // Stop when everything is placed, the search ran out of work, or a finer try could not be afforded.
+        if tried.unplaced.is_empty() || tried.stopped_early || tried.work.saturating_mul(REFINE_COST) > MAX_WORK {
+            break;
+        }
+        let finer = Options { resolution: Some(tried.cell / 2.0), ..*options };
+        let next = pack(parts, obstacles, region, &finer)?;
+        // The cell is clamped (smallest size, most cells); if halving changed nothing, finer tries would not either.
+        if next.cell >= tried.cell * 0.99 {
+            break;
+        }
+        if next.placed.len() > best.placed.len() {
+            best = next.clone();
+        }
+        tried = next;
+    }
+    Ok(best)
+}
+
+/// One nesting at the cell size the options give (or choose).
+fn pack(parts: &[Part], obstacles: &[Part], region: Rect, options: &Options) -> Result<Nesting, NestError> {
     check_options(options)?;
     if ![region.x0, region.y0, region.x1, region.y1].iter().all(|v| v.is_finite()) {
         return Err(NestError::Region);
@@ -187,6 +223,7 @@ pub fn nest_around(parts: &[Part], obstacles: &[Part], region: Rect, options: &O
             }
         }
     }
+    out.work = work;
     for (index, slot) in slots.into_iter().enumerate() {
         match slot {
             Some(p) => out.placed.push(p),

@@ -716,3 +716,83 @@ mod hostile_tests {
         assert!(tiny_cells.cell >= 0.02, "{}", tiny_cells.cell);
     }
 }
+
+mod refinement_tests {
+    use super::*;
+
+    /// Sixteen 24 mm squares with 1 mm gaps just fit a 100 mm square (4 x 24 + 3 = 99), which the automatic cell (about 0.42 mm) cannot see.
+    fn tight() -> (Vec<Part>, Options) {
+        ((0..16).map(|_| rect(0.0, 0.0, 24.0, 24.0)).collect(), Options { gap: 1.0, rotations: 1, ..Options::default() })
+    }
+
+    #[test]
+    fn parts_that_miss_the_first_grid_are_packed_on_a_finer_one() {
+        let (parts, options) = tight();
+        let first_cell = nest(&parts, region(100.0, 100.0), &Options { resolution: Some(100.0 / 240.0), ..options }).unwrap();
+        assert!(
+            first_cell.placed.len() < 16,
+            "the coarse grid alone is not enough ({} placed); the test needs it not to be",
+            first_cell.placed.len()
+        );
+        let auto = nest(&parts, region(100.0, 100.0), &options).unwrap();
+        assert_eq!((auto.placed.len(), auto.unplaced.clone()), (16, vec![]), "{} placed", auto.placed.len());
+        assert!(auto.cell < first_cell.cell, "{} is finer than {}", auto.cell, first_cell.cell);
+        check(&parts, &auto, region(100.0, 100.0), &options);
+    }
+
+    #[test]
+    fn a_resolution_that_was_asked_for_is_used_as_it_is() {
+        let (parts, options) = tight();
+        let asked = Options { resolution: Some(100.0 / 240.0), ..options };
+        let result = nest(&parts, region(100.0, 100.0), &asked).unwrap();
+        assert!((result.cell - 100.0 / 240.0).abs() < 1e-9, "{}", result.cell);
+        assert!(result.placed.len() < 16, "no finer try is made when the cell size was chosen");
+    }
+
+    #[test]
+    fn a_finer_try_never_costs_parts() {
+        let mut seed = 5_u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((seed >> 33) as f64) / f64::from(1u32 << 31)
+        };
+        for round in 0..6 {
+            let parts: Vec<Part> = (0..40).map(|_| rect(0.0, 0.0, 8.0 + next() * 20.0, 8.0 + next() * 20.0)).collect();
+            let options = Options { gap: [0.5, 2.0][round % 2], rotations: [1, 4][round % 2], ..Options::default() };
+            let auto = nest(&parts, region(110.0, 90.0), &options).unwrap();
+            let coarse = nest(&parts, region(110.0, 90.0), &Options { resolution: Some(110.0 / 240.0), ..options }).unwrap();
+            assert!(
+                auto.placed.len() >= coarse.placed.len(),
+                "round {round}: {} with refinement, {} without",
+                auto.placed.len(),
+                coarse.placed.len()
+            );
+            check(&parts, &auto, region(110.0, 90.0), &options);
+        }
+    }
+
+    #[test]
+    fn parts_that_can_never_fit_do_not_start_endless_finer_tries() {
+        // Far more than the region holds: refinement is judged too costly (or places nothing more) and the first result stands.
+        let parts: Vec<Part> = (0..300).map(|_| rect(0.0, 0.0, 30.0, 30.0)).collect();
+        let options = Options { gap: 1.0, rotations: 1, ..Options::default() };
+        let start = Instant::now();
+        let auto = nest(&parts, region(200.0, 200.0), &options).unwrap();
+        assert!(start.elapsed().as_secs() < 30, "took {:?}", start.elapsed());
+        assert!(auto.placed.len() >= 30 && auto.placed.len() < 300, "{} placed", auto.placed.len());
+        check(&parts, &auto, region(200.0, 200.0), &options);
+        // One part bigger than the region is reported once, at the first cell size (a tie keeps the coarser result).
+        let huge = vec![rect(0.0, 0.0, 500.0, 500.0)];
+        let result = nest(&huge, region(100.0, 100.0), &Options::default()).unwrap();
+        assert_eq!((result.placed.len(), result.unplaced.clone()), (0, vec![0]));
+        assert!((result.cell - 100.0 / 240.0).abs() < 1e-9, "{}", result.cell);
+    }
+
+    #[test]
+    fn the_work_done_is_reported_and_stays_within_the_limit() {
+        let (parts, options) = tight();
+        let result = nest(&parts, region(100.0, 100.0), &options).unwrap();
+        assert!(result.work > 0 && result.work <= MAX_WORK + 1_000_000, "{}", result.work);
+        assert_eq!(nest(&[], region(100.0, 100.0), &options).unwrap().work, 0, "no parts, no work");
+    }
+}

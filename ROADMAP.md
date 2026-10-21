@@ -803,3 +803,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   spacing; the spacing asked for and a part too big for any sheet; bad counts and spacings refused with nothing moved) and a panel test of the
   status lines; the sheet tests fail when the offset is removed (tried). Not done (gap 23): packing finer than the cell grid; the new box was
   not looked at on screen.
+- **2026-10-21 — nesting retries on a finer grid.** When no `resolution` is given and parts are left over, `nest_around` tries again with the cells
+  halved, up to twice (cells 2x then 4x finer), and keeps the result that places the most parts (the coarser one on a tie). A try is made only
+  while it is expected to stay inside the work limit: halving the cell costs about sixteen times the work, so it is skipped when the previous
+  try already used more than a sixteenth of the limit or stopped early, and it stops when the cell cannot get smaller. A resolution given by hand
+  is used as it is. `Nesting` gains `work` (grid cells inspected). Example: sixteen 24 mm squares with 1 mm gaps just fit a 100 mm square (99 mm
+  across); the automatic 0.42 mm cell placed 9, the retry places all 16. Checked with five crate tests (that case, with the placed squares
+  verified on the real outlines; a hand-set resolution left alone; random sets never place fewer than the first try; 300 parts that cannot all fit
+  finish quickly and a part bigger than the region keeps the first cell size; the work reported and bounded); the first fails with refinement
+  turned off (tried). Not done (gap 23, reworded): a big job with a very tight fit can still leave a part out, and there is no exact-geometry
+  compaction (sliding parts together after placing).

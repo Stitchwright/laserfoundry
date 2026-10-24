@@ -10,6 +10,9 @@ use usvg::tiny_skia_path::PathSegment;
 const MM_PER_PX: f64 = 25.4 / 96.0;
 /// Largest SVG we will parse.
 pub const MAX_SVG_BYTES: usize = 50 * 1024 * 1024;
+/// Most bytes of text (all `<text>` elements together) we will lay out. Text layout takes time that grows faster than the
+/// length (about 0.6 s at 20,000 characters, 7 s at 80,000 and minutes past a million), so a file full of text is refused.
+pub const MAX_TEXT_BYTES: usize = 40_000;
 /// Cap on imported paths.
 pub const MAX_PATHS: usize = 100_000;
 
@@ -17,6 +20,8 @@ pub const MAX_PATHS: usize = 100_000;
 pub enum SvgError {
     #[error("SVG is larger than {} MB", MAX_SVG_BYTES / 1024 / 1024)]
     TooLarge,
+    #[error("SVG has more than {MAX_TEXT_BYTES} bytes of text; convert the text to paths first")]
+    TooMuchText,
     #[error("could not parse SVG: {0}")]
     Parse(String),
 }
@@ -59,6 +64,9 @@ pub fn import_svg(data: &[u8]) -> Result<SvgImport, SvgError> {
     if data.len() > MAX_SVG_BYTES {
         return Err(SvgError::TooLarge);
     }
+    if text_bytes(data) > MAX_TEXT_BYTES {
+        return Err(SvgError::TooMuchText);
+    }
     let mut options = usvg::Options::default();
     // Installed fonts are only looked up when the file has text to draw (loading them takes a while).
     if data.windows(5).any(|w| w == b"<text") {
@@ -74,6 +82,19 @@ pub fn import_svg(data: &[u8]) -> Result<SvgImport, SvgError> {
         paths: found.paths,
         images: found.images,
     })
+}
+
+/// Bytes between each `<text` and its `</text>` (to the end of the data when there is none).
+fn text_bytes(data: &[u8]) -> usize {
+    let find = |from: usize, needle: &[u8]| data.get(from..).and_then(|rest| rest.windows(needle.len()).position(|w| w == needle)).map(|i| from + i);
+    let mut total = 0usize;
+    let mut at = 0usize;
+    while let Some(start) = find(at, b"<text") {
+        let end = find(start, b"</text>").map_or(data.len(), |e| e + b"</text>".len());
+        total = total.saturating_add(end - start);
+        at = end;
+    }
+    total
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -169,6 +190,23 @@ mod tests {
         <rect x="10" y="20" width="30" height="40" fill="none" stroke="#ff0000"/>
         <g transform="translate(48 0)"><circle cx="20" cy="20" r="10" fill="#0000ff"/></g>
     </svg>"##;
+
+    #[test]
+    fn a_file_full_of_text_is_refused_before_it_is_laid_out() {
+        // Regression: 2 million characters in one <text> ran for minutes (layout time grows faster than the length).
+        let long = format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><text font-size=\"10\">{}</text></svg>", "W".repeat(2_000_000));
+        let started = std::time::Instant::now();
+        assert!(matches!(import_svg(long.as_bytes()), Err(SvgError::TooMuchText)));
+        assert!(started.elapsed().as_secs() < 5);
+        // Unterminated, and spread over many elements.
+        let open = format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><text>{}", "W".repeat(100_000));
+        assert!(matches!(import_svg(open.as_bytes()), Err(SvgError::TooMuchText)));
+        let many = format!("<svg xmlns=\"http://www.w3.org/2000/svg\">{}</svg>", "<text>0123456789</text>".repeat(5_000));
+        assert!(matches!(import_svg(many.as_bytes()), Err(SvgError::TooMuchText)));
+        // A normal amount of text is fine.
+        let short = "<svg xmlns=\"http://www.w3.org/2000/svg\"><text x=\"1\" y=\"10\">Hello</text></svg>";
+        assert!(import_svg(short.as_bytes()).is_ok());
+    }
 
     #[test]
     fn imports_shapes_in_mm_with_group_transforms() {

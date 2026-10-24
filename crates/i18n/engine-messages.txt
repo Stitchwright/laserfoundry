@@ -10,6 +10,7 @@ Enter your Anthropic API key first.
 I/O error talking to the machine: {0}
 I/O error: {0}
 Not enough credits: buy more in the account window.
+SVG has more than {MAX_TEXT_BYTES} bytes of text; convert the text to paths first
 SVG is larger than {1} MB
 Sign in to your account first (Help › Account…).
 That is too long: keep it under 2,000 characters.

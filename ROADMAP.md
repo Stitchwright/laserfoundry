@@ -860,7 +860,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   the default icon), and `LaserFoundry.app` (`package.sh` writes `AppIcon.icns`; `Info.plist` names it). Checked: 8 crate tests (the parts sit
   where the favicon has them, smoothed edges, margin, every size, hostile sizes, PNG/ICO/ICNS structure and that each embedded image decodes),
   I looked at the result at 256, 48 and 16 pixels, and a real window under Xvfb carries the 256-pixel icon with the right colours in
-  `_NET_WM_ICON`. **Not checked:** the icon in the Windows executable or in File Explorer or the task bar (no Windows machine here; the
-  Desktop workflow now fails the Windows build if the 256-pixel image is not found inside `laserfoundry.exe`, which has not run yet), the
+  `_NET_WM_ICON`. **Windows build checked in CI:** on the Desktop workflow's Windows runner (the push run and a manual run on 765172d) the
+  new step found the 256-pixel icon image inside `laserfoundry.exe`, so the build script embeds it. The manual run's signing jobs ended after one
+  second, as the `release` environment refuses runs from `main` (documented). **Not checked:** how the icon looks in File Explorer, the task bar
+  or the Start menu (no one has looked on a Windows desktop yet), the
   macOS bundle (`package.sh` ran only as far as `ditto`, which exists only on macOS), and the Linux install, which has no desktop entry or
   icon file yet. The design is a straight copy of the favicon; a designer's version would be better.

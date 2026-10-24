@@ -47,7 +47,7 @@ proptest = "1"
 usvg = "0.48"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
 eframe = { version = "0.36", default-features = false }
-egui = "0.36"
+egui = "0.37"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

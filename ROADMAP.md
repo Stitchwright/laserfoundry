@@ -830,4 +830,14 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   controller:** the simulator is written from the same public docs, so it can share my misreadings; `docs/hardware-bringup.md` has a Marlin
   section listing what to try first, with Stop and the laser state first. Not done: Marlin `M114` during a job, `ok` accounting if a firmware
   drops an acknowledgement, Smoothieware-specific settings.
-
+- **2026-10-24 — End-to-end regression suite, and a crash it found.** `apps/laserfoundry-cli/tests/regression.rs` (24 tests) drives the
+  real `laserfoundry-cli` binary on inputs written inside the test: byte-exact golden G-code for SVG, DXF and raster jobs and for scripts
+  covering shapes, booleans, arrays, fill, passes and kerf, text, test grids, nesting, node edit, offset and resume-from-line
+  (`tests/golden/`, re-recorded with `LF_BLESS=1`), invariants checked on every program (laser off, finite numbers, inside the bed), save and
+  reopen, undo/redo, rollback, out-of-bed refusal, selection-only, SVG export re-import, the command catalogue, and hostile input through the
+  binary (broken files and scripts, absurd parameters, every command with empty parameters). **Bug found and fixed:** a DXF circle of radius
+  1e300 killed the process (a 7.5 GB allocation): kurbo's ellipse code squares the radii, which overflows, and then asks for an unbounded
+  number of segments. `ellipse_path` now returns no outline past `MAX_ELLIPSE_RADIUS` (1e12 mm), and `ellipse_path` and `flatten` keep their
+  tolerance above a fraction of the path's size; regression test in `laserfoundry-geom` (it aborted before the fix). Checked: a changed golden
+  fails and names the first differing line (tried). The goldens record today's output, so they catch change, not correctness; none of it has
+  been compared with a real machine. Noticed, not fixed: `info` can print `cut -0 mm` for an empty drawing. See `docs/testing.md`.

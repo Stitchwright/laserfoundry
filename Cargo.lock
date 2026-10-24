@@ -1811,6 +1811,7 @@ dependencies = [
 name = "laserfoundry-cli"
 version = "0.1.0"
 dependencies = [
+ "image",
  "laserfoundry-engine",
  "laserfoundry-fontlib",
  "laserfoundry-i18n",

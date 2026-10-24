@@ -1,0 +1,10 @@
+; LaserFoundry resume from line 8
+G21
+G90
+M4 S0
+G0 X60 Y380
+G1 Y350 S600 F1000
+G1 X20
+G1 Y380
+M5
+G0 X0 Y0

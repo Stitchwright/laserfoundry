@@ -40,6 +40,7 @@ cargo run -p laserfoundry-cli -- gcode design.svg -o job.gcode --bed 300x200 --o
     --set 2:speed=900,max_power=40                          # headless conversion
 apps/laserfoundry-web/build.sh                              # browser build (design, open/save as files, preview, G-code, Web Serial in Chromium browsers)
 cargo xtask ci                                              # fmt, clippy, tests, layers, clean-room
+cargo test -p laserfoundry-cli --test regression            # end-to-end regression suite (see docs/testing.md)
 ```
 
 Linux needs the usual windowing libraries for eframe (X11 or Wayland, `libxkbcommon`, a GL driver).

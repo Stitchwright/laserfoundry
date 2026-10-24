@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use kurbo::{Affine, Arc, Shape, SvgArc, Vec2};
-use laserfoundry_geom::{BezPath, Point, bounds_of_polylines, ellipse_path, flatten};
+use laserfoundry_geom::{BezPath, MAX_ELLIPSE_RADIUS, Point, bounds_of_polylines, curve_tolerance, ellipse_path, flatten};
 use thiserror::Error;
 
 pub const MAX_DXF_BYTES: usize = 100 * 1024 * 1024;
@@ -285,7 +285,7 @@ fn build_circle(e: &Entity) -> Option<BezPath> {
 
 fn build_arc(e: &Entity) -> Option<BezPath> {
     let r = e.num(40)?;
-    if r <= 0.0 {
+    if r <= 0.0 || r > MAX_ELLIPSE_RADIUS {
         return None;
     }
     let start = e.num(50)?.to_radians();
@@ -294,14 +294,14 @@ fn build_arc(e: &Entity) -> Option<BezPath> {
         sweep = std::f64::consts::TAU;
     }
     let arc = Arc::new((e.num(10)?, e.num(20)?), Vec2::new(r, r), start, sweep, 0.0);
-    Some(arc.to_path(0.05))
+    Some(arc.to_path(curve_tolerance(r, 0.05)))
 }
 
 fn build_ellipse(e: &Entity) -> Option<BezPath> {
     let (cx, cy) = (e.num(10)?, e.num(20)?);
     let major = Vec2::new(e.num(11)?, e.num(21)?);
     let ratio = e.num(40)?;
-    if major.hypot() < 1e-12 || !(ratio > 0.0 && ratio <= 1.0) {
+    if major.hypot() < 1e-12 || major.hypot() > MAX_ELLIPSE_RADIUS || !(ratio > 0.0 && ratio <= 1.0) {
         return None;
     }
     let (start, end) = (e.num(41).unwrap_or(0.0), e.num(42).unwrap_or(std::f64::consts::TAU));
@@ -310,7 +310,7 @@ fn build_ellipse(e: &Entity) -> Option<BezPath> {
         sweep = std::f64::consts::TAU;
     }
     let arc = Arc::new((cx, cy), Vec2::new(major.hypot(), major.hypot() * ratio), start, sweep, major.atan2());
-    let mut path = arc.to_path(0.05);
+    let mut path = arc.to_path(curve_tolerance(major.hypot(), 0.05));
     if sweep >= std::f64::consts::TAU - 1e-9 {
         path.close_path();
     }
@@ -458,10 +458,14 @@ fn append_segment(path: &mut BezPath, a: Point, b: Point, bulge: f64) {
         return;
     }
     let radius = chord * (1.0 + bulge * bulge) / (4.0 * bulge.abs());
+    if !(radius.is_finite() && radius <= MAX_ELLIPSE_RADIUS) {
+        path.line_to(b);
+        return;
+    }
     let svg = SvgArc { from: a, to: b, radii: Vec2::new(radius, radius), x_rotation: 0.0, large_arc: bulge.abs() > 1.0, sweep: bulge > 0.0 };
     match Arc::from_svg_arc(&svg) {
         Some(arc) => {
-            for el in arc.append_iter(0.05) {
+            for el in arc.append_iter(curve_tolerance(radius, 0.05)) {
                 path.push(el);
             }
         }
@@ -621,6 +625,23 @@ mod tests {
         fn nan_and_missing_fields_are_skipped() {
             let src = dxf("0\nLINE\n10\nNaN\n20\n0\n11\n1\n21\n1\n0\nCIRCLE\n10\n0\n", 4);
             assert!(import_dxf(src.as_bytes()).unwrap().paths.is_empty());
+        }
+
+        #[test]
+        fn arcs_and_ellipses_of_absurd_size_are_skipped_not_expanded_into_billions_of_segments() {
+            // Regression: these asked kurbo for an unbounded number of segments and exhausted memory.
+            for src in [
+                "0\nARC\n10\n0\n20\n0\n40\n1e100\n50\n0\n51\n270\n",
+                "0\nARC\n10\n0\n20\n0\n40\n1e300\n50\n0\n51\n270\n",
+                "0\nELLIPSE\n10\n0\n20\n0\n11\n1e300\n21\n0\n40\n0.5\n41\n0\n42\n6.28\n",
+                "0\nLWPOLYLINE\n90\n2\n70\n0\n10\n0\n20\n0\n42\n1e-300\n10\n1e300\n20\n0\n",
+            ] {
+                let imp = import_dxf(dxf(src, 4).as_bytes());
+                assert!(imp.map_or(0, |i| i.paths.iter().map(|p| p.path.elements().len()).sum::<usize>()) < 100_000, "{src}");
+            }
+            // An ordinary big arc still draws.
+            let imp = import_dxf(dxf("0\nARC\n10\n0\n20\n0\n40\n5000\n50\n0\n51\n90\n", 4).as_bytes()).unwrap();
+            assert!(imp.paths[0].path.elements().len() > 2);
         }
 
         #[test]

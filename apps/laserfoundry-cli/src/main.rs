@@ -260,7 +260,8 @@ fn info(path: &str) -> Result<String, String> {
         || t(msg::SIZE_EMPTY),
         |b| tf(msg::SIZE_MM, &[("width", format!("{:.2}", b.width())), ("height", format!("{:.2}", b.height()))]),
     );
-    let number = |key: &str| format!("{:.0}", est[key].as_f64().unwrap_or(0.0));
+    // `+ 0.0` turns a negative zero (what an empty job sums to) into 0, so it never prints as "-0".
+    let number = |key: &str| format!("{:.0}", est[key].as_f64().unwrap_or(0.0) + 0.0);
     Ok([
         tf(msg::SHAPES, &[("count", s.doc.shapes.len().to_string())]),
         tf(msg::SIZE, &[("size", size)]),

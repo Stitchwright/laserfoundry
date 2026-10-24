@@ -15,6 +15,12 @@ pub const MAX_FLATTENED_POINTS: usize = 2_000_000;
 /// The finest tolerance flattening will use, as a fraction of the path's largest coordinate. Without it a curve a
 /// million kilometres across asks for billions of segments before the output cap can apply.
 const MIN_RELATIVE_TOLERANCE: f64 = 1e-7;
+/// The tolerance to hand a curve builder (kurbo's arcs size themselves from `radius / tolerance`): `base`, but never finer
+/// than [`MIN_RELATIVE_TOLERANCE`] of the curve's size, so a huge radius cannot ask for billions of segments.
+pub fn curve_tolerance(size: f64, base: f64) -> f64 {
+    if size.is_finite() { base.max(size.abs() * MIN_RELATIVE_TOLERANCE) } else { base }
+}
+
 /// The largest ellipse radius (mm) [`ellipse_path`] will draw.
 pub const MAX_ELLIPSE_RADIUS: f64 = 1e12;
 
@@ -86,7 +92,7 @@ impl Polyline {
 /// Non-finite coordinates are dropped and the output is capped at [`MAX_FLATTENED_POINTS`].
 pub fn flatten(path: &BezPath, tolerance: f64) -> Vec<Polyline> {
     let tolerance = if tolerance.is_finite() && tolerance > 0.0 { tolerance } else { 0.05 };
-    let tolerance = tolerance.max(extent(path) * MIN_RELATIVE_TOLERANCE);
+    let tolerance = curve_tolerance(extent(path), tolerance);
     let mut out: Vec<Polyline> = Vec::new();
     let mut current: Vec<Point> = Vec::new();
     let mut total = 0usize;
@@ -185,7 +191,7 @@ pub fn ellipse_path(cx: f64, cy: f64, rx: f64, ry: f64) -> BezPath {
     if !(rx.is_finite() && ry.is_finite() && cx.is_finite() && cy.is_finite()) || rx.max(ry) > MAX_ELLIPSE_RADIUS {
         return BezPath::new();
     }
-    let tolerance = (rx.max(ry) * MIN_RELATIVE_TOLERANCE).max(0.01);
+    let tolerance = curve_tolerance(rx.max(ry), 0.01);
     let mut path = kurbo::Ellipse::new((cx, cy), (rx, ry), 0.0).to_path(tolerance);
     // kurbo leaves the outline open; without this the ellipse would not be a closed shape (no
     // fill, no containment, no boolean).

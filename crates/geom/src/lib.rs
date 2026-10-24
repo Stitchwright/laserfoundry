@@ -12,6 +12,11 @@ use serde::{Deserialize, Serialize};
 
 /// Largest number of points a single flattened path may produce; hostile paths are cut off here.
 pub const MAX_FLATTENED_POINTS: usize = 2_000_000;
+/// The finest tolerance flattening will use, as a fraction of the path's largest coordinate. Without it a curve a
+/// million kilometres across asks for billions of segments before the output cap can apply.
+const MIN_RELATIVE_TOLERANCE: f64 = 1e-7;
+/// The largest ellipse radius (mm) [`ellipse_path`] will draw.
+pub const MAX_ELLIPSE_RADIUS: f64 = 1e12;
 
 /// A flattened sub-path in some coordinate space.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -81,6 +86,7 @@ impl Polyline {
 /// Non-finite coordinates are dropped and the output is capped at [`MAX_FLATTENED_POINTS`].
 pub fn flatten(path: &BezPath, tolerance: f64) -> Vec<Polyline> {
     let tolerance = if tolerance.is_finite() && tolerance > 0.0 { tolerance } else { 0.05 };
+    let tolerance = tolerance.max(extent(path) * MIN_RELATIVE_TOLERANCE);
     let mut out: Vec<Polyline> = Vec::new();
     let mut current: Vec<Point> = Vec::new();
     let mut total = 0usize;
@@ -103,6 +109,20 @@ pub fn flatten(path: &BezPath, tolerance: f64) -> Vec<Polyline> {
     });
     finish(&mut out, &mut current, false);
     out
+}
+
+/// The largest finite coordinate magnitude in the path (0 if there is none).
+fn extent(path: &BezPath) -> f64 {
+    path.iter()
+        .flat_map(|el| match el {
+            PathEl::MoveTo(a) | PathEl::LineTo(a) => vec![a],
+            PathEl::QuadTo(a, b) => vec![a, b],
+            PathEl::CurveTo(a, b, c) => vec![a, b, c],
+            PathEl::ClosePath => vec![],
+        })
+        .flat_map(|p| [p.x, p.y])
+        .filter(|v| v.is_finite())
+        .fold(0.0, |m: f64, v| m.max(v.abs()))
 }
 
 fn finish(out: &mut Vec<Polyline>, current: &mut Vec<Point>, closed: bool) {
@@ -159,7 +179,14 @@ pub fn rect_path(x: f64, y: f64, w: f64, h: f64) -> BezPath {
 /// Ellipse outline (cubic arcs) as a closed [`BezPath`].
 pub fn ellipse_path(cx: f64, cy: f64, rx: f64, ry: f64) -> BezPath {
     use kurbo::Shape;
-    let mut path = kurbo::Ellipse::new((cx, cy), (rx.abs(), ry.abs()), 0.0).to_path(0.01);
+    let (rx, ry) = (rx.abs(), ry.abs());
+    // kurbo squares the radii (an SVD) and sizes the curve from them: past ~1e154 that overflows and it asks for an
+    // unbounded number of segments. Nothing a laser can cut is anywhere near MAX_ELLIPSE_RADIUS, so give no outline.
+    if !(rx.is_finite() && ry.is_finite() && cx.is_finite() && cy.is_finite()) || rx.max(ry) > MAX_ELLIPSE_RADIUS {
+        return BezPath::new();
+    }
+    let tolerance = (rx.max(ry) * MIN_RELATIVE_TOLERANCE).max(0.01);
+    let mut path = kurbo::Ellipse::new((cx, cy), (rx, ry), 0.0).to_path(tolerance);
     // kurbo leaves the outline open; without this the ellipse would not be a closed shape (no
     // fill, no containment, no boolean).
     if !matches!(path.elements().last(), Some(kurbo::PathEl::ClosePath)) {
@@ -233,6 +260,22 @@ mod tests {
             assert!((b.width() - 20.0).abs() < 1e-6 && (b.height() - 10.0).abs() < 1e-6);
             assert_eq!(flatten(&rounded_rect_path(0.0, 0.0, 5.0, 5.0, f64::NAN), 0.01)[0].points.len(), 4);
             assert_eq!(flatten(&rounded_rect_path(0.0, 0.0, 5.0, 5.0, -2.0), 0.01)[0].points.len(), 4);
+        }
+
+        #[test]
+        fn a_curve_of_absurd_size_flattens_to_a_bounded_number_of_points() {
+            // Regression: a DXF circle of radius 1e300 asked for billions of segments and killed the process.
+            assert!(ellipse_path(0.0, 0.0, 1e300, 1e300).elements().is_empty());
+            assert!(ellipse_path(0.0, 0.0, f64::INFINITY, 5.0).elements().is_empty());
+            let lines = flatten(&ellipse_path(0.0, 0.0, 1e11, 1e11), 0.05);
+            assert!(lines.iter().map(|l| l.points.len()).sum::<usize>() < 100_000);
+            // A huge but representable curve in an ordinary path is also bounded by the relative tolerance.
+            let mut p = BezPath::new();
+            p.move_to((0.0, 0.0));
+            p.curve_to((1e150, 0.0), (1e150, 1e150), (0.0, 1e150));
+            assert!(flatten(&p, 0.05).iter().map(|l| l.points.len()).sum::<usize>() < 100_000);
+            // Ordinary sizes keep the caller's tolerance.
+            assert!(flatten(&ellipse_path(0.0, 0.0, 100.0, 100.0), 0.01)[0].points.len() > 50);
         }
 
         #[test]

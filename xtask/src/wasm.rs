@@ -18,6 +18,7 @@ pub const WASM: &[&str] =
 /// Packages that never run in the browser, and why.
 pub const NATIVE_ONLY: &[&str] = &[
     "mcp",          // the agent link listens on a local socket
+    "icon",         // desktop packaging only: draws the application icon files
     "fontlib",      // downloads over the network
     "fuzzkit",      // test drivers
     "testkit",      // test helpers

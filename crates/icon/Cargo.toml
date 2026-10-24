@@ -1,0 +1,16 @@
+[package]
+name = "laserfoundry-icon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "LaserFoundry application icon, drawn in code"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "laserfoundry-icon"
+path = "src/main.rs"
+
+[dependencies]
+image = { workspace = true }

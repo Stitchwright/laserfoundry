@@ -39,6 +39,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-x11-0 libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Build (serial ports are on by default)
         run: cargo build --release --locked -p laserfoundry -p laserfoundry-cli
+      - name: Check the icon is in the Windows executable
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # build.rs embeds the .ico, whose 256-pixel image is a PNG stored byte for byte in the executable.
+          cargo run --release --locked -q -p laserfoundry-icon -- png icon256.png 256
+          python -c "import sys; exe = open('target/release/laserfoundry.exe', 'rb').read(); sys.exit(0 if open('icon256.png', 'rb').read() in exe else 1)" \
+            || { echo "::error::the application icon is not in laserfoundry.exe"; exit 1; }
       - name: Package
         shell: bash
         run: |

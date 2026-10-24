@@ -28,7 +28,11 @@ fn main() -> eframe::Result {
     }
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 800.0]).with_min_inner_size([900.0, 560.0]).with_title("LaserFoundry"),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1280.0, 800.0])
+            .with_min_inner_size([900.0, 560.0])
+            .with_title("LaserFoundry")
+            .with_icon(window_icon()),
         ..Default::default()
     };
     host::make_data_folder_private();
@@ -40,6 +44,12 @@ fn main() -> eframe::Result {
             Ok(Box::new(host::Host { app: LaserFoundryApp::new(session, Box::new(host::DesktopPlatform::default())), agent_link }))
         }),
     )
+}
+
+/// The icon of the window (title bar and task bar), drawn in code.
+fn window_icon() -> egui::IconData {
+    const SIZE: u32 = 256;
+    egui::IconData { rgba: laserfoundry_icon::render_rgba(SIZE, 0.0), width: SIZE, height: SIZE }
 }
 
 /// Opens the agent link, telling the person where it is. A failure leaves the app running without it.

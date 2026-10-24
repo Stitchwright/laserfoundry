@@ -17,6 +17,7 @@ serial = ["laserfoundry-device/serial"]
 [dependencies]
 laserfoundry-engine = { workspace = true }
 laserfoundry-fontlib = { workspace = true }
+laserfoundry-icon = { workspace = true }
 laserfoundry-ai = { workspace = true }
 ureq = "3"
 laserfoundry-i18n = { workspace = true }
@@ -29,3 +30,8 @@ log = { workspace = true }
 serde_json = { workspace = true }
 rfd = "0.17"
 env_logger = "0.11"
+
+[build-dependencies]
+laserfoundry-icon = { workspace = true }
+# Puts the icon into the Windows executable (a no-op on other targets).
+winresource = "0.1"

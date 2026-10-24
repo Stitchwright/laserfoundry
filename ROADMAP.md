@@ -852,3 +852,15 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   40 x 40 array of 100-point stars works for 22 s before refusing with "too many points", so a refusal that comes sooner would be kinder; and
   usvg's text layout is third-party, so the 40,000-byte limit is a guard, not a fix of its speed. Not checked: the same sweep on the browser
   build, the UI, or with files from real-world sources.
+- **2026-10-24 — Application icon.** New crate `laserfoundry-icon` (layer 0, native-only for the wasm check) draws the mark in code: the
+  favicon's beam, spark and cut line on a dark rounded tile, with edge smoothing, at any size, and writes it as PNG, a Windows `.ico` (7 sizes,
+  16 to 256, PNG-compressed) and a macOS `.icns` (16 to 1024, with the platform's margin). No image file is committed (nothing to list in
+  `ATTRIBUTION.md`); a small binary, `laserfoundry-icon png|ico|icns <out>`, writes the files. Used in three places: the window icon
+  (`ViewportBuilder::with_icon`), the Windows executable (`apps/laserfoundry/build.rs` with the `winresource` crate; a failure warns and keeps
+  the default icon), and `LaserFoundry.app` (`package.sh` writes `AppIcon.icns`; `Info.plist` names it). Checked: 8 crate tests (the parts sit
+  where the favicon has them, smoothed edges, margin, every size, hostile sizes, PNG/ICO/ICNS structure and that each embedded image decodes),
+  I looked at the result at 256, 48 and 16 pixels, and a real window under Xvfb carries the 256-pixel icon with the right colours in
+  `_NET_WM_ICON`. **Not checked:** the icon in the Windows executable or in File Explorer or the task bar (no Windows machine here; the
+  Desktop workflow now fails the Windows build if the 256-pixel image is not found inside `laserfoundry.exe`, which has not run yet), the
+  macOS bundle (`package.sh` ran only as far as `ditto`, which exists only on macOS), and the Linux install, which has no desktop entry or
+  icon file yet. The design is a straight copy of the favicon; a designer's version would be better.

@@ -21,6 +21,7 @@ laserfoundry-doc = { path = "crates/doc" }
 laserfoundry-toolpath = { path = "crates/toolpath" }
 laserfoundry-text = { path = "crates/text" }
 laserfoundry-nest = { path = "crates/nest" }
+laserfoundry-icon = { path = "crates/icon" }
 laserfoundry-pathops = { path = "crates/pathops" }
 laserfoundry-gcode = { path = "crates/gcode" }
 laserfoundry-svg = { path = "crates/svg" }

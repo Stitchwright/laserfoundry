@@ -24,6 +24,8 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 /bin/cp -f "$bin/laserfoundry-cli" "$work/laserfoundry-cli"
 /bin/cp -f "$root/README.md" "$work/README.md"
 chmod +x "$app/Contents/MacOS/laserfoundry" "$work/laserfoundry-cli"
+# The icon is drawn in code (crates/icon); it is not an image file in the repository.
+(cd "$root" && cargo run --release --locked -q -p laserfoundry-icon -- icns "$app/Contents/Resources/AppIcon.icns")
 
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -34,6 +36,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>LaserFoundry</string>
   <key>CFBundleIdentifier</key><string>app.stitchfoundry.laserfoundry</string>
   <key>CFBundleExecutable</key><string>laserfoundry</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundleVersion</key><string>$version</string>

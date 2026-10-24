@@ -247,6 +247,15 @@ mod behaviour {
     }
 
     #[test]
+    fn an_empty_drawing_reports_zero_not_negative_zero() {
+        let dir = temp_dir("emptyinfo");
+        let svg = write(&dir, "empty.svg", r#"<svg xmlns="http://www.w3.org/2000/svg"/>"#);
+        let out = cli(&["info", svg.to_str().unwrap()]);
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(text.contains("cut 0 mm, travel 0 mm"), "{text}");
+    }
+
+    #[test]
     fn svg_export_round_trips_the_shape_count() {
         let dir = temp_dir("svgexport");
         let exported = dir.join("out.svg");
@@ -315,6 +324,17 @@ mod hostile_input {
             ("garbage.dxf", b"0\nSECTION\n2\nENTITIES\n0\nCIRCLE\n40\nabc\n0\nEOF\n".to_vec()),
             ("huge_radius.dxf", b"0\nSECTION\n2\nENTITIES\n0\nCIRCLE\n10\n0\n20\n0\n40\n1e300\n0\nENDSEC\n0\nEOF\n".to_vec()),
             ("truncated.dxf", DXF.as_bytes()[..DXF.len() / 3].to_vec()),
+            ("dxf_arc_huge.dxf", dxf_entity("ARC\n10\n0\n20\n0\n40\n1e100\n50\n0\n51\n270")),
+            ("dxf_ellipse_huge.dxf", dxf_entity("ELLIPSE\n10\n0\n20\n0\n11\n1e300\n21\n0\n40\n0.5\n41\n0\n42\n6.28")),
+            ("dxf_bulge_huge.dxf", dxf_entity("LWPOLYLINE\n90\n2\n70\n0\n10\n0\n20\n0\n42\n1e-300\n10\n1e300\n20\n0")),
+            ("dxf_arc_angles.dxf", dxf_entity("ARC\n10\n0\n20\n0\n40\n10\n50\n-1e300\n51\n1e300")),
+            ("dxf_nan.dxf", dxf_entity("LINE\n10\nnan\n20\n-inf\n11\ninf\n21\nnan")),
+            ("svg_huge_arc.svg", br#"<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0 A 1e300 1e-300 45 0 0 1e300 1e300"/></svg>"#.to_vec()),
+            ("svg_huge_circle.svg", br#"<svg xmlns="http://www.w3.org/2000/svg"><circle r="1e300"/></svg>"#.to_vec()),
+            ("svg_huge_transform.svg", br#"<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1" transform="scale(1e300) rotate(1e300)"/></svg>"#.to_vec()),
+            ("svg_long_text.svg", format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><text font-size=\"10\">{}</text></svg>", "W".repeat(2_000_000)).into_bytes()),
+            ("png_claims_100k.png", png_claiming(100_000, 100_000)),
+            ("png_claims_max.png", png_claiming(u32::MAX >> 1, 1)),
             ("bad.png", b"\x89PNG\r\n\x1a\nnot really".to_vec()),
             ("empty.png", vec![]),
             ("bad.laserfoundry", b"{\"version\": 1, \"shapes\": [".to_vec()),
@@ -325,8 +345,10 @@ mod hostile_input {
             let path = dir.join(name);
             std::fs::write(&path, bytes).unwrap();
             for args in [vec!["info", path.to_str().unwrap()], vec!["gcode", path.to_str().unwrap(), "-o", dir.join("o.gcode").to_str().unwrap()]] {
+                let started = std::time::Instant::now();
                 let out = cli(&args);
                 assert_no_crash(&out);
+                assert!(started.elapsed().as_secs() < 20, "{name} took {:?}", started.elapsed());
             }
         }
     }
@@ -367,6 +389,42 @@ mod hostile_input {
             assert_no_crash(&out);
         }
     }
+}
+
+/// A DXF with one entity (`body` is its type and group codes, newline separated).
+fn dxf_entity(body: &str) -> Vec<u8> {
+    format!("0\nSECTION\n2\nENTITIES\n0\n{body}\n0\nENDSEC\n0\nEOF\n").into_bytes()
+}
+
+/// A PNG whose header claims a size its data does not have (a decompression-bomb shape).
+fn png_claiming(width: u32, height: u32) -> Vec<u8> {
+    fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
+        let mut crc_input = kind.to_vec();
+        crc_input.extend_from_slice(data);
+        let mut out = (data.len() as u32).to_be_bytes().to_vec();
+        out.extend_from_slice(&crc_input);
+        out.extend_from_slice(&crc32(&crc_input).to_be_bytes());
+        out
+    }
+    let mut header = width.to_be_bytes().to_vec();
+    header.extend_from_slice(&height.to_be_bytes());
+    header.extend_from_slice(&[8, 0, 0, 0, 0]);
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.extend(chunk(b"IHDR", &header));
+    png.extend(chunk(b"IDAT", &[0x78, 0x01, 0x01, 0x01, 0x00, 0xfe, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01]));
+    png.extend(chunk(b"IEND", &[]));
+    png
+}
+
+fn crc32(bytes: &[u8]) -> u32 {
+    let mut crc = 0xffff_ffffu32;
+    for byte in bytes {
+        crc ^= u32::from(*byte);
+        for _ in 0..8 {
+            crc = if crc & 1 == 1 { (crc >> 1) ^ 0xedb8_8320 } else { crc >> 1 };
+        }
+    }
+    !crc
 }
 
 fn check(name: &str, program: &str) {

@@ -841,3 +841,14 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   tolerance above a fraction of the path's size; regression test in `laserfoundry-geom` (it aborted before the fix). Checked: a changed golden
   fails and names the first differing line (tried). The goldens record today's output, so they catch change, not correctness; none of it has
   been compared with a real machine. Noticed, not fixed: `info` can print `cut -0 mm` for an empty drawing. See `docs/testing.md`.
+- **2026-10-24 — Hostile-input sweep, three more fixes.** Probed ~300 cases under a 3 GB memory limit and a 30 s timeout: every command with
+  extreme values (absurd and at the edge of what is accepted) and importer files with extreme magnitudes (SVG, DXF, PNG headers that claim
+  huge sizes, project files). The commands all validated cleanly; the importers did not. **Fixed, each with a regression test that fails
+  without it:** (1) DXF `ARC` with a huge radius and `ELLIPSE` with a huge axis exhausted memory like the circle did, because kurbo sizes
+  arcs from `radius / tolerance`; the DXF arc, ellipse and bulge code now uses `geom::curve_tolerance` and skips radii past
+  `MAX_ELLIPSE_RADIUS`; (2) an SVG with a huge amount of text ran for minutes (layout time grows faster than the length: 0.6 s at 20,000
+  characters, 7 s at 80,000), so `import_svg` now refuses more than `MAX_TEXT_BYTES` (40,000) of text with a clear message; (3) `info` printed
+  `cut -0 mm` for an empty drawing. The new importer cases are also in the CLI regression suite. **Noticed, not fixed:** `path.boolean` on a
+  40 x 40 array of 100-point stars works for 22 s before refusing with "too many points", so a refusal that comes sooner would be kinder; and
+  usvg's text layout is third-party, so the 40,000-byte limit is a guard, not a fix of its speed. Not checked: the same sweep on the browser
+  build, the UI, or with files from real-world sources.

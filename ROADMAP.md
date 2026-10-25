@@ -866,3 +866,14 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   or the Start menu (no one has looked on a Windows desktop yet), the
   macOS bundle (`package.sh` ran only as far as `ditto`, which exists only on macOS), and the Linux install, which has no desktop entry or
   icon file yet. The design is a straight copy of the favicon; a designer's version would be better.
+- **2026-10-25 — Features and screenshots page.** The hosted page at the site root is the app itself (a full-screen canvas), so the page lives
+  beside it at `/features/` (source `apps/laserfoundry-web/site/features/`; the Pages workflow copies `apps/laserfoundry-web/site/` into the site)
+  and the app's address does not move, so existing links to it keep working. Static HTML and CSS, no scripts, its own content security policy,
+  dark and light by the visitor's setting, skip link, alt text on every image. Three screenshots taken from the running desktop app under Xvfb
+  on demo designs made for them (design with a selection, toolpath preview with per-layer times, a 12-part nest), a feature list that sticks to
+  what is in the app now, a machine-status table that says GRBL has been run only against the simulator, and links to releases, source, the
+  bring-up guide and the gap list. Checked: rendered in Chromium at 1280 and 390 pixels wide, dark and light, no horizontal overflow, no
+  broken images, no console or policy errors; `cargo xtask brands` passes (it scans this page). **Not checked:** the live page after deploy,
+  screen-reader behaviour beyond the structure, and other browsers. The og:image address uses the github.io site and needs changing when
+  laserfoundry.app serves it. The screenshots show the desktop app on Linux; Windows and macOS windows will look a little different.
+

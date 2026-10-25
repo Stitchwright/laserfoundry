@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>LaserFoundry: open-source laser engraver and cutter software</title>
+  <meta name="description" content="Design, preview and run laser engraving and cutting jobs. Free, open source, written in Rust, for Windows, macOS, Linux and your browser.">
+  <meta property="og:title" content="LaserFoundry">
+  <meta property="og:description" content="Free, open-source laser engraver and cutter software for Windows, macOS, Linux and your browser.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://stitchwright.github.io/laserfoundry/features/img/design.png">
+  <!-- The mark: a laser beam hitting a cut line on a dark tile (original artwork, the same as the application icon). -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c1f24'/%3E%3Cpath d='M16 3v13' stroke='%23ff5a36' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='18' r='3.2' fill='%23ffd166'/%3E%3Cpath d='M5 25h22' stroke='%2373c6ff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #1c1f24; --panel: #262a31; --line: #3a3f48; --text: #e8eaed; --muted: #aab0ba;
+      --accent: #ff5a36; --accent-text: #1c1f24; --link: #73c6ff; --spark: #ffd166;
+    }
+    @media (prefers-color-scheme: light) {
+      :root { --bg: #f6f7f9; --panel: #ffffff; --line: #d6dae0; --text: #1c1f24; --muted: #555c68; --accent: #d93a17; --accent-text: #ffffff; --link: #0b62a4; --spark: #b07a00; }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--link); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+    header.top { border-bottom: 1px solid var(--line); }
+    header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none; }
+    .brand svg { width: 34px; height: 34px; }
+    nav a { margin-left: 18px; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    .hero { padding: 56px 0 36px; text-align: center; }
+    h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.1; margin: 0 0 14px; }
+    .lead { font-size: clamp(18px, 2.4vw, 22px); color: var(--muted); max-width: 720px; margin: 0 auto 26px; }
+    .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .button { display: inline-block; padding: 12px 22px; border-radius: 8px; font-weight: 650; text-decoration: none; border: 2px solid var(--accent); }
+    .button.primary { background: var(--accent); color: var(--accent-text); }
+    .button.secondary { color: var(--text); }
+    .button:hover { filter: brightness(1.08); }
+    .note { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--spark); border-radius: 8px; padding: 14px 18px; margin: 28px auto 0; max-width: 820px; text-align: left; font-size: 15.5px; }
+    section { padding: 36px 0; }
+    h2 { font-size: 30px; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin: 0 0 24px; max-width: 760px; }
+    figure { margin: 0 0 40px; }
+    figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
+    figcaption { margin-top: 10px; color: var(--muted); font-size: 15.5px; }
+    figcaption strong { color: var(--text); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+    .card h3 { margin: 0 0 8px; font-size: 19px; }
+    .card ul { margin: 0; padding-left: 20px; }
+    .card li { margin: 4px 0; }
+    table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 16px; }
+    th { color: var(--muted); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; }
+    tr:last-child td { border-bottom: 0; }
+    footer { border-top: 1px solid var(--line); padding: 28px 0 44px; color: var(--muted); font-size: 15px; }
+    footer p { margin: 6px 0; }
+    .skip { position: absolute; left: -999px; top: 0; background: var(--accent); color: var(--accent-text); padding: 8px 14px; z-index: 10; }
+    .skip:focus { left: 8px; top: 8px; }
+    :focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the content</a>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./" aria-label="LaserFoundry home">
+        <svg viewBox="0 0 32 32" role="img" aria-label="LaserFoundry mark"><rect width="32" height="32" rx="7" fill="#1c1f24"/><path d="M16 3v13" stroke="#ff5a36" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="18" r="3.2" fill="#ffd166"/><path d="M5 25h22" stroke="#73c6ff" stroke-width="3" stroke-linecap="round"/></svg>
+        LaserFoundry
+      </a>
+      <nav aria-label="Page sections">
+        <a href="#screens">Screenshots</a>
+        <a href="#features">Features</a>
+        <a href="#machines">Machines</a>
+        <a href="#get">Get it</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <div class="hero">
+        <h1>Laser engraving and cutting software, free and open</h1>
+        <p class="lead">Lay out your artwork, give each colour its own speed and power, preview the toolpath, and send it to your machine. One engine drives the desktop app, the command line and your browser.</p>
+        <div class="buttons">
+          <a class="button primary" href="../">Try it in your browser</a>
+          <a class="button secondary" href="https://github.com/Stitchwright/laserfoundry/releases">Download for Windows, macOS or Linux</a>
+        </div>
+        <p class="note"><strong>An early release.</strong> The whole pipeline works and is well tested, but everything that talks to a machine has so far been tried only against a built-in simulator, not on real hardware. Start with a laser-off test and a scrap of material; the <a href="https://github.com/Stitchwright/laserfoundry/blob/main/docs/hardware-bringup.md">bring-up guide</a> walks through it.</p>
+      </div>
+
+      <section id="screens" aria-labelledby="screens-h">
+        <h2 id="screens-h">See it work</h2>
+        <p class="sub">Screenshots of the desktop app. The browser version has the same design, preview and G-code tools.</p>
+        <figure>
+          <img src="img/design.png" width="1440" height="900" alt="The LaserFoundry window showing a rounded name plaque with four mounting holes, the words LASER FOUNDRY in a single-line font, a star selected with its size shown in the side panel, and a hexagon and a rounded box below. A colour-coded layer list with speed and power settings is on the right.">
+          <figcaption><strong>Design.</strong> Draw or import shapes, text and pictures. Each colour is a layer with its own mode, speed, power, passes and fill settings, shown beside the drawing.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/preview.png" width="1440" height="900" alt="The same plaque with the toolpath preview switched on: the star and the circle are filled with blue scan lines, and a bar under the drawing shows the time for each layer: cut two minutes fifty-nine seconds, engrave one minute thirty-eight, score twenty-five seconds.">
+          <figcaption><strong>Preview before you cut.</strong> Play the job back, see engraving fills as the laser will draw them, and read the estimated time for each layer. The estimate follows your machine's acceleration, not just its top speed.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/nest.png" width="1440" height="900" alt="Twelve cut-outs of different shapes, among them rectangles, ellipses, stars, a hexagon, a triangle and a pentagon, packed tightly into the work area with even gaps and some turned to fit.">
+          <figcaption><strong>Nest parts into the material.</strong> One command packs a mixed set of parts into the bed, turning them to fit, working around shapes already there, using the space inside holes, and spilling over onto extra sheets when a sheet is full.</figcaption>
+        </figure>
+      </section>
+
+      <section id="features" aria-labelledby="features-h">
+        <h2 id="features-h">What it does</h2>
+        <p class="sub">All of this is in the current release. The <a href="https://github.com/Stitchwright/laserfoundry/blob/main/docs/gaps.md">list of what is still missing</a> is public too.</p>
+        <div class="grid">
+          <div class="card"><h3>Bring work in</h3><ul>
+            <li>SVG with shapes, groups, transforms, units, pictures and text</li>
+            <li>DXF lines, polylines, arcs, circles, ellipses and splines</li>
+            <li>PNG, JPEG and other pictures</li>
+            <li>Its own <code>.laserfoundry</code> project file</li></ul></div>
+          <div class="card"><h3>Draw and edit</h3><ul>
+            <li>Rectangle, ellipse, line, polygon, star and pen tools</li>
+            <li>Node editing, boolean union, subtract, intersect and XOR</li>
+            <li>Offset (grow or shrink), grids and circular arrays</li>
+            <li>Align, distribute, snap, rulers, groups, and an undo history you can jump around in</li></ul></div>
+          <div class="card"><h3>Text</h3><ul>
+            <li>A built-in single-line font for quick scoring and engraving</li>
+            <li>Filled outlines from a font file you choose, with a font browser and preview</li>
+            <li>Text on a path, vertical text, mixed directions</li></ul></div>
+          <div class="card"><h3>Pictures</h3><ul>
+            <li>Brightness, contrast, gamma, negative, crop and sharpen</li>
+            <li>Several dither modes for engraving photos</li>
+            <li>Trace a picture into vector shapes</li></ul></div>
+          <div class="card"><h3>Cut settings</h3><ul>
+            <li>16 layers: line, fill, or fill and line</li>
+            <li>Speed, power, passes, fill interval and angle, kerf offset</li>
+            <li>Tabs, lead-ins, overscan, perforation, cross-hatch</li>
+            <li>Per-shape overrides and cut order, material test grids, presets and templates</li></ul></div>
+          <div class="card"><h3>Run the machine</h3><ul>
+            <li>A steady serial connection with live status</li>
+            <li>Jog, home, frame, set and go to the origin, a nine-point start anchor</li>
+            <li>Pause, resume, run from a line, resume after a power cut</li>
+            <li>Z axis and rotary support</li></ul></div>
+          <div class="card"><h3>Built to be safe</h3><ul>
+            <li>Output that would leave the bed is refused, not quietly trimmed</li>
+            <li>Comments in a job cannot smuggle in commands</li>
+            <li>Stopping a job resets the controller so the laser goes off</li>
+            <li>No <code>unsafe</code> code, no crashes on broken files: importers are fuzz-tested</li></ul></div>
+          <div class="card"><h3>Never lose work</h3><ul>
+            <li>Autosave with recovery after a crash</li>
+            <li>A prompt before anything discards unsaved changes</li>
+            <li>Every edit is one undo step, and a failed command leaves no trace</li></ul></div>
+          <div class="card"><h3>Scripts and agents</h3><ul>
+            <li>A command line that turns a file into G-code and runs JSON command scripts</li>
+            <li>Every command is also offered as a Model Context Protocol tool for AI agents</li></ul></div>
+          <div class="card"><h3>Optional AI help</h3><ul>
+            <li>Design from a prompt, redraw a picture, ask about lasering</li>
+            <li>Off until you opt in; uses a Foundry account and credits</li></ul></div>
+          <div class="card"><h3>For everyone</h3><ul>
+            <li>Screen-reader support and an editable shortcut map</li>
+            <li>Light and dark themes, and a tablet mode</li>
+            <li>Translated menus, messages and errors</li></ul></div>
+          <div class="card"><h3>Open and independent</h3><ul>
+            <li>MIT or Apache-2.0 licensed, written in Rust</li>
+            <li>Built clean-room from public documentation; nothing copied from other laser software</li>
+            <li>Unaffiliated with other laser software vendors</li></ul></div>
+        </div>
+      </section>
+
+      <section id="machines" aria-labelledby="machines-h">
+        <h2 id="machines-h">Machines</h2>
+        <p class="sub">Honest status, as of this release.</p>
+        <table>
+          <thead><tr><th scope="col">Controller</th><th scope="col">Status</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">GRBL (most hobby diode and CO2 machines)</th><td>The main target. Complete, tested against a built-in simulator; waiting for reports from real machines.</td></tr>
+            <tr><th scope="row">Marlin with a laser</th><td>Experimental. Written from the public documentation and tested only against a simulator.</td></tr>
+            <tr><th scope="row">Smoothieware</th><td>Experimental, through the GRBL-style link.</td></tr>
+            <tr><th scope="row">Ruida and other closed controllers</th><td>Not supported.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="get" aria-labelledby="get-h">
+        <h2 id="get-h">Get it</h2>
+        <p class="sub">Windows (x64), macOS (Apple silicon) and Linux (x64) downloads are on the releases page, each with the desktop app and the command-line tool. Or open the browser version: nothing to install.</p>
+        <div class="buttons" style="justify-content:flex-start">
+          <a class="button primary" href="../">Open in your browser</a>
+          <a class="button secondary" href="https://github.com/Stitchwright/laserfoundry/releases">Releases</a>
+          <a class="button secondary" href="https://github.com/Stitchwright/laserfoundry">Source code</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>LaserFoundry is free software under the MIT or Apache-2.0 licence. It is independent of, and unaffiliated with, other laser software vendors.</p>
+      <p>Found a problem or tried it on a real machine? <a href="https://github.com/Stitchwright/laserfoundry/issues">Tell us on GitHub</a>.</p>
+    </div>
+  </footer>
+</body>
+</html>

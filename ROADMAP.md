@@ -876,4 +876,12 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   broken images, no console or policy errors; `cargo xtask brands` passes (it scans this page). **Not checked:** the live page after deploy,
   screen-reader behaviour beyond the structure, and other browsers. The og:image address uses the github.io site and needs changing when
   laserfoundry.app serves it. The screenshots show the desktop app on Linux; Windows and macOS windows will look a little different.
+- **2026-10-26 — Weekly audit failed; lockfile updated.** The scheduled `Audit` run found two vulnerabilities and a yanked crate in `Cargo.lock`
+  (no code of ours changed): `rustls-webpki` 0.103.15 (RUSTSEC-2026-0382, certificate verification may accept distrusted intermediates) and
+  `webpki-roots` 1.0.9 (RUSTSEC-2026-0381, bundled roots allow distrusted emSign intermediates), both reached through the HTTPS client the
+  desktop app uses for the optional AI service and font downloads, and `clipboard-win` 5.4.1 (yanked). Updated to 0.103.16, 1.0.11 and 5.4.3
+  with `cargo update -p`; only the lockfile changed. Checked: `cargo audit --deny unsound --deny yanked` failed the same way here before and
+  passes after (the three allowed "unmaintained" warnings remain), and `cargo xtask ci` passes. **Not checked:** the AI and font downloads against
+  the live services with the new certificate libraries. Still open: the Dependabot PRs for egui and eframe 0.37 fail CI (they are API changes, not
+  yet looked at).
 

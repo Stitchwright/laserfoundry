@@ -136,6 +136,26 @@ fn harness_with(platform: RecoveryPlatform) -> Harness {
     h
 }
 
+mod toolbar_tests {
+    use super::*;
+
+    #[test]
+    fn the_tool_column_widens_for_a_long_tool_name_and_never_gets_narrower_than_its_base() {
+        // Regression: after an egui update added button padding, "Rectangle" wrapped to "Rectangl" / "e".
+        let h = Harness::new();
+        let ctx = h.ctx.clone();
+        let (mut normal, mut long) = (0.0f32, 0.0f32);
+        let input = RawInput { screen_rect: Some(egui::Rect::from_min_size(pos2(0.0, 0.0), SCREEN)), ..Default::default() };
+        ctx.run_ui(input, |ui| {
+            normal = crate::panels::column_width(ui, crate::panels::TOOLS_WIDTH, crate::panels::TOOLS.iter().map(|(_, l)| *l));
+            long = crate::panels::column_width(ui, crate::panels::TOOLS_WIDTH, ["Select", "A tool with a very long translated name"].into_iter());
+        })
+        .drop_without_applying_deltas();
+        assert!(normal >= crate::panels::TOOLS_WIDTH, "{normal}");
+        assert!(long > normal + 40.0, "a long name must widen the column: {long} vs {normal}");
+    }
+}
+
 mod translation_tests {
     use super::*;
     use crate::i18n;

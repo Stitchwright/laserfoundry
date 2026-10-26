@@ -451,7 +451,8 @@ impl LaserFoundryApp {
             tablet::action_bar(self, ui);
         }
         egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui));
-        let tools_width = if self.tablet_active() { 112.0 } else { 84.0 };
+        let base = if self.tablet_active() { panels::TOOLS_WIDTH_TABLET } else { panels::TOOLS_WIDTH };
+        let tools_width = panels::column_width(ui, base, panels::TOOLS.iter().map(|(_, label)| *label));
         egui::Panel::left("tools").resizable(false).exact_size(tools_width).show(ui, |ui| panels::toolbar(self, ui));
         if self.show_inspector {
             egui::Panel::right("inspector").default_size(300.0).show(ui, |ui| panels::inspector(self, ui));
@@ -884,7 +885,7 @@ impl LaserFoundryApp {
         font_ui::window(self, ctx);
         if self.pending_recovery.is_some() {
             let mut choice = None;
-            egui::Modal::new(egui::Id::new("recovery")).show(ctx, |ui| {
+            egui::Modal::new(egui::Id::unique("recovery")).show(ctx, |ui| {
                 ui.heading(tr("Recover unsaved work?"));
                 ui.label(tr("LaserFoundry found work from a previous session that was never saved."));
                 ui.add_space(8.0);
@@ -904,7 +905,7 @@ impl LaserFoundryApp {
         }
         if self.pending_start.is_some() {
             let mut answer = None;
-            egui::Modal::new(egui::Id::new("relative_start")).show(ctx, |ui| {
+            egui::Modal::new(egui::Id::unique("relative_start")).show(ctx, |ui| {
                 ui.heading(tr("Start from where the head is?"));
                 ui.label(tr("This job is placed from the head's position or your own origin, so LaserFoundry cannot check that it fits on the bed from there."));
                 ui.label(tr("Make sure the head is where the job should begin and has room on every side, or turn on the controller's soft limits."));
@@ -931,7 +932,7 @@ impl LaserFoundryApp {
         let Some(action) = self.pending_action.clone() else { return };
         let name = self.session.path.as_ref().and_then(|p| p.file_name()).map_or("Untitled".to_string(), |n| n.to_string_lossy().into_owned());
         let mut answer = None;
-        egui::Modal::new(egui::Id::new("unsaved")).show(ctx, |ui| {
+        egui::Modal::new(egui::Id::unique("unsaved")).show(ctx, |ui| {
             ui.heading(tr("Unsaved changes"));
             ui.label(trf!("Save changes to {name} first?", name = name));
             ui.add_space(8.0);

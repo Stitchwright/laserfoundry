@@ -884,4 +884,14 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   passes after (the three allowed "unmaintained" warnings remain), and `cargo xtask ci` passes. **Not checked:** the AI and font downloads against
   the live services with the new certificate libraries. Still open: the Dependabot PRs for egui and eframe 0.37 fail CI (they are API changes, not
   yet looked at).
+- **2026-10-26 — egui and eframe 0.37, ureq 3.5.0 (open Dependabot PRs 14, 15 and 16).** The two UI crates have to move together, so one change
+  does both. Code changes: `egui::WidgetType` is now `egui::Role` (the design canvas is announced as a canvas instead of "other"), and
+  `Id::new` is `Id::unique` (same hashing, so the dialogs keep their ids). **A regression the tests did not catch:** the larger default button
+  padding made "Rectangle" wrap to "Rectangl" / "e" in the tool column, seen only by taking a screenshot. The column now sizes itself from the
+  real labels and fonts (`panels::column_width`), which also covers longer translated names; a frame test checks that a long name widens it.
+  Checked: `cargo xtask ci` and `cargo audit` pass, the app was run under Xvfb with the same design as before (toolpath preview and per-layer
+  times identical: 2 m 59 s, 1 m 38 s, 25 s), the window icon is unchanged, and the website screenshots were retaken. **Not checked:** other
+  windows and dialogs under 0.37 beyond the main window and the preview, Windows and macOS rendering, and ureq 3.5.0 against the live services
+  (this sandbox's network proxy re-signs HTTPS, so the font download cannot be tried here). Pull requests 12 (rust-cache) and 13
+  (trusted-signing action) are workflow changes, left for you to review; 14, 15 and 16 are done by this change.
 

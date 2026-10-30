@@ -104,7 +104,7 @@ jobs:
         run: 7z x unsigned/laserfoundry-windows-x64.zip -osigned > /dev/null
       - name: Sign
         if: steps.check.outputs.ready == 'true'
-        uses: azure/trusted-signing-action@48da903ca5e2d362da62c631a42d77c02ec7eadb # v1.2.0
+        uses: azure/trusted-signing-action@b443cf8ea4124818d2ea9f043cba29fc3ec47b16 # v1.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}

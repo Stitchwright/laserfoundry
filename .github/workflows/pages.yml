@@ -50,6 +50,8 @@ jobs:
           origin=$(printf '%s' "$LF_CLOUD_URL" | sed -n 's|^\(https://[^/?# ]*\).*|\1|p')
           sed "s|__CLOUD_ORIGIN__|$origin|" apps/laserfoundry-web/index.html > site/index.html
           cp -r apps/laserfoundry-web/pkg site/pkg
+          # the features and screenshots page, a static page beside the app (the app itself stays at the site's root)
+          cp -r apps/laserfoundry-web/site/. site/
           cargo run --locked -q -p xtask -- site-fonts stitchfoundry-fonts site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

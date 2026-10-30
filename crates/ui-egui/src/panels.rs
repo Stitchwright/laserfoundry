@@ -7,19 +7,38 @@ use crate::menus::format_duration;
 
 use crate::{LaserFoundryApp, Target, Tool};
 
+/// Width of the tool column (px). Wide enough for the longest tool name on one line at egui's default button padding.
+pub(crate) const TOOLS_WIDTH: f32 = 96.0;
+pub(crate) const TOOLS_WIDTH_TABLET: f32 = 112.0;
+
+pub(crate) const TOOLS: [(Tool, &str); 9] = [
+    (Tool::Select, "Select"),
+    (Tool::Rectangle, "Rectangle"),
+    (Tool::Ellipse, "Ellipse"),
+    (Tool::Line, "Line"),
+    (Tool::Polygon, "Polygon"),
+    (Tool::Text, "Text"),
+    (Tool::Nodes, "Nodes"),
+    (Tool::Pen, "Pen"),
+    (Tool::Hand, "Pan"),
+];
+
+/// Width of a column of buttons: `base`, or wider when a label (in the chosen language, with the real fonts) needs it, so
+/// names never wrap whatever the language or the toolkit's padding.
+pub(crate) fn column_width<'a>(ui: &egui::Ui, base: f32, labels: impl Iterator<Item = &'a str>) -> f32 {
+    /// The panel's own margins plus the gap the buttons leave at the right.
+    const CHROME: f32 = 20.0;
+    let widest = labels
+        .map(|label| {
+            egui::WidgetText::from(tr(label)).into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, egui::TextStyle::Button).size().x
+        })
+        .fold(0.0, f32::max);
+    base.max(widest + 2.0 * ui.spacing().button_padding.x + CHROME)
+}
+
 pub fn toolbar(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.add_space(4.0);
-    for (tool, label) in [
-        (Tool::Select, "Select"),
-        (Tool::Rectangle, "Rectangle"),
-        (Tool::Ellipse, "Ellipse"),
-        (Tool::Line, "Line"),
-        (Tool::Polygon, "Polygon"),
-        (Tool::Text, "Text"),
-        (Tool::Nodes, "Nodes"),
-        (Tool::Pen, "Pen"),
-        (Tool::Hand, "Pan"),
-    ] {
+    for (tool, label) in TOOLS {
         let size = [(ui.available_width() - 4.0).max(72.0), if app.tablet_active() { 40.0 } else { 28.0 }];
         if ui.add_sized(size, egui::Button::new(tr(label)).selected(app.tool == tool)).clicked() {
             if app.tool == Tool::Pen && tool != Tool::Pen {
@@ -77,7 +96,7 @@ fn layers(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
                     ui.painter().circle_filled(rect.right_top() + egui::vec2(-5.0, 5.0), 2.5, egui::Color32::BLACK);
                 }
                 let name = if layer.output { trf!("Layer {name}", name = layer.name) } else { trf!("Layer {name} (output off)", name = layer.name) };
-                resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, app.active_layer == layer.id, name.clone()));
+                resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, app.active_layer == layer.id, name.clone()));
                 if resp.on_hover_text(&name).clicked() {
                     app.active_layer = layer.id;
                 }
@@ -768,7 +787,7 @@ fn arrow_button(ui: &mut egui::Ui, dx: f64, dy: f64) -> egui::Response {
     };
     let enabled = ui.is_enabled();
     let name = tr(name);
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, name.clone()));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, name.clone()));
     let resp = resp.on_hover_text(name);
     let visuals = ui.style().interact(&resp);
     ui.painter().rect_filled(rect, 3.0, visuals.weak_bg_fill);
@@ -785,7 +804,7 @@ fn arrow_button(ui: &mut egui::Ui, dx: f64, dy: f64) -> egui::Response {
 fn anchor_button(ui: &mut egui::Ui, selected: bool, name: &str) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
     let enabled = ui.is_enabled();
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::RadioButton, enabled, selected, trf!("Job origin {name}", name = name)));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::RadioButton, enabled, selected, trf!("Job origin {name}", name = name)));
     let resp = resp.on_hover_text(name);
     let visuals = ui.style().interact(&resp);
     ui.painter().rect_filled(rect, 3.0, visuals.weak_bg_fill);

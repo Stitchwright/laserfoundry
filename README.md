@@ -5,6 +5,8 @@ LightBurn-class workflow.** Lay out artwork, give each colour layer its own spee
 fill settings, preview the toolpath, and stream GRBL G-code to your machine, or to the built-in
 simulator when nothing is plugged in.
 
+> **Features and screenshots:** https://stitchwright.github.io/laserfoundry/features/ (source in `apps/laserfoundry-web/site/`).
+>
 > **Status: early.** The core pipeline works end to end and is well tested, but this is a small
 > fraction of what LightBurn does. See [`ROADMAP.md`](ROADMAP.md) and
 > [`docs/target-app-parity.md`](docs/target-app-parity.md) for an honest list of what exists and what

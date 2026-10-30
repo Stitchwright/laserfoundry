@@ -466,7 +466,7 @@ impl LaserFoundryApp {
         let Some((_, request)) = &self.ai.awaiting_consent else { return };
         let destination = if self.ai.use_key { tr("Anthropic, with your API key") } else { request.url.clone() };
         let mut choice = None;
-        egui::Modal::new(egui::Id::new("ai_consent")).show(ctx, |ui| {
+        egui::Modal::new(egui::Id::unique("ai_consent")).show(ctx, |ui| {
             ui.heading(tr("Send this to the AI service?"));
             ui.label(trf!("It goes to: {destination}", destination = destination));
             ui.label(tr("What is sent: your description or question, any picture you chose, and a plain-text summary of your machine and the layers in use (never your artwork). The AI service and the model provider see it."));

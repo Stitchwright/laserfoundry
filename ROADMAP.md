@@ -866,3 +866,41 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   or the Start menu (no one has looked on a Windows desktop yet), the
   macOS bundle (`package.sh` ran only as far as `ditto`, which exists only on macOS), and the Linux install, which has no desktop entry or
   icon file yet. The design is a straight copy of the favicon; a designer's version would be better.
+- **2026-10-25 — Features and screenshots page.** The hosted page at the site root is the app itself (a full-screen canvas), so the page lives
+  beside it at `/features/` (source `apps/laserfoundry-web/site/features/`; the Pages workflow copies `apps/laserfoundry-web/site/` into the site)
+  and the app's address does not move, so existing links to it keep working. Static HTML and CSS, no scripts, its own content security policy,
+  dark and light by the visitor's setting, skip link, alt text on every image. Three screenshots taken from the running desktop app under Xvfb
+  on demo designs made for them (design with a selection, toolpath preview with per-layer times, a 12-part nest), a feature list that sticks to
+  what is in the app now, a machine-status table that says GRBL has been run only against the simulator, and links to releases, source, the
+  bring-up guide and the gap list. Checked: rendered in Chromium at 1280 and 390 pixels wide, dark and light, no horizontal overflow, no
+  broken images, no console or policy errors; `cargo xtask brands` passes (it scans this page). **Not checked:** the live page after deploy,
+  screen-reader behaviour beyond the structure, and other browsers. The og:image address uses the github.io site and needs changing when
+  laserfoundry.app serves it. The screenshots show the desktop app on Linux; Windows and macOS windows will look a little different.
+- **2026-10-26 — Weekly audit failed; lockfile updated.** The scheduled `Audit` run found two vulnerabilities and a yanked crate in `Cargo.lock`
+  (no code of ours changed): `rustls-webpki` 0.103.15 (RUSTSEC-2026-0382, certificate verification may accept distrusted intermediates) and
+  `webpki-roots` 1.0.9 (RUSTSEC-2026-0381, bundled roots allow distrusted emSign intermediates), both reached through the HTTPS client the
+  desktop app uses for the optional AI service and font downloads, and `clipboard-win` 5.4.1 (yanked). Updated to 0.103.16, 1.0.11 and 5.4.3
+  with `cargo update -p`; only the lockfile changed. Checked: `cargo audit --deny unsound --deny yanked` failed the same way here before and
+  passes after (the three allowed "unmaintained" warnings remain), and `cargo xtask ci` passes. **Not checked:** the AI and font downloads against
+  the live services with the new certificate libraries. Still open: the Dependabot PRs for egui and eframe 0.37 fail CI (they are API changes, not
+  yet looked at).
+- **2026-10-26 — egui and eframe 0.37, ureq 3.5.0 (open Dependabot PRs 14, 15 and 16).** The two UI crates have to move together, so one change
+  does both. Code changes: `egui::WidgetType` is now `egui::Role` (the design canvas is announced as a canvas instead of "other"), and
+  `Id::new` is `Id::unique` (same hashing, so the dialogs keep their ids). **A regression the tests did not catch:** the larger default button
+  padding made "Rectangle" wrap to "Rectangl" / "e" in the tool column, seen only by taking a screenshot. The column now sizes itself from the
+  real labels and fonts (`panels::column_width`), which also covers longer translated names; a frame test checks that a long name widens it.
+  Checked: `cargo xtask ci` and `cargo audit` pass, the app was run under Xvfb with the same design as before (toolpath preview and per-layer
+  times identical: 2 m 59 s, 1 m 38 s, 25 s), the window icon is unchanged, and the website screenshots were retaken. **Not checked:** other
+  windows and dialogs under 0.37 beyond the main window and the preview, Windows and macOS rendering, and ureq 3.5.0 against the live services
+  (this sandbox's network proxy re-signs HTTPS, so the font download cannot be tried here). Pull requests 12 (rust-cache) and 13
+  (trusted-signing action) are workflow changes, left for you to review; 14, 15 and 16 are done by this change.
+- **2026-10-30 — Correction: v0.1.0 was already released.** `v0.1.0` was published on 2026-10-20 (tag on a28e7f0, a full release, not a
+  pre-release) and the Desktop workflow's release run succeeded: `sign-windows` including its "Verify the signatures" step, and `sign-macos`
+  including notarization and stapling, with the three downloads attached (checked on GitHub today; the signatures themselves, SmartScreen and
+  Gatekeeper on a fresh machine are still unchecked). Entries above that say the release was waiting for someone to publish it are out of date;
+  I had not looked at the releases list and told the owner to publish a release that already existed. A release-notes edit I pushed in between
+  (1c9b7c2) described features the published binaries do not have and was reverted. `main` is 24 commits ahead of the tag: nesting, the undo
+  history window, select by size, the font manager, the Marlin link, corner-aware time estimates, the application icon, the regression suite, the
+  importer fixes, egui 0.37 and the certificate-library updates. Those need a new tag (v0.1.1 or v0.2.0) with its own notes
+  (`docs/releases/<tag>.md`); nothing is drafted yet.
+

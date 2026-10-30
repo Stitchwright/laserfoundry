@@ -894,4 +894,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   windows and dialogs under 0.37 beyond the main window and the preview, Windows and macOS rendering, and ureq 3.5.0 against the live services
   (this sandbox's network proxy re-signs HTTPS, so the font download cannot be tried here). Pull requests 12 (rust-cache) and 13
   (trusted-signing action) are workflow changes, left for you to review; 14, 15 and 16 are done by this change.
+- **2026-10-30 — Correction: v0.1.0 was already released.** `v0.1.0` was published on 2026-10-20 (tag on a28e7f0, a full release, not a
+  pre-release) and the Desktop workflow's release run succeeded: `sign-windows` including its "Verify the signatures" step, and `sign-macos`
+  including notarization and stapling, with the three downloads attached (checked on GitHub today; the signatures themselves, SmartScreen and
+  Gatekeeper on a fresh machine are still unchecked). Entries above that say the release was waiting for someone to publish it are out of date;
+  I had not looked at the releases list and told the owner to publish a release that already existed. A release-notes edit I pushed in between
+  (1c9b7c2) described features the published binaries do not have and was reverted. `main` is 24 commits ahead of the tag: nesting, the undo
+  history window, select by size, the font manager, the Marlin link, corner-aware time estimates, the application icon, the regression suite, the
+  importer fixes, egui 0.37 and the certificate-library updates. Those need a new tag (v0.1.1 or v0.2.0) with its own notes
+  (`docs/releases/<tag>.md`); nothing is drafted yet.
 

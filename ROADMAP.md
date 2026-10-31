@@ -936,4 +936,15 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   GitHub's workflow records and by fetching each download's first bytes; the signatures themselves, SmartScreen and Gatekeeper on a fresh
   machine, and the app on a real laser are still unchecked. The 0.1.0 and 0.2.0 releases are the only ones; 0.2.0 is the first with the working
   web app (0.1.0's page was blank from the 19 October rename until 31 October, which does not affect the downloads).
+- **2026-10-31 — A name field in Publish to MakerFoundry.** MakerFoundry titles a draft from the file name it is sent, and an unsaved project was sent
+  as `design.svg`, so its draft would be titled just "design" (MakerFoundry's chat pointed this out). The window now has a **Name** field: the
+  project's name when there is one, empty for an unsaved project (Send waits for a name), and what the person types wins and stays. The name
+  is made plain (letters, digits, spaces, hyphens, underscores; anything else becomes `_`; a typed `.svg` is dropped; 60 characters; no stray
+  `_`, `.` or space at the ends). **Checked:** 14 UI tests for opening and publishing (a table of 21 typed names including paths, control
+  characters, emoji, other scripts and an empty result, and a check that whatever is typed gives a name MakerFoundry takes), five deliberate
+  breakages each caught (an empty name sent, the typed name ignored, an empty field falling back, no cleaning, a kept `.svg`; the last one
+  was first a no-op that I noticed and redid), and the real desktop app run under Xvfb with a stand-in session: the saved project shows
+  its name, the unsaved one shows the hint and a greyed Send, and typing into the field works. **Not checked:** a publish from the window
+  with a typed name against the live service (the earlier live publish used the old fixed name), and the title MakerFoundry makes from a
+  cleaned name (its own naming is not deployed yet).
 

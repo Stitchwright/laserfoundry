@@ -12,8 +12,10 @@ where the title, licence and price are set. Nothing is public until the person p
 
 - `POST https://makerfoundry.app/api/v1/designs` with `Authorization: Bearer <session token>` and
   `{file_name, file (base64), app}`. Only a Foundry session token (`sfs_…`) is ever sent there: an Anthropic key never is.
-- The file name is the project's name as a plain `.svg` name (`design.svg` when there is none). MakerFoundry's own sentence is shown
-  as it is when it refuses (too many designs today, too big, not readable).
+- The window has a **Name** field, filled with the project's name (empty for a project that has not been saved, and Send waits until
+  there is one). MakerFoundry titles the draft from the file name, so the name is cleaned to letters, digits, spaces, hyphens and
+  underscores (anything else becomes `_`, a typed `.svg` is dropped, at most 60 characters) and sent as `<name>.svg`.
+  MakerFoundry's own sentence is shown as it is when it refuses (too many designs today, too big, not readable).
 - The draft's address in the answer is opened only if it is on the same site the request went to.
 - Works in the desktop app and the browser version (the page's content security policy and the host's allow-list name MakerFoundry).
 

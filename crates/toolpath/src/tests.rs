@@ -529,6 +529,21 @@ mod validation_tests {
         let three = estimate(&plan(&doc).unwrap(), 6000.0);
         assert!((three.seconds / one.seconds - 3.0).abs() < 0.2);
     }
+
+    #[test]
+    fn the_move_cap_counts_every_pass() {
+        // 20,000 fill rows are 40,000 moves: fine once, but 1000 passes would write 40 million G-code lines.
+        let mut doc = rect_doc(100.0, 20.0, LayerMode::Fill);
+        if let Some(l) = doc.layer_mut(0) {
+            l.interval = 0.001;
+            l.passes = 1;
+        }
+        assert!(plan(&doc).is_ok());
+        if let Some(l) = doc.layer_mut(0) {
+            l.passes = 1000;
+        }
+        assert!(matches!(plan(&doc), Err(PlanError::TooManyMoves)));
+    }
 }
 
 mod timeline_tests {

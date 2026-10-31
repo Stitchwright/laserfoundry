@@ -904,3 +904,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   importer fixes, egui 0.37 and the certificate-library updates. Those need a new tag (v0.1.1 or v0.2.0) with its own notes
   (`docs/releases/<tag>.md`); nothing is drafted yet.
 
+- **2026-10-31 — Nightly sweep: the move cap counts passes (#19).** `toolpath::plan` capped a job at `MAX_MOVES` but counted each operation
+  once, while the G-code writes it `passes` times (up to 1000), so a large fill with many passes could build a program of billions of lines and
+  run out of memory. The cap now counts moves times passes. Regression test `validation_tests::the_move_cap_counts_every_pass` (fails without
+  the fix); `cargo xtask ci` passes; `cargo audit` shows only the three known "unmaintained" warnings. Not done: an end-to-end memory test.

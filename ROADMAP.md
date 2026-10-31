@@ -930,4 +930,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   app's version, the Windows file properties and the `app` name MakerFoundry logs. `docs/releasing.md` now lists this as the first release step
   (it was missing). The v0.2.0 notes are in `docs/releases/v0.2.0.md`. Nothing is tagged or published yet: that needs the owner (tag pushes
   and release creation fail from this sandbox).
+- **2026-10-31 — v0.2.0 released.** Published as a full release on 657bd8b (version 0.2.0). The Desktop run succeeded: all three builds,
+  Windows still finds the icon in `laserfoundry.exe`, `sign-windows` including "Verify the signatures", and `sign-macos` including notarization and
+  stapling; the three downloads are attached and the `laserfoundry.app` buttons (`releases/latest/download/...`) now serve them. Checked from
+  GitHub's workflow records and by fetching each download's first bytes; the signatures themselves, SmartScreen and Gatekeeper on a fresh
+  machine, and the app on a real laser are still unchecked. The 0.1.0 and 0.2.0 releases are the only ones; 0.2.0 is the first with the working
+  web app (0.1.0's page was blank from the 19 October rename until 31 October, which does not affect the downloads).
 

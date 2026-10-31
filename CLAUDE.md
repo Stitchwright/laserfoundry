@@ -70,6 +70,11 @@ When a bug is not obvious, follow the `debug` skill (`.claude/skills/debug/SKILL
 - Fix the root cause, minimally, one bug per commit, and prove it: the regression test must fail without the fix. Search for the same mistake elsewhere. Say plainly what could not be checked (real hardware, a real service).
 - A bug that can leave the laser on, ignore the bed or lose work comes before everything else.
 
+## Changes reach `main` through a pull request
+`main` requires a pull request and a passing `gate` check (the owner's decision, 2026-10-31; before that, agent pushes bypassed it on the owner's admin
+rights). Work on a branch, run the whole of `cargo xtask ci` before every push (not a part of it: a push that skipped clippy broke CI once), open a
+pull request, and let CI pass before it merges. Never push to `main` directly or force-push it.
+
 ## Commit authorship
 
 Commits in this repository are authored by **Bruce Wattendorf**, so the work shows on his GitHub profile. AI assistance is credited with a trailer, not as the author.

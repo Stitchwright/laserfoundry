@@ -3,8 +3,11 @@
 A release is a published GitHub release. Publishing one runs `.github/workflows/desktop.yml`, which builds the desktop app for
 Windows, Linux and macOS, signs the Windows and macOS builds and attaches all three to the release.
 
-1. Write the notes in `docs/releases/<tag>.md` (see [v0.1.0](releases/v0.1.0.md)) and publish a release on a `v*` tag (a pre-release such as `v0.0.1-rc.1` works the same way).
-2. `build` makes the three unsigned archives. `sign-windows` and `sign-macos` then replace the Windows and macOS ones with
+1. Set the version in the workspace `Cargo.toml` (`[workspace.package] version`), run `cargo update --workspace`, and update the
+   workspace crates' lines in `fuzz/Cargo.lock`. It becomes the macOS app's version, the Windows file properties and the
+   `app` name MakerFoundry logs, so the tag (`v0.2.0`) and the version (`0.2.0`) must agree. Commit it before tagging.
+2. Write the notes in `docs/releases/<tag>.md` (see [v0.1.0](releases/v0.1.0.md)) and publish a release on a `v*` tag (a pre-release such as `v0.0.1-rc.1` works the same way).
+3. `build` makes the three unsigned archives. `sign-windows` and `sign-macos` then replace the Windows and macOS ones with
    signed builds. `release` attaches the results.
 
 ## Signing

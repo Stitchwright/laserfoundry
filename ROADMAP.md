@@ -926,4 +926,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   against the live services (the sandbox proxy re-signs HTTPS), a real MakerFoundry design opened from its page (the button is off until
   MakerFoundry sets `LASERFOUNDRY_OPENS_LINKS`), photos with a publish (the API takes them; the app sends none yet), and Windows and macOS.
   See `docs/makerfoundry.md`.
+- **2026-10-31 — Version 0.2.0.** The workspace version is 0.2.0 (`Cargo.toml`, both lockfiles), ahead of tagging `v0.2.0`; it becomes the macOS
+  app's version, the Windows file properties and the `app` name MakerFoundry logs. `docs/releasing.md` now lists this as the first release step
+  (it was missing). The v0.2.0 notes are in `docs/releases/v0.2.0.md`. Nothing is tagged or published yet: that needs the owner (tag pushes
+  and release creation fail from this sandbox).
 

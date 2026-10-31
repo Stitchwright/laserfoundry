@@ -161,6 +161,30 @@ pub fn ai_reply(data: &[u8]) {
     let _ = laserfoundry_ai::cloud::parse(status, &text);
 }
 
+/// MakerFoundry links and answers: the address checks, the file names and the publish answers. The first byte picks the
+/// HTTP status and whether the rest is read as a link or as a body (and, for a link, as a header too).
+pub fn maker(data: &[u8]) {
+    use laserfoundry_ai::maker;
+    let Some((first, rest)) = data.split_first() else { return };
+    let text = String::from_utf8_lossy(rest);
+    let status = [200u16, 201, 201, 401, 403, 404, 413, 422, 429, 500, 503, 418][usize::from(*first >> 1) % 12];
+    if first & 1 == 0 {
+        // a link, and the same text as a header
+        if let Ok(link) = maker::open_link(&text) {
+            // what passes must really be one of MakerFoundry's own addresses
+            assert!(link.url.starts_with("https://makerfoundry.app/") || link.url.starts_with("https://www.makerfoundry.app/"), "{}", link.url);
+            assert!(link.url.is_ascii() && !link.url.chars().any(|c| c.is_whitespace() || c.is_control()), "{}", link.url);
+        }
+        let any = maker::OpenLink { url: String::new(), name: None };
+        let _ = maker::file_name(&any, Some(&text));
+        let _ = maker::design_name(&text);
+    } else {
+        let _ = maker::read_published(maker::DEFAULT_SERVER, status, &text);
+        let _ = maker::open_failure(status, rest);
+        let _ = maker::publish(maker::DEFAULT_SERVER, "sfs_token", &text, &text, &text);
+    }
+}
+
 /// A command and its parameters: the first byte picks the command, the rest is JSON.
 pub fn command(data: &[u8]) {
     let Some((first, rest)) = data.split_first() else { return };
@@ -344,6 +368,20 @@ mod tests {
             for mut input in mutations(seed.as_bytes(), &mut rng, 1500) {
                 input.insert(0, first);
                 ai_reply(&input);
+            }
+        }
+    }
+
+    #[test]
+    fn maker_links_and_answers_survive_mutation() {
+        let link = "https://makerfoundry.app/api/v1/designs/42/file/Box%20lid.svg?t=abc";
+        let answer = r#"{"id":42,"url":"https://makerfoundry.app/designs/42","kind":"laser","format":"SVG"}"#;
+        let header = "attachment; filename=\"rose.svg\"; filename*=UTF-8''Box%20lid.svg";
+        for (first, seed) in [(0u8, link), (0, header), (1, answer), (3, answer), (5, answer), (7, "{\"error\":{\"message\":\"No.\"}}")] {
+            let mut rng = Rng(0xb0_0000 + u64::from(first));
+            for mut input in mutations(seed.as_bytes(), &mut rng, 1500) {
+                input.insert(0, first);
+                maker(&input);
             }
         }
     }

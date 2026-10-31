@@ -27,9 +27,54 @@ pub fn allowed(url: &str, built_in: Option<&str>) -> bool {
     }
 }
 
+/// Whether the page may POST `url`: the service it was built for, or MakerFoundry's address for sending a design
+/// (the page's content security policy names MakerFoundry for this and for [`fetch_allowed`]).
+pub fn post_allowed(url: &str, built_in: Option<&str>) -> bool {
+    allowed(url, built_in) || url == format!("{}/api/v1/designs", laserfoundry_ai::maker::DEFAULT_SERVER)
+}
+
+/// Whether the page may GET `url`: a design file on one of MakerFoundry's own hosts, exactly as the app checked it.
+pub fn fetch_allowed(url: &str) -> bool {
+    laserfoundry_ai::maker::open_link(url).is_ok_and(|link| link.url == url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn makerfoundry_may_be_posted_a_design_and_asked_for_design_files_and_nothing_else() {
+        let b = Some("https://cloud.example.com");
+        assert!(post_allowed("https://makerfoundry.app/api/v1/designs", b));
+        assert!(post_allowed("https://cloud.example.com/v1/messages", b));
+        for bad in [
+            "https://makerfoundry.app/api/v1/account",
+            "https://makerfoundry.app/api/v1/designs/1",
+            "https://makerfoundry.app/api/v1/designs?x=1",
+            "http://makerfoundry.app/api/v1/designs",
+            "https://www.makerfoundry.app/api/v1/designs",
+            "https://makerfoundry.app.evil.com/api/v1/designs",
+            "https://makerfoundry.app@evil.com/api/v1/designs",
+            "https://evil.com/api/v1/designs",
+            "",
+        ] {
+            assert!(!post_allowed(bad, b), "{bad}");
+        }
+        assert!(fetch_allowed("https://makerfoundry.app/api/v1/designs/1/file/a.svg"));
+        assert!(fetch_allowed("https://www.makerfoundry.app/api/v1/designs/1/file/a.svg?t=x"));
+        for bad in [
+            "https://cloud.example.com/v1/account",
+            "https://makerfoundry.app/login",
+            "https://makerfoundry.app:8443/api/v1/designs/1/file/a.svg",
+            "https://makerfoundry.app.evil.com/api/v1/designs/1/file/a.svg",
+            "https://MakerFoundry.app/api/v1/designs/1/file/a.svg",
+            " https://makerfoundry.app/api/v1/designs/1/file/a.svg",
+            "https://makerfoundry.app/api/v1/designs/1/file/a.svg#frag",
+            "",
+        ] {
+            assert!(!fetch_allowed(bad), "{bad:?}: the host fetches only what the app checked, unchanged");
+        }
+    }
 
     #[test]
     fn only_the_built_in_origin_is_allowed() {

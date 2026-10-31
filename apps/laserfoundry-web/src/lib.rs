@@ -18,7 +18,7 @@ mod web {
     use std::rc::Rc;
 
     use laserfoundry_device::Transport;
-    use laserfoundry_ui_egui::{FontDownload, FontDownloadFailure, LaserFoundryApp, Platform, Upload};
+    use laserfoundry_ui_egui::{Fetched, FontDownload, FontDownloadFailure, LaserFoundryApp, Platform, Upload};
     use wasm_bindgen::prelude::*;
     use wasm_bindgen_futures::{JsFuture, spawn_local};
 
@@ -48,6 +48,8 @@ mod web {
                                 font_job: Rc::new(RefCell::new(FontJob::default())),
                                 leave_warning,
                                 http_job: Rc::new(RefCell::new(HttpJob::default())),
+                                link: RefCell::new(take_open_link()),
+                                fetch_job: Rc::new(RefCell::new(FetchJob::default())),
                             }),
                         ),
                     }))
@@ -85,6 +87,10 @@ mod web {
         leave_warning: Rc<Cell<bool>>,
         /// The AI or account request in flight (or its answer, not yet taken).
         http_job: Rc<RefCell<HttpJob>>,
+        /// The design address the page was opened with (`?open=`), until the app has taken it.
+        link: RefCell<Option<String>>,
+        /// The design being fetched from a link (or its answer, not yet taken).
+        fetch_job: Rc<RefCell<FetchJob>>,
     }
 
     impl Platform for WebPlatform {
@@ -136,10 +142,10 @@ mod web {
             }
             let job = Rc::clone(&self.http_job);
             spawn_local(async move {
-                let result = if crate::service::allowed(&request.url, BUILT_IN_SERVICE) {
+                let result = if crate::service::post_allowed(&request.url, BUILT_IN_SERVICE) {
                     post(&request).await
                 } else {
-                    Err("this page can only talk to the service it was built for".to_string())
+                    Err("this page can only talk to the service it was built for and to MakerFoundry".to_string())
                 };
                 let mut job = job.borrow_mut();
                 job.running = false;
@@ -150,6 +156,38 @@ mod web {
 
         fn take_http(&self) -> Option<Result<(u16, String), String>> {
             self.http_job.borrow_mut().result.take()
+        }
+
+        fn startup_link(&self) -> Option<String> {
+            self.link.borrow_mut().take()
+        }
+
+        fn start_fetch(&self, url: &str, max_bytes: usize) -> bool {
+            {
+                let mut job = self.fetch_job.borrow_mut();
+                if job.running {
+                    return false;
+                }
+                job.running = true;
+                job.result = None;
+            }
+            let job = Rc::clone(&self.fetch_job);
+            let url = url.to_string();
+            spawn_local(async move {
+                let result = if crate::service::fetch_allowed(&url) {
+                    get(&url, max_bytes).await
+                } else {
+                    Err("this page only fetches designs from MakerFoundry".to_string())
+                };
+                let mut job = job.borrow_mut();
+                job.running = false;
+                job.result = Some(result);
+            });
+            true
+        }
+
+        fn take_fetch(&self) -> Option<Result<Fetched, String>> {
+            self.fetch_job.borrow_mut().result.take()
         }
 
         fn set_leave_warning(&self, on: bool) {
@@ -444,6 +482,70 @@ mod web {
     struct HttpJob {
         running: bool,
         result: Option<Result<(u16, String), String>>,
+    }
+
+    /// The design being fetched from a link (or its answer, not yet taken).
+    #[derive(Default)]
+    struct FetchJob {
+        running: bool,
+        result: Option<Result<Fetched, String>>,
+    }
+
+    /// Reads the design address the page was opened with (`?open=`) and takes it out of the page's address, so reloading the
+    /// page does not fetch it again or put the design back after it was changed.
+    fn take_open_link() -> Option<String> {
+        let window = web_sys::window()?;
+        let location = window.location();
+        let params = web_sys::UrlSearchParams::new_with_str(&location.search().ok()?).ok()?;
+        let value = params.get("open")?;
+        params.delete("open");
+        let rest = params.to_string().as_string().unwrap_or_default();
+        let path = location.pathname().ok()?;
+        let hash = location.hash().unwrap_or_default();
+        let address = format!("{path}{}{hash}", if rest.is_empty() { String::new() } else { format!("?{rest}") });
+        if let Ok(history) = window.history() {
+            let _ = history.replace_state_with_url(&JsValue::NULL, "", Some(&address));
+        }
+        Some(value)
+    }
+
+    /// Fetches `url` with a GET: no cookies or other credentials, no redirects, a time limit, and at most `max_bytes` of
+    /// answer. The address was checked by the caller and by [`crate::service::fetch_allowed`].
+    async fn get(url: &str, max_bytes: usize) -> Result<Fetched, String> {
+        let window = web_sys::window().ok_or("no window")?;
+        let controller = web_sys::AbortController::new().map_err(describe)?;
+        let init = web_sys::RequestInit::new();
+        init.set_method("GET");
+        init.set_credentials(web_sys::RequestCredentials::Omit);
+        init.set_redirect(web_sys::RequestRedirect::Error);
+        init.set_signal(Some(&controller.signal()));
+        let abort = Closure::once_into_js(move || controller.abort());
+        let timer = window.set_timeout_with_callback_and_timeout_and_arguments_0(abort.unchecked_ref(), HTTP_TIMEOUT_MS).ok();
+        let answer = async {
+            let response: web_sys::Response = JsFuture::from(window.fetch_with_str_and_init(url, &init))
+                .await
+                .map_err(describe)?
+                .dyn_into()
+                .map_err(|_| "the browser gave no response".to_string())?;
+            let too_big = || format!("the design is larger than the {} MB this page reads from a link", max_bytes / 1024 / 1024);
+            let declared = response.headers().get("content-length").ok().flatten().and_then(|n| n.parse::<usize>().ok());
+            if declared.is_some_and(|n| n > max_bytes) {
+                return Err(too_big());
+            }
+            let content_disposition = response.headers().get("content-disposition").ok().flatten();
+            let status = response.status();
+            let buffer = JsFuture::from(response.array_buffer().map_err(describe)?).await.map_err(describe)?;
+            let bytes = js_sys::Uint8Array::new(&buffer);
+            if bytes.length() as usize > max_bytes {
+                return Err(too_big());
+            }
+            Ok(Fetched { status, bytes: bytes.to_vec(), content_disposition })
+        }
+        .await;
+        if let Some(timer) = timer {
+            window.clear_timeout_with_handle(timer);
+        }
+        answer
     }
 
     /// The service this page was built for (`LF_CLOUD_URL` when the site was built, else the shared Foundry service).

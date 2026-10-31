@@ -911,4 +911,19 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   fails with the message that names the right one. The test checks the script and the policy, not that the app then runs: that was checked
   once by hand with the built bundle in Chromium (the app started and opened a file). **Not done:** a browser test in CI, which would catch
   other ways the page can fail to start.
+- **2026-10-31 — MakerFoundry: publish a design, and open one from a link.** MakerFoundry's side was already built (its `docs/api.md`, MF-7 and
+  MF-18) and waiting. `laserfoundry_ai::maker` (new, no network code) builds the `POST /api/v1/designs` request and reads its answer, and checks a
+  `?open=` address strictly. The UI has **File › Publish to MakerFoundry…** (a window using the Foundry Account that the AI features use; the draft's
+  page opens in the browser, where the title, licence and price are set) and the browser version opens a design from `?open=`: fetched with a
+  plain GET, no cookies, no redirects, 32 MB at most, named from `Content-Disposition`, imported as a dropped SVG or DXF. New platform hooks
+  (`startup_link`, `start_fetch`, `take_fetch`) keep the hosts thin; the web page's policy and the host's allow-list name MakerFoundry. **Checked:**
+  33 `ai` tests (13 new) and 13 UI tests with every protection removed in turn (4 of 4 and 5 of 5 caught after adding one missing test); a fuzz
+  entry that asserts accepted addresses are MakerFoundry's; the real release bundle in Chromium with MakerFoundry mocked (opens, address cleaned,
+  404 sentence, foreign and look-alike hosts make no request); and the live services through the app's own builders: Foundry sign-up and
+  account, an Ask question (2 credits, balance matched), error mapping, sign-out, and a **publish answered 201** by `makerfoundry.app`. **Side
+  effects of that testing:** three throwaway Foundry accounts (`laserfoundry-livecheck-<time>@example.com`, no email is sent by sign-up) and
+  one tiny private draft, design 1 on MakerFoundry, which MakerFoundry's admins can delete. **Not checked:** the desktop app's own HTTPS client
+  against the live services (the sandbox proxy re-signs HTTPS), a real MakerFoundry design opened from its page (the button is off until
+  MakerFoundry sets `LASERFOUNDRY_OPENS_LINKS`), photos with a publish (the API takes them; the app sends none yet), and Windows and macOS.
+  See `docs/makerfoundry.md`.
 

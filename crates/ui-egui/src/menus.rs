@@ -206,6 +206,12 @@ fn file_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
         }
         ui.close();
     }
+    if app.maker_available()
+        && ui.button(tr("Publish to MakerFoundry…")).on_hover_text(tr("Send this drawing to MakerFoundry as a draft, to share or sell")).clicked()
+    {
+        app.open_ai(crate::ai_ui::Window::Publish);
+        ui.close();
+    }
     if ui.button(tr("Save G-code…")).clicked() {
         if app.platform_browser_files() {
             if let Some(v) = app.run("job.gcode", json!({ "include": true }))

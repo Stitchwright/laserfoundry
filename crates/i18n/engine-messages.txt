@@ -9,11 +9,15 @@ Describe the design first.
 Enter your Anthropic API key first.
 I/O error talking to the machine: {0}
 I/O error: {0}
+MakerFoundry says: {0}
 Not enough credits: buy more in the account window.
 SVG has more than {MAX_TEXT_BYTES} bytes of text; convert the text to paths first
 SVG is larger than {1} MB
 Sign in to your account first (Help › Account…).
+That design is larger than this app opens from a link (32 MB).
+That file isn't an SVG or DXF design, so it can't be opened here.
 That is too long: keep it under 2,000 characters.
+That link isn't one this app can open: it has to be a MakerFoundry design link.
 The AI declined to draw this: try another description.
 The AI service failed (error {0}): try again later.
 The AI service is busy: try again in a minute.
@@ -25,6 +29,7 @@ The reply had no answer: try again, or ask something narrower.
 The reply had no artwork: try again.
 The request failed (error {0}): {1}
 The service can't do this yet: try again later.
+This design is too big for MakerFoundry (the limit is 8 MB): remove some detail and try again.
 Type a question first.
 a batch may hold at most {MAX_BATCH} commands
 a boolean needs at least two shapes

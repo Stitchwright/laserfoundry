@@ -23,6 +23,8 @@ pub(crate) enum Window {
     Redraw,
     Ask,
     Check,
+    /// Send the open drawing to MakerFoundry (`maker_ui`).
+    Publish,
 }
 
 /// Which window a picture being chosen is for.
@@ -34,7 +36,7 @@ pub(crate) enum PictureFor {
 
 /// What the request in flight is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Pending {
+pub(crate) enum Pending {
     SignIn,
     SignUp,
     SignOut,
@@ -43,6 +45,7 @@ enum Pending {
     Art,
     Ask,
     Check,
+    Publish,
 }
 
 /// Everything the AI windows remember.
@@ -56,9 +59,9 @@ pub(crate) struct AiState {
     password: String,
     key: String,
     use_key: bool,
-    token: Option<String>,
+    pub(crate) token: Option<String>,
     account: Option<Account>,
-    pending: Option<Pending>,
+    pub(crate) pending: Option<Pending>,
     /// The person agreed to what is sent (kept with the account settings).
     consented: bool,
     /// Features the person switched off (indexed like [`Window::feature`]); all are on by default.
@@ -68,7 +71,7 @@ pub(crate) struct AiState {
     /// A request waiting for the person's agreement before it is sent the first time.
     awaiting_consent: Option<(Pending, HttpRequest)>,
     /// A line under the window's buttons: what happened, and whether it is an error.
-    note: Option<(String, bool)>,
+    pub(crate) note: Option<(String, bool)>,
     // Design from Prompt and Redraw Image
     prompt: String,
     size_mm: f64,
@@ -100,7 +103,7 @@ impl Window {
             Window::Redraw => Some((1, "redraw")),
             Window::Ask => Some((2, "ask")),
             Window::Check => Some((3, "check")),
-            Window::Account => None,
+            Window::Account | Window::Publish => None,
         }
     }
 }
@@ -117,11 +120,11 @@ impl AiState {
         }
     }
 
-    fn signed_in(&self) -> bool {
+    pub(crate) fn signed_in(&self) -> bool {
         self.token.is_some()
     }
 
-    fn busy(&self) -> bool {
+    pub(crate) fn busy(&self) -> bool {
         self.pending.is_some()
     }
 }
@@ -183,7 +186,7 @@ impl LaserFoundryApp {
         self.platform.secret_set(SECRET_KEY, &value.to_string());
     }
 
-    fn ai_error(&mut self, e: &AiError) {
+    pub(crate) fn ai_error(&mut self, e: &AiError) {
         if matches!(e, AiError::SignIn) && self.ai.token.is_some() && !self.ai.use_key {
             // the session ended: forget it so the window asks for a sign-in
             self.ai.token = None;
@@ -194,7 +197,7 @@ impl LaserFoundryApp {
     }
 
     /// Sends `request` in the background, to be read by [`poll_ai`](Self::poll_ai) as `what`.
-    fn send_ai(&mut self, what: Pending, request: Result<HttpRequest, AiError>) {
+    pub(crate) fn send_ai(&mut self, what: Pending, request: Result<HttpRequest, AiError>) {
         match request {
             Err(e) => self.ai_error(&e),
             Ok(request) if !self.ai.consented && matches!(what, Pending::Art | Pending::Ask | Pending::Check) => {
@@ -334,6 +337,7 @@ impl LaserFoundryApp {
                 }
                 Err(e) => self.ai_error(&e),
             },
+            Pending::Publish => self.publish_answered(status, body),
         }
     }
 
@@ -500,6 +504,7 @@ impl LaserFoundryApp {
             Window::Redraw => tr("Redraw Image"),
             Window::Ask => tr("Ask About Lasering"),
             Window::Check => tr("Check My Cut"),
+            Window::Publish => tr("Publish to MakerFoundry"),
         };
         egui::Window::new(title).open(&mut open).collapsible(false).default_width(460.0).default_pos(egui::pos2(260.0, 70.0)).show(ctx, |ui| {
             match window {
@@ -508,6 +513,7 @@ impl LaserFoundryApp {
                 Window::Redraw => self.design_window(ui, true),
                 Window::Ask => self.ask_window(ui),
                 Window::Check => self.check_window(ui),
+                Window::Publish => self.publish_window(ui),
             }
         });
         if !open {
@@ -535,7 +541,7 @@ impl LaserFoundryApp {
         }
     }
 
-    fn note_row(&self, ui: &mut egui::Ui) {
+    pub(crate) fn note_row(&self, ui: &mut egui::Ui) {
         if let Some((text, error)) = &self.ai.note {
             ui.colored_label(if *error { self.tokens.error } else { ui.visuals().text_color() }, text);
         }

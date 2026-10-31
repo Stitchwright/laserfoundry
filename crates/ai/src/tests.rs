@@ -2,6 +2,7 @@ use serde_json::{Value, json};
 
 use super::art::{self, ArtRequest, Use};
 use super::check::{self, CheckRequest};
+use super::maker;
 use super::*;
 
 const SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="40mm" viewBox="0 0 80 40"><rect width="80" height="40" fill="none" stroke="#ff0000"/></svg>"##;
@@ -328,5 +329,250 @@ mod cloud_tests {
             assert_eq!(cloud::checkout_url(&json!({ "url": bad })), None, "{bad}");
         }
         assert_eq!(cloud::checkout_url(&json!({})), None);
+    }
+}
+
+mod maker_tests {
+    use super::*;
+
+    mod open_link_tests {
+        use super::*;
+
+        #[test]
+        fn a_design_file_on_makerfoundry_is_accepted_and_named() {
+            let link = maker::open_link("https://makerfoundry.app/api/v1/designs/42/file/rose.svg").unwrap();
+            assert_eq!(link.url, "https://makerfoundry.app/api/v1/designs/42/file/rose.svg");
+            assert_eq!(link.name.as_deref(), Some("rose.svg"));
+            let link = maker::open_link("https://www.makerfoundry.app/api/v1/designs/7/file/Box%20lid.DXF?t=abc123").unwrap();
+            assert_eq!(link.url, "https://www.makerfoundry.app/api/v1/designs/7/file/Box%20lid.DXF?t=abc123", "a buyer's link keeps its token");
+            assert_eq!(link.name.as_deref(), Some("Box lid.DXF"));
+            assert_eq!(
+                maker::open_link(" https://MakerFoundry.app/api/v1/designs/1/file/a.svg#frag ").unwrap().url,
+                "https://makerfoundry.app/api/v1/designs/1/file/a.svg"
+            );
+        }
+
+        #[test]
+        fn look_alike_hosts_and_hidden_hosts_are_refused() {
+            for bad in [
+                "http://makerfoundry.app/api/v1/designs/1/file/a.svg",
+                "//makerfoundry.app/api/v1/designs/1/file/a.svg",
+                "https://makerfoundry.app.evil.com/api/v1/designs/1/file/a.svg",
+                "https://evil.com/makerfoundry.app/api/v1/designs/1/file/a.svg",
+                "https://evil.com/?https://makerfoundry.app/api/v1/x.svg",
+                "https://makerfoundry.app@evil.com/api/v1/designs/1/file/a.svg",
+                "https://user@makerfoundry.app/api/v1/designs/1/file/a.svg",
+                "https://user:pw@makerfoundry.app/api/v1/designs/1/file/a.svg",
+                "https://makerfoundry.app:8443/api/v1/designs/1/file/a.svg",
+                "https://makerfoundry.app:443/api/v1/designs/1/file/a.svg",
+                "https://makerfoundry.app./api/v1/designs/1/file/a.svg",
+                "https://evilmakerfoundry.app/api/v1/designs/1/file/a.svg",
+                "https://sub.makerfoundry.app/api/v1/designs/1/file/a.svg",
+                "https://makerfoundry.app\\@evil.com/api/v1/x.svg",
+                "https://makerfoundry.app%2f@evil.com/api/v1/x.svg",
+                "https://m\u{430}kerfoundry.app/api/v1/designs/1/file/a.svg",
+                "https://[::1]/api/v1/designs/1/file/a.svg",
+                "https://127.0.0.1/api/v1/designs/1/file/a.svg",
+                "javascript:alert(1)",
+                "data:image/svg+xml,<svg/>",
+                "file:///etc/passwd",
+                "ftp://makerfoundry.app/api/v1/x.svg",
+                "makerfoundry.app/api/v1/designs/1/file/a.svg",
+            ] {
+                assert_eq!(maker::open_link(bad), Err(AiError::BadLink), "{bad}");
+            }
+        }
+
+        #[test]
+        fn control_characters_spaces_and_paths_that_leave_the_api_are_refused() {
+            for bad in [
+                "",
+                "   ",
+                "https://makerfoundry.app",
+                "https://makerfoundry.app/",
+                "https://makerfoundry.app?x=/api/v1/a.svg",
+                "https://makerfoundry.app/login",
+                "https://makerfoundry.app/designs/1",
+                "https://makerfoundry.app/api/v1",
+                "https://makerfoundry.app/api/v1/../../admin/a.svg",
+                "https://makerfoundry.app/api/v1/designs/1/file/..",
+                "https://makerfoundry.app/api/v1/designs/./1/../../../x.svg",
+                "https://makerfoundry.app/api/v1/designs/1/file/a b.svg",
+                "https://makerfoundry.app/api/v1/designs/1/file/a\tb.svg",
+                "https://makerfoundry.app/api/v1/designs/1/file/a\nb.svg",
+                "https://makerfoundry.app/api/v1/designs/1/file/a\u{0}b.svg",
+                "https://makerfoundry.app/api/v1/designs/1/file/\u{e9}.svg",
+            ] {
+                assert_eq!(maker::open_link(bad), Err(AiError::BadLink), "{bad:?}");
+            }
+            let long = format!("https://makerfoundry.app/api/v1/designs/1/file/{}.svg", "a".repeat(3000));
+            assert_eq!(maker::open_link(&long), Err(AiError::BadLink));
+        }
+
+        #[test]
+        fn a_bad_file_name_does_not_make_the_link_bad_but_gives_no_name() {
+            for tail in ["noextension", "a.pes", "a.svg.exe", ".svg", "%zz.svg", "%ff%fe.svg", "%00.svg"] {
+                let link = maker::open_link(&format!("https://makerfoundry.app/api/v1/designs/1/file/{tail}")).unwrap();
+                assert_eq!(link.name, None, "{tail}");
+            }
+            // an encoded slash is cut to the last part, never a path
+            let link = maker::open_link("https://makerfoundry.app/api/v1/designs/1/file/..%2f..%2fetc%2fa.svg").unwrap();
+            assert_eq!(link.name.as_deref(), Some("a.svg"));
+        }
+    }
+
+    mod file_name_tests {
+        use super::*;
+
+        fn link(name: Option<&str>) -> maker::OpenLink {
+            maker::OpenLink { url: "https://makerfoundry.app/api/v1/designs/1/file/x".into(), name: name.map(Into::into) }
+        }
+
+        #[test]
+        fn the_header_wins_and_the_address_is_the_fallback() {
+            assert_eq!(maker::file_name(&link(Some("a.svg")), Some("attachment; filename=\"rose.dxf\"")).as_deref(), Ok("rose.dxf"));
+            assert_eq!(maker::file_name(&link(Some("a.svg")), Some("attachment; filename*=UTF-8''Box%20lid.svg")).as_deref(), Ok("Box lid.svg"));
+            assert_eq!(maker::file_name(&link(Some("a.svg")), Some("attachment; FILENAME=b.SVG")).as_deref(), Ok("b.SVG"));
+            assert_eq!(maker::file_name(&link(Some("a.svg")), None).as_deref(), Ok("a.svg"));
+            assert_eq!(maker::file_name(&link(Some("a.svg")), Some("inline")).as_deref(), Ok("a.svg"));
+        }
+
+        #[test]
+        fn a_header_that_is_not_a_design_or_tries_a_path_is_not_believed() {
+            for header in [
+                "attachment; filename=\"rose.pes\"",
+                "attachment; filename=\"\"",
+                "attachment; filename*=ISO-8859-1''a.svg",
+                "attachment; filename*=UTF-8''%zz.svg",
+                "attachment; filename=\"x\u{0}.svg\"",
+                ";;;;",
+                "filename",
+            ] {
+                assert_eq!(maker::file_name(&link(None), Some(header)), Err(AiError::NotADesign), "{header}");
+            }
+            assert_eq!(maker::file_name(&link(None), Some("attachment; filename=\"../../etc/a.svg\"")).as_deref(), Ok("a.svg"));
+            assert_eq!(maker::file_name(&link(Some("ok.svg")), Some("attachment; filename=\"../../etc/passwd\"")).as_deref(), Ok("ok.svg"));
+            assert_eq!(maker::file_name(&link(None), None), Err(AiError::NotADesign));
+            let huge = format!("attachment; filename=\"{}.svg\"", "a".repeat(5000));
+            assert_eq!(maker::file_name(&link(None), Some(&huge)), Err(AiError::NotADesign));
+        }
+    }
+
+    mod publish_tests {
+        use super::*;
+
+        #[test]
+        fn a_design_is_sent_to_the_designs_address_with_the_session_token() {
+            let r = maker::publish("https://makerfoundry.app/", " sfs_tok ", "rose.svg", "PHN2Zy8+", "LaserFoundry 0.2.0").unwrap();
+            assert_eq!(r.url, "https://makerfoundry.app/api/v1/designs");
+            assert_eq!(header(&r, "authorization"), Some("Bearer sfs_tok"));
+            assert_eq!(header(&r, "content-type"), Some("application/json"));
+            let b: Value = serde_json::from_str(&r.body).unwrap();
+            assert_eq!(b, json!({"file_name": "rose.svg", "file": "PHN2Zy8+", "app": "LaserFoundry 0.2.0"}));
+        }
+
+        #[test]
+        fn only_a_foundry_session_may_send_and_only_a_design_file() {
+            assert_eq!(
+                maker::publish("https://makerfoundry.app", "sk-ant-key", "a.svg", "AAAA", "x"),
+                Err(AiError::SignIn),
+                "an Anthropic key is never sent"
+            );
+            assert_eq!(maker::publish("https://makerfoundry.app", "", "a.svg", "AAAA", "x"), Err(AiError::SignIn));
+            for name in ["a.pes", "a", "", ".svg", "a.svg.png"] {
+                assert_eq!(maker::publish("https://makerfoundry.app", "sfs_t", name, "AAAA", "x"), Err(AiError::NotADesign), "{name}");
+            }
+            assert_eq!(maker::publish("https://makerfoundry.app", "sfs_t", "a.svg", "", "x"), Err(AiError::NotADesign));
+            assert_eq!(
+                maker::publish("http://makerfoundry.app", "sfs_t", "a.svg", "AAAA", "x"),
+                Err(AiError::NoServer),
+                "plain http only to this computer"
+            );
+            let local = maker::publish("http://127.0.0.1:8080", "sfs_t", "a.svg", "AAAA", "x").unwrap();
+            assert_eq!(local.url, "http://127.0.0.1:8080/api/v1/designs");
+        }
+
+        #[test]
+        fn the_name_is_a_plain_name_and_a_big_file_is_refused_before_sending() {
+            let r = maker::publish("https://makerfoundry.app", "sfs_t", "../../etc/rose.svg", "AAAA", "x").unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&r.body).unwrap()["file_name"], "rose.svg");
+            let r = maker::publish("https://makerfoundry.app", "sfs_t", "a.svg", "AAAA", "App\r\nX-Evil: 1").unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&r.body).unwrap()["app"], "AppX-Evil: 1", "control characters are dropped");
+            let big = "A".repeat(maker::MAX_PUBLISH_BYTES / 3 * 4 + 8);
+            assert_eq!(maker::publish("https://makerfoundry.app", "sfs_t", "a.svg", &big, "x"), Err(AiError::TooBigToPublish));
+            let fits = "A".repeat(maker::MAX_PUBLISH_BYTES / 3 * 4);
+            assert!(maker::publish("https://makerfoundry.app", "sfs_t", "a.svg", &fits, "x").is_ok());
+        }
+    }
+
+    mod answer_tests {
+        use super::*;
+
+        const SERVER: &str = "https://makerfoundry.app";
+
+        #[test]
+        fn a_kept_draft_gives_its_page() {
+            let body = r#"{"id": 42, "url": "https://makerfoundry.app/designs/42", "kind": "laser", "format": "SVG"}"#;
+            assert_eq!(maker::read_published(SERVER, 201, body), Ok(maker::Published { id: 42, url: "https://makerfoundry.app/designs/42".into() }));
+        }
+
+        #[test]
+        fn an_answer_cannot_send_the_browser_to_another_site() {
+            for url in [
+                "https://evil.com/designs/42",
+                "http://makerfoundry.app/designs/42",
+                "https://makerfoundry.app.evil.com/x",
+                "https://makerfoundry.app@evil.com/x",
+                "javascript:alert(1)",
+                "//evil.com/x",
+                "https://makerfoundry.app/a b",
+                "",
+            ] {
+                let body = json!({"id": 1, "url": url}).to_string();
+                assert_eq!(maker::read_published(SERVER, 201, &body), Err(AiError::NoAnswer), "{url:?}");
+            }
+            for body in [
+                "",
+                "not json",
+                "[]",
+                r#"{"id": "x", "url": "https://makerfoundry.app/d/1"}"#,
+                r#"{"id": 1}"#,
+                r#"{"url": "https://makerfoundry.app/d/1"}"#,
+                r#"{"id": -1, "url": "https://makerfoundry.app/d/1"}"#,
+            ] {
+                assert_eq!(maker::read_published(SERVER, 201, body), Err(AiError::NoAnswer), "{body}");
+            }
+            let local = json!({"id": 1, "url": "http://127.0.0.1:8080/designs/1"}).to_string();
+            assert!(maker::read_published("http://127.0.0.1:8080", 201, &local).is_ok(), "a local service answers with its own address");
+            assert_eq!(maker::read_published(SERVER, 201, &local), Err(AiError::NoAnswer));
+        }
+
+        #[test]
+        fn refusals_say_what_to_do() {
+            let said = |m: &str| json!({"error": {"message": m}}).to_string();
+            assert_eq!(maker::read_published(SERVER, 401, &said("Sign in to your Foundry Account first.")), Err(AiError::SignIn));
+            assert_eq!(maker::read_published(SERVER, 413, ""), Err(AiError::TooBigToPublish));
+            assert_eq!(maker::read_published(SERVER, 422, &said("That SVG has no lines.")), Err(AiError::Maker("That SVG has no lines.".into())));
+            assert_eq!(maker::read_published(SERVER, 429, &said("Too many designs today.")), Err(AiError::Maker("Too many designs today.".into())));
+            assert_eq!(maker::read_published(SERVER, 503, &said("Keeping designs is off.")), Err(AiError::Maker("Keeping designs is off.".into())));
+            assert_eq!(maker::read_published(SERVER, 500, "oops"), Err(AiError::Service(500)));
+            assert_eq!(maker::read_published(SERVER, 418, "teapot"), Err(AiError::Request(418, "teapot".into())));
+            let long = maker::read_published(SERVER, 422, &said(&"x".repeat(5000)));
+            assert!(matches!(long, Err(AiError::Maker(m)) if m.chars().count() == 300), "a long message is cut");
+        }
+
+        #[test]
+        fn a_failed_design_fetch_is_explained_in_makerfoundrys_words() {
+            let said = |m: &str| json!({"error": {"message": m}}).to_string().into_bytes();
+            assert_eq!(
+                maker::open_failure(404, &said("That design isn't on MakerFoundry.")),
+                AiError::Maker("That design isn't on MakerFoundry.".into())
+            );
+            assert_eq!(maker::open_failure(403, &said("This design is for sale.")), AiError::Maker("This design is for sale.".into()));
+            assert_eq!(maker::open_failure(429, b""), AiError::Maker("no details".into()));
+            assert_eq!(maker::open_failure(502, b"bad gateway"), AiError::Service(502));
+            assert!(matches!(maker::open_failure(404, &[0xff, 0xfe, 0x00]), AiError::Maker(_)), "a body that is not text does not break it");
+            assert!(matches!(maker::open_failure(400, b"x"), AiError::Request(400, _)));
+        }
     }
 }

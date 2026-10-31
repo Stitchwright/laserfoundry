@@ -16,6 +16,7 @@ pub mod art;
 pub mod ask;
 pub mod check;
 pub mod cloud;
+pub mod maker;
 
 /// The Messages API endpoint used with a person's own key.
 pub const API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -131,6 +132,21 @@ pub enum AiError {
     /// The request never got an answer (from the host's client).
     #[error("Couldn't reach the service: {0}")]
     Network(String),
+    /// MakerFoundry refused or couldn't do it, in its own words (they are meant to be shown as they are).
+    #[error("MakerFoundry says: {0}")]
+    Maker(String),
+    /// The design is larger than MakerFoundry takes for a laser file.
+    #[error("This design is too big for MakerFoundry (the limit is 8 MB): remove some detail and try again.")]
+    TooBigToPublish,
+    /// A link to open a design from isn't one of MakerFoundry's.
+    #[error("That link isn't one this app can open: it has to be a MakerFoundry design link.")]
+    BadLink,
+    /// The file behind a link isn't an SVG or DXF design.
+    #[error("That file isn't an SVG or DXF design, so it can't be opened here.")]
+    NotADesign,
+    /// The file behind a link is larger than the app reads.
+    #[error("That design is larger than this app opens from a link (32 MB).")]
+    LinkTooBig,
 }
 
 impl AiError {

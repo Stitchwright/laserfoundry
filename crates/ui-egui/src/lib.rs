@@ -15,6 +15,7 @@ mod ai_ui;
 mod browser_recent;
 mod job_position;
 mod machine_report;
+mod maker_ui;
 mod menus;
 mod nodes_ui;
 mod panels;
@@ -32,7 +33,7 @@ mod theme;
 mod timeline_ui;
 mod view;
 
-pub use platform::{FontDownload, FontDownloadFailure, NoPlatform, Platform, Upload};
+pub use platform::{Fetched, FontDownload, FontDownloadFailure, NoPlatform, Platform, Upload};
 
 use crate::i18n::{tr, trf};
 use std::path::PathBuf;
@@ -215,6 +216,7 @@ pub struct LaserFoundryApp {
     /// A program waiting for the person to confirm a start the bed cannot be checked for (relative start).
     pending_start: Option<String>,
     ai: ai_ui::AiState,
+    maker: maker_ui::MakerState,
     /// A web address to open in the browser at the next frame (a payment page).
     pending_url: Option<String>,
     /// The controller's settings were asked for on this connection (so jobs can be refused when laser mode is off).
@@ -415,6 +417,7 @@ impl LaserFoundryApp {
             allow_close: false,
             pending_start: None,
             ai: ai_ui::AiState::default(),
+            maker: maker_ui::MakerState::default(),
             pending_url: None,
             settings_asked: false,
             relative_start_trusted: false,
@@ -435,6 +438,7 @@ impl LaserFoundryApp {
         self.watch_close_and_title(ui.ctx());
         self.platform.set_leave_warning(self.job_active() || self.session.dirty);
         self.poll_ai(ui.ctx());
+        self.poll_maker(ui.ctx());
         if let Some(url) = self.pending_url.take() {
             ui.ctx().open_url(egui::OpenUrl::new_tab(url));
         }

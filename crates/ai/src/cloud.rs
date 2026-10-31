@@ -36,7 +36,7 @@ pub fn clean_server(server: &str) -> Option<String> {
 }
 
 /// A POST of `body` to `path` on `server`, signed in with `token` when given.
-fn post(server: &str, path: &str, token: Option<&str>, body: &Value) -> Result<HttpRequest, AiError> {
+pub(crate) fn post(server: &str, path: &str, token: Option<&str>, body: &Value) -> Result<HttpRequest, AiError> {
     let server = clean_server(server).ok_or(AiError::NoServer)?;
     let mut headers = vec![("content-type", "application/json".to_string())];
     if let Some(token) = token {

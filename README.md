@@ -5,6 +5,8 @@ LightBurn-class workflow.** Lay out artwork, give each colour layer its own spee
 fill settings, preview the toolpath, and stream GRBL G-code to your machine, or to the built-in
 simulator when nothing is plugged in.
 
+> **MakerFoundry:** send your drawing to [MakerFoundry](https://makerfoundry.app) as a draft (File › Publish to MakerFoundry…) and open its designs from a link: [`docs/makerfoundry.md`](docs/makerfoundry.md).
+>
 > **Features and screenshots:** https://stitchwright.github.io/laserfoundry/features/ (source in `apps/laserfoundry-web/site/`).
 >
 > **Status: early.** The core pipeline works end to end and is well tested, but this is a small

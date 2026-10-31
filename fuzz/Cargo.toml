@@ -85,6 +85,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "maker"
+path = "fuzz_targets/maker.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "font_index"
 path = "fuzz_targets/font_index.rs"
 test = false

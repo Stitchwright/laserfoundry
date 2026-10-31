@@ -11,6 +11,15 @@ pub struct Upload {
     pub bytes: Vec<u8>,
 }
 
+/// What a server answered to a plain GET of a design file (see [`Platform::start_fetch`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Fetched {
+    pub status: u16,
+    pub bytes: Vec<u8>,
+    /// The answer's `Content-Disposition` header, which names the file.
+    pub content_disposition: Option<String>,
+}
+
 /// What a finished font library download achieved. The host sends these figures, not sentences, because it finishes on
 /// another thread, where the person's translation is not active; the interface words them (see [`FontDownload::text`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,6 +142,24 @@ pub trait Platform {
 
     /// Once, after a started request has finished: the HTTP status and body, or why nothing came back.
     fn take_http(&self) -> Option<Result<(u16, String), String>> {
+        None
+    }
+
+    /// The address a page was opened to show a design from (the web app's `?open=` value, decoded once), taken once at
+    /// start. The host also drops it from the page's address, so a reload does not fetch it again. Desktop hosts have none.
+    fn startup_link(&self) -> Option<String> {
+        None
+    }
+
+    /// Starts fetching `url` with a GET in the background, sending no cookies or other credentials, following no redirects and
+    /// reading at most `max_bytes` of the answer. The app has already checked the address; a host may refuse more. False when
+    /// this host cannot fetch, or one fetch is already running.
+    fn start_fetch(&self, _url: &str, _max_bytes: usize) -> bool {
+        false
+    }
+
+    /// Once, after a started fetch has finished: the answer, or why nothing came back.
+    fn take_fetch(&self) -> Option<Result<Fetched, String>> {
         None
     }
 

@@ -14,6 +14,7 @@ workspace = true
 
 [dependencies]
 serde_json = { workspace = true }
+laserfoundry-ai = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 laserfoundry-engine = { workspace = true }
@@ -23,9 +24,8 @@ eframe = { workspace = true, features = ["default_fonts", "glow"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "Element", "Node", "File", "FileList", "FileReader", "Blob", "BlobPropertyBag", "Url", "Event", "EventTarget", "ProgressEvent", "Storage", "Response", "Request", "RequestInit", "RequestRedirect", "Headers", "AbortController", "AbortSignal"] }
+web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "Element", "Node", "File", "FileList", "FileReader", "Blob", "BlobPropertyBag", "Url", "Event", "EventTarget", "ProgressEvent", "Storage", "Response", "Request", "RequestInit", "RequestRedirect", "Headers", "AbortController", "AbortSignal", "Location", "History", "UrlSearchParams", "RequestCredentials"] }
 log = { workspace = true }
-laserfoundry-ai = { workspace = true }
 
 [dev-dependencies]
 laserfoundry-doc = { workspace = true }

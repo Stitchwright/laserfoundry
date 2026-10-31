@@ -940,7 +940,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   as `design.svg`, so its draft would be titled just "design" (MakerFoundry's chat pointed this out). The window now has a **Name** field: the
   project's name when there is one, empty for an unsaved project (Send waits for a name), and what the person types wins and stays. The name
   is made plain (letters, digits, spaces, hyphens, underscores; anything else becomes `_`; a typed `.svg` is dropped; 60 characters; no stray
-  `_`, `.` or space at the ends). **Checked:** 14 UI tests for publishing and naming (a table of 24 typed names including paths, control
+  `_`, `.` or space at the ends). **Checked:** 14 UI tests for opening and publishing (a table of 21 typed names including paths, control
   characters, emoji, other scripts and an empty result, and a check that whatever is typed gives a name MakerFoundry takes), five deliberate
   breakages each caught (an empty name sent, the typed name ignored, an empty field falling back, no cleaning, a kept `.svg`; the last one
   was first a no-op that I noticed and redid), and the real desktop app run under Xvfb with a stand-in session: the saved project shows

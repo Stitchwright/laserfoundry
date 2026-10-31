@@ -2025,6 +2025,7 @@ dependencies = [
  "js-sys",
  "laserfoundry-ai",
  "laserfoundry-device",
+ "laserfoundry-doc",
  "laserfoundry-engine",
  "laserfoundry-ui-egui",
  "log",

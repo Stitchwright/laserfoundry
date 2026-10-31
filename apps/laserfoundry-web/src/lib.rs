@@ -7,6 +7,7 @@
 #![allow(unsafe_code)]
 
 pub mod fontindex;
+mod page;
 pub mod service;
 
 #[cfg(target_arch = "wasm32")]

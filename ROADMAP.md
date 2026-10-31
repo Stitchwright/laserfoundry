@@ -903,4 +903,12 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   history window, select by size, the font manager, the Marlin link, corner-aware time estimates, the application icon, the regression suite, the
   importer fixes, egui 0.37 and the certificate-library updates. Those need a new tag (v0.1.1 or v0.2.0) with its own notes
   (`docs/releases/<tag>.md`); nothing is drafted yet.
+- **2026-10-31 — The hosted web app was blank in browsers since the rename; fixed.** The page's content security policy lets its one inline
+  start-up script run by hash. The 2026-10-19 rename changed the script's text (`lightfoundry_web.js` became `laserfoundry_web.js`) but not
+  the hash, so Chromium refused to run it and the app never started at https://stitchwright.github.io/laserfoundry/ (12 days). It was found by
+  loading the real page in Chromium for the first time; no earlier test or check loaded it. The hash is corrected, and a native test
+  (`apps/laserfoundry-web/src/page.rs`) now computes the script's SHA-256 and fails when it is not in the policy; with the old hash put back it
+  fails with the message that names the right one. The test checks the script and the policy, not that the app then runs: that was checked
+  once by hand with the built bundle in Chromium (the app started and opened a file). **Not done:** a browser test in CI, which would catch
+  other ways the page can fail to start.
 

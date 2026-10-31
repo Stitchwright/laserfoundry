@@ -26,3 +26,6 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "HtmlElement", "HtmlInputElement", "HtmlAnchorElement", "Element", "Node", "File", "FileList", "FileReader", "Blob", "BlobPropertyBag", "Url", "Event", "EventTarget", "ProgressEvent", "Storage", "Response", "Request", "RequestInit", "RequestRedirect", "Headers", "AbortController", "AbortSignal"] }
 log = { workspace = true }
 laserfoundry-ai = { workspace = true }
+
+[dev-dependencies]
+laserfoundry-doc = { workspace = true }

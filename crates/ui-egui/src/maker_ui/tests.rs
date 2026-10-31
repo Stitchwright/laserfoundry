@@ -151,13 +151,14 @@ mod publish_tests {
     fn a_signed_in_person_sends_the_drawing_and_the_draft_page_opens() {
         let (mut app, shared) = signed_in_app();
         app.run("shape.rectangle", json!({"x": 10, "y": 10, "width": 30, "height": 20})).unwrap();
+        app.maker.name_edited = Some("Rose box".into());
         app.start_publish();
         assert_eq!(app.ai.pending, Some(Pending::Publish));
         let sent = shared.borrow().sent.last().cloned().unwrap();
         assert_eq!(sent.url, "https://makerfoundry.app/api/v1/designs");
         assert!(sent.headers.iter().any(|(k, v)| *k == "authorization" && v == "Bearer sfs_tok"));
         let body: Value = serde_json::from_str(&sent.body).unwrap();
-        assert_eq!(body["file_name"], "design.svg");
+        assert_eq!(body["file_name"], "Rose box.svg");
         assert!(body["app"].as_str().unwrap().starts_with("LaserFoundry "));
         let svg = String::from_utf8(laserfoundry_doc::base64::decode(body["file"].as_str().unwrap()).unwrap()).unwrap();
         assert!(svg.contains("<svg") && svg.contains("<path") || svg.contains("<rect"), "the drawing as an SVG: {svg}");
@@ -182,21 +183,76 @@ mod publish_tests {
     }
 
     #[test]
-    fn the_file_is_named_after_the_project_as_a_plain_name() {
+    fn the_name_defaults_to_the_projects_and_what_the_person_types_wins() {
         let (mut app, shared) = signed_in_app();
         app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
-        for (path, name) in [
-            ("/home/me/My Box (v2).laserfoundry", "My Box _v2.svg"),
-            ("/home/me/.laserfoundry", "laserfoundry.svg"),
-            ("/home/me/___.laserfoundry", "design.svg"),
-            ("/home/me/../../x/évè-1.laserfoundry", "évè-1.svg"),
-        ] {
-            app.session.path = Some(PathBuf::from(path));
+        let sent_name = |app: &mut LaserFoundryApp| {
             shared.borrow_mut().in_flight = false;
             app.ai.pending = None;
+            let before = shared.borrow().sent.len();
             app.start_publish();
-            let body: Value = serde_json::from_str(&shared.borrow().sent.last().unwrap().body).unwrap();
-            assert_eq!(body["file_name"], name, "{path}");
+            let sent = shared.borrow().sent.get(before).cloned(); // only a request this call made
+            sent.map(|r| serde_json::from_str::<Value>(&r.body).unwrap()["file_name"].as_str().unwrap().to_string())
+        };
+        // a project that has not been saved has no name to offer, so nothing is sent until the person gives one
+        assert_eq!(app.publish_name(), "");
+        assert_eq!(sent_name(&mut app), None);
+        assert_eq!(app.ai.note, Some(("Give the design a name first: it becomes the draft's title on MakerFoundry.".to_string(), true)));
+        // a saved project offers its own name, and follows it
+        app.session.path = Some(PathBuf::from("/home/me/My Box (v2).laserfoundry"));
+        assert_eq!(app.publish_name(), "My Box _v2");
+        assert_eq!(sent_name(&mut app).as_deref(), Some("My Box _v2.svg"));
+        app.session.path = Some(PathBuf::from("/home/me/Lid.laserfoundry"));
+        assert_eq!(sent_name(&mut app).as_deref(), Some("Lid.svg"));
+        // what the person types wins, and stays when the project changes
+        app.maker.name_edited = Some("Wedding sign – final!".into());
+        assert_eq!(sent_name(&mut app).as_deref(), Some("Wedding sign _ final.svg"));
+        app.session.path = Some(PathBuf::from("/home/me/Other.laserfoundry"));
+        assert_eq!(sent_name(&mut app).as_deref(), Some("Wedding sign _ final.svg"));
+        // emptying the field means "no name", not "use the project's"
+        app.maker.name_edited = Some(String::new());
+        assert_eq!(sent_name(&mut app), None);
+    }
+
+    #[test]
+    fn a_name_is_made_plain_and_never_empty_or_a_path() {
+        for (typed, plain) in [
+            ("Box lid", "Box lid"),
+            ("  Box lid  ", "Box lid"),
+            ("Box_lid-v2", "Box_lid-v2"),
+            ("My Box (v2)", "My Box _v2"),
+            ("..hidden..", "hidden"),
+            ("a/b\\c", "a_b_c"),
+            ("../../etc/passwd", "etc_passwd"),
+            ("évè-1 ünï", "évè-1 ünï"),
+            ("花瓶", "花瓶"),
+            ("a\nb\tc\u{0}d", "a_b_c_d"),
+            ("name.svg", "name"),
+            ("NAME.SVG", "NAME"),
+            ("a.svg.svg", "a_svg"),
+            (".svg", ""),
+            ("svg", "svg"),
+            ("花瓶.svg", "花瓶"),
+            ("___", ""),
+            ("...", ""),
+            ("   ", ""),
+            ("🙂", ""),
+            ("", ""),
+        ] {
+            assert_eq!(plain_design_name(typed), plain, "{typed:?}");
+        }
+        let long = "x".repeat(200);
+        assert_eq!(plain_design_name(&long).chars().count(), MAX_NAME);
+        // whatever the person types, what is sent is accepted by the checks MakerFoundry's address and the request have
+        let (mut app, shared) = ready_app();
+        for typed in ["Box lid", "../../etc/passwd", "a\u{0}b", "name.svg", &long, "花瓶", "é.svg", "\u{1F642}ab.SVG"] {
+            shared.borrow_mut().in_flight = false;
+            app.ai.pending = None;
+            app.maker.name_edited = Some(typed.to_string());
+            app.start_publish();
+            let sent = shared.borrow().sent.last().cloned().unwrap();
+            let name = serde_json::from_str::<Value>(&sent.body).unwrap()["file_name"].as_str().unwrap().to_string();
+            assert!(name.ends_with(".svg") && !name.contains(['/', '\\']) && name.chars().count() <= MAX_NAME + 4, "{typed:?} -> {name:?}");
         }
     }
 
@@ -204,22 +260,19 @@ mod publish_tests {
     fn answers_that_misdirect_or_refuse_are_handled() {
         // a draft address on another site is never opened
         for url in ["https://evil.com/designs/1", "http://makerfoundry.app/designs/1", "javascript:alert(1)", "https://makerfoundry.app@evil.com/x"] {
-            let (mut app, shared) = signed_in_app();
-            app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
+            let (mut app, shared) = ready_app();
             app.start_publish();
             answer(&mut app, &shared, 201, &json!({"id": 1, "url": url}).to_string());
             assert_eq!(app.pending_url, None, "{url}");
             assert!(app.ai.note.as_ref().unwrap().1);
         }
         // MakerFoundry's own sentence is shown as it is
-        let (mut app, shared) = signed_in_app();
-        app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
+        let (mut app, shared) = ready_app();
         app.start_publish();
         answer(&mut app, &shared, 429, r#"{"error": {"message": "Too many designs today."}}"#);
         assert_eq!(app.ai.note, Some(("MakerFoundry says: Too many designs today.".to_string(), true)));
         // an ended session is forgotten, so the window asks for a sign-in
-        let (mut app, shared) = signed_in_app();
-        app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
+        let (mut app, shared) = ready_app();
         app.start_publish();
         answer(&mut app, &shared, 401, r#"{"error": {"message": "Sign in to your Foundry Account first."}}"#);
         assert_eq!(app.ai.token, None);
@@ -228,8 +281,7 @@ mod publish_tests {
 
     #[test]
     fn a_second_send_while_one_is_running_is_refused_not_queued() {
-        let (mut app, shared) = signed_in_app();
-        app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
+        let (mut app, shared) = ready_app();
         app.start_publish();
         app.ai.pending = None; // as if the window let a second click through
         app.start_publish();
@@ -335,6 +387,14 @@ fn app_with_secrets(secrets: Value) -> (LaserFoundryApp, Rc<RefCell<Shared>>) {
 fn build(shared: Shared) -> (LaserFoundryApp, Rc<RefCell<Shared>>) {
     let shared = Rc::new(RefCell::new(shared));
     (LaserFoundryApp::new(Session::new(), Box::new(Fake(Rc::clone(&shared)))), shared)
+}
+
+/// A signed-in app with a drawing and a name for it, ready to send.
+fn ready_app() -> (LaserFoundryApp, Rc<RefCell<Shared>>) {
+    let (mut app, shared) = signed_in_app();
+    app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
+    app.maker.name_edited = Some("Test design".into());
+    (app, shared)
 }
 
 /// An app whose person is signed in to a Foundry Account.

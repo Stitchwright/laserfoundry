@@ -958,3 +958,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   it in the system browser (as the existing GitHub and bug-report entries do); nothing is sent. The features page footer and the README link to both.
   There is no Windows installer to put them in (the download is a zip). Checked by a test of the two addresses and the commands golden file; the
   Buy Me a Coffee page's own About text still describes another app (noted in the owner's ops check), which is not something this repository can fix.
+
+- **2026-11-01 — Version 0.2.1.** The workspace version is 0.2.1 (`Cargo.toml`, both lockfiles), ahead of tagging `v0.2.1`; notes are in
+  `docs/releases/v0.2.1.md`. Main's CI, Pages and Desktop were green on 54a67d6 before the bump. What changed since 0.2.0: the Name field for
+  Publish to MakerFoundry, the pass-counting move cap, the two Help links, and dependency bumps (usvg 0.49, harfrust 0.15, skrifa 0.49,
+  roxmltree 0.21.2, and the Windows signing action 1.2.0 to 2.0.0). Not done and not checked: the signing action's major bump has never run
+  (the sign jobs run only on a `v*` tag), the SVG and text libraries have no real-world use at these versions, and there has been no cutter or
+  fresh-Windows test.

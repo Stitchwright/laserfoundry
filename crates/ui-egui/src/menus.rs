@@ -151,7 +151,12 @@ fn ai_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
 
 /// Help: each entry's command returns a web address, which the system browser opens.
 fn help_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
-    for (label, id) in [("LaserFoundry on GitHub", "help.github"), ("Report a Bug…", "help.report_bug")] {
+    for (label, id) in [
+        ("LaserFoundry on GitHub", "help.github"),
+        ("Report a Bug…", "help.report_bug"),
+        ("MakerFoundry on YouTube…", "help.youtube"),
+        ("Support the Project…", "help.support"),
+    ] {
         if item(ui, label, "")
             && let Some(url) = app.run(id, Value::Null).and_then(|v| v["url"].as_str().map(str::to_string))
         {

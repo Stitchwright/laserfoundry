@@ -7,6 +7,10 @@ use crate::{EngineError, Session};
 
 /// This app's source repository.
 pub const GITHUB_URL: &str = "https://github.com/Stitchwright/laserfoundry";
+/// Where people can chip in to support the project's development (a Buy Me a Coffee page).
+pub const SUPPORT_URL: &str = "https://buymeacoffee.com/bwattendorf";
+/// The Foundry family's YouTube channel (MakerFoundry).
+pub const YOUTUBE_URL: &str = "https://www.youtube.com/@MakerFoundryApp";
 /// Where bug reports go: StitchHub's report page, which files them as issues on this app's GitHub repository.
 pub const BUG_REPORT_URL: &str = "https://hub.stitchbench.app/report-a-bug";
 
@@ -29,7 +33,33 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         mutates: false,
         run: report_bug,
     },
+    CommandSpec {
+        id: "help.support",
+        label: "Support the Project…",
+        menu: "Help",
+        shortcut: None,
+        params_doc: "{}  — returns {url}: the Buy Me a Coffee page for helping with development (optional; nothing is unlocked by it)",
+        mutates: false,
+        run: support,
+    },
+    CommandSpec {
+        id: "help.youtube",
+        label: "MakerFoundry on YouTube…",
+        menu: "Help",
+        shortcut: None,
+        params_doc: "{}  — returns {url}: the MakerFoundry YouTube channel",
+        mutates: false,
+        run: youtube,
+    },
 ];
+
+fn support(_: &mut Session, _: &Value) -> Result<Value, EngineError> {
+    Ok(json!({ "url": SUPPORT_URL }))
+}
+
+fn youtube(_: &mut Session, _: &Value) -> Result<Value, EngineError> {
+    Ok(json!({ "url": YOUTUBE_URL }))
+}
 
 fn github(_: &mut Session, _: &Value) -> Result<Value, EngineError> {
     Ok(json!({ "url": GITHUB_URL }))
@@ -68,6 +98,13 @@ mod tests {
         let u = s.execute("help.report_bug", &json!({})).unwrap()["url"].as_str().unwrap().to_string();
         assert!(u.starts_with("https://hub.stitchbench.app/report-a-bug?program=laserfoundry&version="), "{u}");
         assert!(u.contains(&format!("version={}", env!("CARGO_PKG_VERSION"))) && u.contains("&system="), "{u}");
+    }
+
+    #[test]
+    fn the_community_links_are_fixed_https_addresses() {
+        let mut s = Session::new();
+        assert_eq!(s.execute("help.support", &json!({})).unwrap()["url"], "https://buymeacoffee.com/bwattendorf");
+        assert_eq!(s.execute("help.youtube", &json!({})).unwrap()["url"], "https://www.youtube.com/@MakerFoundryApp");
     }
 
     #[test]

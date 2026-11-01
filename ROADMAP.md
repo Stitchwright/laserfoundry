@@ -965,3 +965,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   roxmltree 0.21.2, and the Windows signing action 1.2.0 to 2.0.0). Not done and not checked: the signing action's major bump has never run
   (the sign jobs run only on a `v*` tag), the SVG and text libraries have no real-world use at these versions, and there has been no cutter or
   fresh-Windows test.
+
+- **2026-11-01 — GRBL job lines wait until earlier commands are answered.** GRBL answers lines in order, and the job's byte window starts
+  from an empty receive buffer, but a job could start streaming while a typed command (Home's `$H`, say) still owed its `ok`; that `ok` was
+  then counted as the first job line's, freeing credit for a line GRBL had not accepted, so a Home followed quickly by Start could overfill
+  the 128-byte receive buffer with the laser on. Now a GRBL job accepted while answers are owed sends nothing until they are all in (the
+  console says it is waiting; an alarm meanwhile ends the job before any line goes, and the idle timeout covers a controller that never
+  answers), answers go to earlier commands first, and a soft reset forgets answers it discarded. The Marlin link was already safe (it uses
+  owed answers up first and streams one line at a time). Regression tests in `grbl_answer_tests` against a scripted controller:
+  `job_lines_wait_until_a_typed_command_has_been_answered` and `an_alarm_while_a_job_waits_for_homing_ends_it_before_any_line_is_sent`
+  (both fail without the fix) and `stop_clears_answers_still_owed_so_a_job_can_start`. Not checked: a real controller.

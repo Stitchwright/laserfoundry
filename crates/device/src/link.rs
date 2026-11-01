@@ -440,7 +440,11 @@ impl Worker {
     /// Stops motion and switches the laser off: GRBL is soft-reset, Marlin gets `M410` and `M5`.
     fn stop_machine(&mut self) -> Result<(), DeviceError> {
         match self.protocol {
-            Protocol::Grbl => self.transport.write_all(&[realtime::SOFT_RESET])?,
+            Protocol::Grbl => {
+                self.transport.write_all(&[realtime::SOFT_RESET])?;
+                // A reset throws away everything the controller had not answered: nothing more is coming for those lines.
+                self.pending.clear();
+            }
             Protocol::Marlin => {
                 self.transport.write_all(MARLIN_STOP)?;
                 // Each is answered `ok`; nothing is waiting for those.
@@ -449,6 +453,14 @@ impl Worker {
             }
         }
         Ok(())
+    }
+
+    /// Whether a GRBL controller still owes answers for lines sent before the job (a homing cycle, say). GRBL answers in order and
+    /// the job's byte window starts from an empty receive buffer, so job lines wait until these are in: otherwise an earlier
+    /// command's `ok` would be counted as a job line's, freeing credit for a line not yet accepted and overfilling the controller's
+    /// buffer with the laser on.
+    fn grbl_answers_owed(&self) -> bool {
+        self.protocol == Protocol::Grbl && !self.pending.is_empty()
     }
 
     /// Sends one line the person asked for and waits for its answer in the background.
@@ -506,6 +518,13 @@ impl Worker {
                     match JobStream::with_window(&program, window) {
                         Ok(job) => {
                             self.log(format!("job started: {} lines", job.progress().total));
+                            if self.grbl_answers_owed() {
+                                self.log(format!(
+                                    "job waiting: the machine has not yet answered {} earlier command(s) (a homing cycle, say); \
+                                     its lines go once it has",
+                                    self.pending.len()
+                                ));
+                            }
                             self.job = Some(job);
                             self.paused = false;
                             self.finishing = false;
@@ -572,9 +591,11 @@ impl Worker {
                 Protocol::Marlin => {}
             }
         }
+        let answers_owed = self.grbl_answers_owed();
         if let Some(job) = self.job.as_mut()
             && !self.finishing
             && !(self.paused && self.protocol == Protocol::Marlin)
+            && !answers_owed
         {
             job.pump(self.transport.as_mut())?;
             let p = job.progress();
@@ -586,7 +607,7 @@ impl Worker {
                 self.on_line(line.trim())
             }
             None => {
-                let waiting = self.job.as_ref().is_some_and(|j| j.has_in_flight());
+                let waiting = self.job.as_ref().is_some_and(|j| j.has_in_flight()) || (self.job.is_some() && answers_owed);
                 if waiting && !self.paused && self.last_activity.elapsed() > JOB_IDLE_TIMEOUT {
                     return Err(DeviceError::Timeout(JOB_IDLE_TIMEOUT.as_secs()));
                 }
@@ -620,7 +641,10 @@ impl Worker {
             return Ok(());
         }
         if line == "ok" || line.starts_with("error:") || line.starts_with("ALARM:") {
-            if let Some(job) = self.job.as_mut()
+            // Answers come in the order the lines were sent, and no job line goes out while one is owed for an earlier command
+            // (see `grbl_answers_owed`), so an answer goes to the job only once those are all in.
+            if self.pending.is_empty()
+                && let Some(job) = self.job.as_mut()
                 && job.has_in_flight()
             {
                 if job.on_response(line)? {
@@ -1197,6 +1221,107 @@ mod tests {
             let s = wait_for(&link, "disconnect", |s| !s.connected);
             assert!(s.console.iter().any(|l| l.contains("connection error")), "{:?}", s.console);
             assert_eq!(link.send_line("G0 X1"), Err(LinkError::Disconnected), "commands after a disconnect report it");
+        }
+    }
+
+    mod grbl_answer_tests {
+        use std::sync::{Arc, Mutex};
+
+        use super::*;
+
+        /// What a scripted GRBL controller has been sent, and the answers it will give (one per read).
+        #[derive(Default)]
+        struct Wire {
+            written: Vec<u8>,
+            replies: VecDeque<String>,
+        }
+
+        struct Scripted(Arc<Mutex<Wire>>);
+
+        impl Transport for Scripted {
+            fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
+                self.0.lock().unwrap().written.extend_from_slice(bytes);
+                Ok(())
+            }
+
+            fn read_line(&mut self, _: Duration) -> io::Result<Option<String>> {
+                Ok(self.0.lock().unwrap().replies.pop_front())
+            }
+        }
+
+        #[test]
+        fn job_lines_wait_until_a_typed_command_has_been_answered() {
+            let (link, wire) = scripted();
+            link.home().unwrap();
+            settle(&link);
+            assert_eq!(sent(&wire), vec!["$H"]);
+            // Start pressed while the homing cycle is still running: its `ok` has not arrived.
+            link.start_job("G21\nG90\n".into()).unwrap();
+            settle(&link);
+            assert_eq!(sent(&wire), vec!["$H"], "no job line may go out while an answer is owed");
+            assert_eq!(link.snapshot().job, JobState::Running);
+            // The homing cycle's `ok` arrives: it is not taken for a job line's, and the job's lines go out.
+            reply(&wire, "ok");
+            settle(&link);
+            assert_eq!(sent(&wire), vec!["$H", "G21", "G90"]);
+            assert_eq!(link.snapshot().progress.map(|p| p.acknowledged), Some(0), "nothing is acknowledged before its answer");
+            reply(&wire, "ok");
+            reply(&wire, "ok");
+            settle(&link);
+            assert_eq!(link.snapshot().progress.map(|p| p.acknowledged), Some(2));
+        }
+
+        #[test]
+        fn an_alarm_while_a_job_waits_for_homing_ends_it_before_any_line_is_sent() {
+            let (link, wire) = scripted();
+            link.home().unwrap();
+            link.start_job("G21\n".into()).unwrap();
+            settle(&link);
+            reply(&wire, "ALARM:9");
+            settle(&link);
+            assert!(matches!(link.snapshot().job, JobState::Finished(Err(_))), "{:?}", link.snapshot().job);
+            assert_eq!(sent(&wire), vec!["$H"]);
+            assert!(wire.lock().unwrap().written.contains(&realtime::SOFT_RESET), "the controller is reset");
+            // The reset discarded the homing line, so a new job is not left waiting for its answer.
+            link.start_job("G21\n".into()).unwrap();
+            settle(&link);
+            assert_eq!(sent(&wire).last().map(String::as_str), Some("G21"));
+        }
+
+        #[test]
+        fn stop_clears_answers_still_owed_so_a_job_can_start() {
+            let (link, wire) = scripted();
+            link.home().unwrap();
+            settle(&link);
+            link.stop().unwrap();
+            settle(&link);
+            link.start_job("G21\n".into()).unwrap();
+            settle(&link);
+            assert_eq!(link.snapshot().job, JobState::Running);
+            assert_eq!(sent(&wire).last().map(String::as_str), Some("G21"));
+        }
+
+        fn scripted() -> (Link, Arc<Mutex<Wire>>) {
+            let wire = Arc::new(Mutex::new(Wire::default()));
+            (Link::connect_inline_with(Box::new(Scripted(Arc::clone(&wire))), Protocol::Grbl), wire)
+        }
+
+        fn reply(wire: &Arc<Mutex<Wire>>, line: &str) {
+            wire.lock().unwrap().replies.push_back(line.into());
+        }
+
+        /// The complete lines written so far, without the real-time bytes (status queries, resets) mixed in.
+        fn sent(wire: &Arc<Mutex<Wire>>) -> Vec<String> {
+            let w = wire.lock().unwrap();
+            let text: String = String::from_utf8_lossy(&w.written).chars().filter(|&c| c != '?' && c != '\u{18}').collect();
+            text.split('\n').filter(|l| !l.is_empty()).map(String::from).collect()
+        }
+
+        /// Runs the worker a while with nothing arriving.
+        fn settle(link: &Link) {
+            for _ in 0..30 {
+                link.tick();
+            }
         }
     }
 

@@ -84,3 +84,5 @@ ai.prepare_picture
 ai.place_art
 help.github
 help.report_bug
+help.support
+help.youtube

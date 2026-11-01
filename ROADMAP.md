@@ -952,3 +952,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   once, while the G-code writes it `passes` times (up to 1000), so a large fill with many passes could build a program of billions of lines and
   run out of memory. The cap now counts moves times passes. Regression test `validation_tests::the_move_cap_counts_every_pass` (fails without
   the fix); `cargo xtask ci` passes; `cargo audit` shows only the three known "unmaintained" warnings. Not done: an end-to-end memory test.
+
+- **2026-11-01 — Help menu: MakerFoundry YouTube and Support the Project.** Two new commands, `help.youtube`
+  (https://www.youtube.com/@MakerFoundryApp) and `help.support` (https://buymeacoffee.com/bwattendorf), return a fixed address and the Help menu opens
+  it in the system browser (as the existing GitHub and bug-report entries do); nothing is sent. The features page footer and the README link to both.
+  There is no Windows installer to put them in (the download is a zip). Checked by a test of the two addresses and the commands golden file; the
+  Buy Me a Coffee page's own About text still describes another app (noted in the owner's ops check), which is not something this repository can fix.

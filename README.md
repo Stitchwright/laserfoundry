@@ -70,6 +70,13 @@ Describe what happened and send it: it becomes an issue in this repository (a pu
 private). You can also [open an issue](https://github.com/Stitchwright/laserfoundry/issues) yourself. A maintainer can
 have Claude work on an issue by labelling it `claude-fix`; Claude opens a pull request for review, and never merges.
 
+## Community and support
+
+LaserFoundry is free and stays free. Videos and tutorials are on the
+[MakerFoundry YouTube channel](https://www.youtube.com/@MakerFoundryApp), and if it saves you time you can
+[buy the developer a coffee](https://buymeacoffee.com/bwattendorf) (optional; nothing is unlocked by it). Both are in the
+app under **Help**.
+
 ## Licence
 
 MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).

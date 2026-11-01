@@ -34,7 +34,7 @@ pub const MAX_Z_MM: f64 = 200.0;
 pub const MAX_OVERSCAN_MM: f64 = 50.0;
 pub const MAX_RAMP_MM: f64 = 1000.0;
 const RAMP_STEP_MM: f64 = 0.5;
-/// Cap on total moves in a job.
+/// Cap on total moves in a job, every pass counted.
 pub const MAX_MOVES: usize = 20_000_000;
 
 /// A planned job, in layer order.
@@ -136,7 +136,8 @@ pub fn plan(doc: &Document) -> Result<Job, PlanError> {
                 for bucket in buckets {
                     let mut ops = plan_layer(doc, layer_for_group, &bucket, at)?;
                     for op in &mut ops {
-                        total = total.saturating_add(op.moves.len());
+                        // Every pass is written out again, so the cap counts them all.
+                        total = total.saturating_add(op.moves.len().saturating_mul(op.passes.max(1) as usize));
                         if let Some(last) = op.moves.last() {
                             at = last.target();
                         }

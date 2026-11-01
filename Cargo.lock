@@ -1458,14 +1458,15 @@ dependencies = [
 
 [[package]]
 name = "harfrust"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86aa776d6d32b072119e1f1650f4db843ff4382a4aaa6a2c9c4e35703cd377cb"
+checksum = "865dcc4105d51c323d8fedbb2d75b5e9c8ecddf5613f74c82f851d0afbc97114"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
- "read-fonts 0.45.1",
+ "read-fonts 0.46.0",
  "smallvec",
+ "yoke",
 ]
 
 [[package]]
@@ -1976,7 +1977,7 @@ dependencies = [
 name = "laserfoundry-text"
 version = "0.2.0"
 dependencies = [
- "harfrust 0.14.0",
+ "harfrust 0.15.0",
  "kurbo",
  "laserfoundry-geom",
  "roxmltree 0.21.1",
@@ -2930,6 +2931,20 @@ dependencies = [
  "foldhash 0.2.0",
  "font-types",
  "once_cell",
+ "yoke",
+]
+
+[[package]]
+name = "read-fonts"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdaa4fffe9ff3ca2c353fa9729792805b9b3e324695ff5a081f860612e81b330"
+dependencies = [
+ "bytemuck",
+ "foldhash 0.2.0",
+ "font-types",
+ "once_cell",
+ "smallvec",
  "yoke",
 ]
 

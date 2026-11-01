@@ -39,7 +39,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
 skrifa = "0.48"
-harfrust = "0.14"
+harfrust = "0.15"
 unicode-bidi = "0.3"
 web-time = "1"
 log = "0.4"

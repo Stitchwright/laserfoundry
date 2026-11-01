@@ -38,7 +38,7 @@ kurbo = { version = "0.13", features = ["serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
-skrifa = "0.48"
+skrifa = "0.49"
 harfrust = "0.15"
 unicode-bidi = "0.3"
 web-time = "1"

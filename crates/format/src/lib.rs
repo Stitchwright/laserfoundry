@@ -113,6 +113,12 @@ fn validate(doc: &mut Document) -> Result<(), FormatError> {
             s.layer = first_layer;
         }
         if let ShapeKind::Image { image, .. } = &s.kind
+            && (image.width == 0 || image.height == 0)
+        {
+            // As `RasterImage::new` refuses: an empty picture has no pixels to burn or sample.
+            return Err(FormatError::Invalid("image has no pixels"));
+        }
+        if let ShapeKind::Image { image, .. } = &s.kind
             && (image.width as usize).checked_mul(image.height as usize) != Some(image.gray.len())
         {
             return Err(FormatError::Invalid("image size does not match its pixel data"));
@@ -230,6 +236,26 @@ mod tests {
         let mut bad = sample();
         bad.machine.bed_width = -1.0;
         assert!(matches!(from_bytes(&to_bytes(&bad).unwrap()), Err(FormatError::Invalid(_))));
+    }
+
+    #[test]
+    fn pictures_without_pixels_are_rejected() {
+        // A hand-made file once loaded with a picture zero pixels wide (0 x 3 = 0 bytes matched its empty data) and crashed the
+        // raster sampler when the job was planned.
+        use laserfoundry_doc::{RasterImage, ShapeKind};
+        let mut doc = sample();
+        let mut shape = Shape::path("p", 0, rect_path(0.0, 0.0, 1.0, 1.0));
+        let image = std::sync::Arc::new(RasterImage::new(2, 3, vec![0; 6]).unwrap());
+        shape.kind = ShapeKind::Image { image, width_mm: 10.0, height_mm: 10.0, adjust: Default::default() };
+        doc.add_shape(shape);
+        let good = String::from_utf8(to_bytes(&doc).unwrap()).unwrap();
+        assert!(from_bytes(good.as_bytes()).is_ok());
+        let pixels = r#""width":2,"height":3,"gray":"AAAAAAAA""#;
+        assert!(good.contains(pixels), "{good}");
+        for empty in [r#""width":0,"height":3,"gray":"""#, r#""width":2,"height":0,"gray":"""#] {
+            let file = good.replace(pixels, empty);
+            assert!(matches!(from_bytes(file.as_bytes()), Err(FormatError::Invalid("image has no pixels"))), "{empty}");
+        }
     }
 
     #[test]

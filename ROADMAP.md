@@ -965,3 +965,11 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   roxmltree 0.21.2, and the Windows signing action 1.2.0 to 2.0.0). Not done and not checked: the signing action's major bump has never run
   (the sign jobs run only on a `v*` tag), the SVG and text libraries have no real-world use at these versions, and there has been no cutter or
   fresh-Windows test.
+
+- **2026-11-01 — A project with a zero-width picture no longer crashes planning.** The project loader checked a picture's size as width × height
+  = pixel bytes, so a hand-made file with `"width":0,"gray":""` passed (0 × h = 0) and the raster sampler then panicked (`clamp(0, -1)`) in
+  `laserfoundry-cli info` and `gcode`. The loader now refuses a picture with no pixels ("image has no pixels"), as `RasterImage::new` does,
+  and the sampler treats an empty picture as white (nothing burned) whatever builds it. The fuzz entry point for project files now plans
+  what it loads, and a new mutation test seeds it with a picture. Regression tests: `format` `pictures_without_pixels_are_rejected` and
+  `toolpath` `image_tests::a_picture_without_pixels_plans_without_crashing` (each fails without its fix), plus
+  `fuzzkit` `project_files_with_images_survive_mutation`. Not run: the coverage-guided `cargo fuzz` target (needs nightly).

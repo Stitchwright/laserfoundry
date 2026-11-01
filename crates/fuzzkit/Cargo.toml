@@ -13,6 +13,7 @@ laserfoundry-engine = { workspace = true }
 laserfoundry-svg = { workspace = true }
 laserfoundry-dxf = { workspace = true }
 laserfoundry-format = { workspace = true }
+laserfoundry-toolpath = { workspace = true }
 laserfoundry-device = { workspace = true }
 laserfoundry-mcp = { workspace = true }
 laserfoundry-text = { workspace = true }

@@ -975,3 +975,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   owed answers up first and streams one line at a time). Regression tests in `grbl_answer_tests` against a scripted controller:
   `job_lines_wait_until_a_typed_command_has_been_answered` and `an_alarm_while_a_job_waits_for_homing_ends_it_before_any_line_is_sent`
   (both fail without the fix) and `stop_clears_answers_still_owed_so_a_job_can_start`. Not checked: a real controller.
+- **2026-11-01 — A project with a zero-width picture no longer crashes planning.** The project loader checked a picture's size as width × height
+  = pixel bytes, so a hand-made file with `"width":0,"gray":""` passed (0 × h = 0) and the raster sampler then panicked (`clamp(0, -1)`) in
+  `laserfoundry-cli info` and `gcode`. The loader now refuses a picture with no pixels ("image has no pixels"), as `RasterImage::new` does,
+  and the sampler treats an empty picture as white (nothing burned) whatever builds it. The fuzz entry point for project files now plans
+  what it loads, and a new mutation test seeds it with a picture. Regression tests: `format` `pictures_without_pixels_are_rejected` and
+  `toolpath` `image_tests::a_picture_without_pixels_plans_without_crashing` (each fails without its fix), plus
+  `fuzzkit` `project_files_with_images_survive_mutation`. Not run: the coverage-guided `cargo fuzz` target (needs nightly).

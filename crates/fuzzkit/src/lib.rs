@@ -17,9 +17,11 @@ pub fn dxf(data: &[u8]) {
     let _ = laserfoundry_dxf::import_dxf(data);
 }
 
-/// An untrusted `.laserfoundry` file.
+/// An untrusted `.laserfoundry` file, loaded and, when it loads, planned (as `laserfoundry-cli info` and `gcode` do).
 pub fn project(data: &[u8]) {
-    let _ = laserfoundry_format::from_bytes(data);
+    if let Ok(doc) = laserfoundry_format::from_bytes(data) {
+        let _ = laserfoundry_toolpath::plan(&doc);
+    }
 }
 
 /// Lines a controller (or something pretending to be one) sends back.
@@ -293,6 +295,21 @@ mod tests {
         let bytes = laserfoundry_format::to_bytes(&s.doc).unwrap();
         let text = String::from_utf8(bytes).unwrap();
         drive(&text, project, 1500);
+    }
+
+    #[test]
+    fn project_files_with_images_survive_mutation() {
+        let mut s = Session::new();
+        s.execute("shape.rectangle", &serde_json::json!({"width": 10, "height": 5})).unwrap();
+        let mut file: Value = serde_json::from_slice(&laserfoundry_format::to_bytes(&s.doc).unwrap()).unwrap();
+        let image = serde_json::json!({"type": "image", "image": {"width": 2, "height": 2, "gray": "AID/QA=="}, "width_mm": 4, "height_mm": 4});
+        file["document"]["shapes"][0]["kind"] = image;
+        let text = file.to_string();
+        assert!(laserfoundry_format::from_bytes(text.as_bytes()).is_ok(), "the seed must load, or mutating it tests little");
+        drive(&text, project, 1500);
+        // The file that once crashed the sampler: a picture zero pixels wide (or high) with no pixel data.
+        project(text.replace(r#""width":2"#, r#""width":0"#).replace("AID/QA==", "").as_bytes());
+        project(text.replace(r#""height":2"#, r#""height":0"#).replace("AID/QA==", "").as_bytes());
     }
 
     #[test]

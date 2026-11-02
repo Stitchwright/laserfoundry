@@ -451,6 +451,22 @@ mod image_tests {
     }
 
     #[test]
+    fn sample_grid_is_white_outside_the_image_and_for_non_images() {
+        let doc = image_doc(vec![0; 4], 2, 2); // a black 2x2 mm picture at the origin
+        let grid = Grid { x0: -2.0, y0: 0.0, nx: 6, ny: 2, pitch: 1.0 };
+        let cells = sample_grid(&doc.shapes[0], &grid);
+        assert_eq!(cells.len(), 12);
+        assert_eq!(&cells[..2], &[255.0, 255.0], "left of the picture is white");
+        assert!(cells[2..4].iter().all(|v| *v == 0.0), "inside is black: {cells:?}");
+        assert_eq!(&cells[4..6], &[255.0, 255.0], "right of the picture is white");
+
+        let path = Shape::path("r", 0, rect_path(0.0, 0.0, 2.0, 2.0));
+        assert!(sample_grid(&path, &grid).iter().all(|v| *v == 255.0));
+        let empty = Grid { x0: 0.0, y0: 0.0, nx: 0, ny: 5, pitch: 1.0 };
+        assert!(sample_grid(&doc.shapes[0], &empty).is_empty());
+    }
+
+    #[test]
     fn floyd_steinberg_preserves_mean_darkness() {
         let gray = vec![128.0f32; 100 * 100];
         let out = dither(&gray, 100, 100, laserfoundry_doc::Dither::FloydSteinberg);

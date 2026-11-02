@@ -965,3 +965,6 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   roxmltree 0.21.2, and the Windows signing action 1.2.0 to 2.0.0). Not done and not checked: the signing action's major bump has never run
   (the sign jobs run only on a `v*` tag), the SVG and text libraries have no real-world use at these versions, and there has been no cutter or
   fresh-Windows test.
+
+- **2026-11-02 — Nightly maintenance.** Full suite green (937 tests, three clean re-runs, no flaky test). Added a test pinning
+  `sample_grid`'s white-outside-the-image behaviour. A hostile-image test found a panic (zero-size image), filed as an issue, not fixed here.

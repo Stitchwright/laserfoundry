@@ -1898,6 +1898,7 @@ dependencies = [
  "laserfoundry-mcp",
  "laserfoundry-svg",
  "laserfoundry-text",
+ "laserfoundry-toolpath",
  "laserfoundry-web",
  "serde_json",
 ]

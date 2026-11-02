@@ -118,9 +118,13 @@ pub fn sample_grid(shape: &Shape, grid: &Grid) -> Vec<f32> {
 }
 
 fn bilinear(img: &RasterImage, fx: f64, fy: f64) -> f32 {
+    if img.width == 0 || img.height == 0 {
+        // Nothing to sample (a picture built without `RasterImage::new`): white, which burns nothing.
+        return 255.0;
+    }
     let px = |x: i64, y: i64| -> f32 {
-        let x = x.clamp(0, img.width as i64 - 1) as usize;
-        let y = y.clamp(0, img.height as i64 - 1) as usize;
+        let x = x.clamp(0, i64::from(img.width) - 1) as usize;
+        let y = y.clamp(0, i64::from(img.height) - 1) as usize;
         img.gray.get(y * img.width as usize + x).copied().unwrap_or(255) as f32
     };
     let (x0, y0) = (fx.floor(), fy.floor());

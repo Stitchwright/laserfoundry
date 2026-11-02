@@ -966,5 +966,31 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   (the sign jobs run only on a `v*` tag), the SVG and text libraries have no real-world use at these versions, and there has been no cutter or
   fresh-Windows test.
 
+- **2026-11-01 — GRBL job lines wait until earlier commands are answered.** GRBL answers lines in order, and the job's byte window starts
+  from an empty receive buffer, but a job could start streaming while a typed command (Home's `$H`, say) still owed its `ok`; that `ok` was
+  then counted as the first job line's, freeing credit for a line GRBL had not accepted, so a Home followed quickly by Start could overfill
+  the 128-byte receive buffer with the laser on. Now a GRBL job accepted while answers are owed sends nothing until they are all in (the
+  console says it is waiting; an alarm meanwhile ends the job before any line goes, and the idle timeout covers a controller that never
+  answers), answers go to earlier commands first, and a soft reset forgets answers it discarded. The Marlin link was already safe (it uses
+  owed answers up first and streams one line at a time). Regression tests in `grbl_answer_tests` against a scripted controller:
+  `job_lines_wait_until_a_typed_command_has_been_answered` and `an_alarm_while_a_job_waits_for_homing_ends_it_before_any_line_is_sent`
+  (both fail without the fix) and `stop_clears_answers_still_owed_so_a_job_can_start`. Not checked: a real controller.
+- **2026-11-01 — A project with a zero-width picture no longer crashes planning.** The project loader checked a picture's size as width × height
+  = pixel bytes, so a hand-made file with `"width":0,"gray":""` passed (0 × h = 0) and the raster sampler then panicked (`clamp(0, -1)`) in
+  `laserfoundry-cli info` and `gcode`. The loader now refuses a picture with no pixels ("image has no pixels"), as `RasterImage::new` does,
+  and the sampler treats an empty picture as white (nothing burned) whatever builds it. The fuzz entry point for project files now plans
+  what it loads, and a new mutation test seeds it with a picture. Regression tests: `format` `pictures_without_pixels_are_rejected` and
+  `toolpath` `image_tests::a_picture_without_pixels_plans_without_crashing` (each fails without its fix), plus
+  `fuzzkit` `project_files_with_images_survive_mutation`. Not run: the coverage-guided `cargo fuzz` target (needs nightly).
+- **2026-11-01 — DXF: inserted spline blocks cannot hang the import.** Every INSERT of a block evaluated its splines again (up to 50 million
+  basis evaluations per curve, with up to 500,000 entities), so a 1.5 MB file of 100,000 inserts of one heavy curve would run for about ten
+  hours (measured on the old code in a test build: 20 inserts took 7 s). A block's splines are now evaluated once and each insert copies and
+  places the result (exactly the same paths as before), and one import has a budget of 1 billion spline evaluations and 10 million path
+  segments: past either it fails with "the drawing is too complex to import" instead of running on or exhausting memory (the old cap of
+  500,000 entities still trims silently, as before). Regression tests
+  `hostile_tests::many_inserts_of_a_heavy_spline_block_fail_quickly_instead_of_hanging` (about 1 s now),
+  `a_file_of_many_heavy_splines_fails_with_a_clear_error` and `a_spline_block_is_evaluated_once_and_every_insert_is_an_exact_placed_copy`
+  (fails without the once-per-block evaluation); the existing DXF tests are unchanged. Not checked: real-world DXF files with many splines
+  near the new budgets.
 - **2026-11-02 — Nightly maintenance.** Full suite green (937 tests, three clean re-runs, no flaky test). Added a test pinning
-  `sample_grid`'s white-outside-the-image behaviour. A hostile-image test found a panic (zero-size image), filed as an issue, not fixed here.
+  `sample_grid`'s white-outside-the-image behaviour. A hostile-image test found a panic (zero-size image), filed as an issue and since fixed (the zero-width picture entry above).

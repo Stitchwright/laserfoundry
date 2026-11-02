@@ -360,6 +360,19 @@ mod image_tests {
     }
 
     #[test]
+    fn a_picture_without_pixels_plans_without_crashing() {
+        // Built without `RasterImage::new` (as a loaded file once could be): sampling it used to panic in `clamp(0, -1)`.
+        for (w, h) in [(0, 3), (3, 0), (0, 0)] {
+            let mut doc = image_doc(vec![0; 4], 2, 2);
+            if let Some(ShapeKind::Image { image, .. }) = doc.shapes.first_mut().map(|s| &mut s.kind) {
+                *image = Arc::new(RasterImage { width: w, height: h, gray: Vec::new(), rgb: None });
+            }
+            let job = plan(&doc).unwrap();
+            assert!(job.ops.is_empty(), "an empty picture burns nothing");
+        }
+    }
+
+    #[test]
     fn white_image_burns_nothing() {
         let job = plan(&image_doc(vec![255; 16], 4, 4)).unwrap();
         assert!(job.ops.is_empty());

@@ -148,6 +148,7 @@ the controller raised ALARM:{0} {1}; clear it (unlock/home) before running again
 the controller rejected line {line} ({text}) with error:{code} {hint}
 the controller reported: {0}
 the download was cancelled
+the drawing is too complex to import: {0}
 the file has no ENTITIES section
 the file is too large
 the font file is too large

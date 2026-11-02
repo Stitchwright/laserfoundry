@@ -982,3 +982,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   what it loads, and a new mutation test seeds it with a picture. Regression tests: `format` `pictures_without_pixels_are_rejected` and
   `toolpath` `image_tests::a_picture_without_pixels_plans_without_crashing` (each fails without its fix), plus
   `fuzzkit` `project_files_with_images_survive_mutation`. Not run: the coverage-guided `cargo fuzz` target (needs nightly).
+- **2026-11-01 — DXF: inserted spline blocks cannot hang the import.** Every INSERT of a block evaluated its splines again (up to 50 million
+  basis evaluations per curve, with up to 500,000 entities), so a 1.5 MB file of 100,000 inserts of one heavy curve would run for about ten
+  hours (measured on the old code in a test build: 20 inserts took 7 s). A block's splines are now evaluated once and each insert copies and
+  places the result (exactly the same paths as before), and one import has a budget of 1 billion spline evaluations and 10 million path
+  segments: past either it fails with "the drawing is too complex to import" instead of running on or exhausting memory (the old cap of
+  500,000 entities still trims silently, as before). Regression tests
+  `hostile_tests::many_inserts_of_a_heavy_spline_block_fail_quickly_instead_of_hanging` (about 1 s now),
+  `a_file_of_many_heavy_splines_fails_with_a_clear_error` and `a_spline_block_is_evaluated_once_and_every_insert_is_an_exact_placed_copy`
+  (fails without the once-per-block evaluation); the existing DXF tests are unchanged. Not checked: real-world DXF files with many splines
+  near the new budgets.

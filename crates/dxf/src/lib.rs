@@ -3,7 +3,7 @@
 //! definitions (placed, scaled and rotated; nested up to a few levels). Unsupported entities are
 //! reported, never fatal.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use kurbo::{Affine, Arc, Shape, SvgArc, Vec2};
 use laserfoundry_geom::{BezPath, MAX_ELLIPSE_RADIUS, Point, bounds_of_polylines, curve_tolerance, ellipse_path, flatten};
@@ -11,6 +11,11 @@ use thiserror::Error;
 
 pub const MAX_DXF_BYTES: usize = 100 * 1024 * 1024;
 pub const MAX_ENTITIES: usize = 500_000;
+/// Most spline basis evaluations one import may spend (each costs a few nanoseconds; a single curve may use up to
+/// 50 million), so a file of many heavy curves fails in seconds instead of running for hours.
+pub const MAX_IMPORT_SPLINE_WORK: usize = 1_000_000_000;
+/// Most path elements one import may produce, so blocks inserted many times cannot exhaust memory.
+pub const MAX_PATH_ELEMENTS: usize = 10_000_000;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum DxfError {
@@ -20,6 +25,8 @@ pub enum DxfError {
     NotAscii,
     #[error("the file has no ENTITIES section")]
     NoEntities,
+    #[error("the drawing is too complex to import: {0}")]
+    TooComplex(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,8 +61,8 @@ pub fn import_dxf(data: &[u8]) -> Result<DxfImport, DxfError> {
     let blocks = collect_blocks(&pairs);
     let mut skipped: BTreeMap<String, usize> = BTreeMap::new();
     let mut paths = Vec::new();
-    let mut budget = MAX_ENTITIES;
-    convert(&entities, Affine::IDENTITY, 0, &blocks, &mut paths, &mut skipped, &mut budget);
+    let mut budget = Budget::new();
+    convert(&entities, Affine::IDENTITY, 0, &blocks, &mut paths, &mut skipped, &mut budget)?;
 
     // DXF is y-up in drawing units: scale to mm, flip to y-down, move the top-left to the origin.
     let flip = Affine::scale_non_uniform(scale, -scale);
@@ -133,8 +140,42 @@ fn collect_blocks(pairs: &[(i32, String)]) -> Blocks {
     blocks
 }
 
-/// Turns entities into paths, placing them with `xf`; `budget` bounds the total number built so a
-/// block that inserts itself (or a hostile pile of inserts) cannot run away.
+/// What one import may still spend, so no file, however its blocks and inserts multiply its entities, can hang the import or
+/// exhaust memory.
+struct Budget {
+    /// Entities still to be converted, counting each inserted copy; when it runs out the rest is left out, as before.
+    entities: usize,
+    /// Spline basis evaluations left; running out fails the import.
+    spline_work: usize,
+    /// Path elements left to produce; running out fails the import.
+    elements: usize,
+    /// Curves of blocks already evaluated, by the entity's address, so a block inserted many times evaluates its splines once
+    /// and each insert only copies and places the result.
+    splines: HashMap<usize, Option<BezPath>>,
+}
+
+impl Budget {
+    fn new() -> Budget {
+        Budget { entities: MAX_ENTITIES, spline_work: MAX_IMPORT_SPLINE_WORK, elements: MAX_PATH_ELEMENTS, splines: HashMap::new() }
+    }
+
+    /// A spline of a block is evaluated the first time the block is placed and reused after that; a top-level one is built once anyway.
+    fn spline(&mut self, e: &Entity, in_block: bool) -> Result<Option<BezPath>, DxfError> {
+        if !in_block {
+            return build_spline(e, &mut self.spline_work);
+        }
+        let key = std::ptr::from_ref(e).addr();
+        if let Some(built) = self.splines.get(&key) {
+            return Ok(built.clone());
+        }
+        let built = build_spline(e, &mut self.spline_work)?;
+        self.splines.insert(key, built.clone());
+        Ok(built)
+    }
+}
+
+/// Turns entities into paths, placing them with `xf`; `budget` bounds the entities built (so a block that inserts itself, or a
+/// hostile pile of inserts, cannot run away), the spline work and the size of the result.
 fn convert(
     entities: &[Entity],
     xf: Affine,
@@ -142,15 +183,15 @@ fn convert(
     blocks: &Blocks,
     out: &mut Vec<DxfPath>,
     skipped: &mut BTreeMap<String, usize>,
-    budget: &mut usize,
-) {
+    budget: &mut Budget,
+) -> Result<(), DxfError> {
     let mut i = 0;
     while let Some(e) = entities.get(i) {
         i += 1;
-        if *budget == 0 {
-            return;
+        if budget.entities == 0 {
+            return Ok(());
         }
-        *budget -= 1;
+        budget.entities -= 1;
         let layer = e.text(8).unwrap_or("0").to_string();
         let built = match e.kind.as_str() {
             "LINE" => build_line(e),
@@ -159,7 +200,7 @@ fn convert(
             "ARC" => build_arc(e),
             "ELLIPSE" => build_ellipse(e),
             "SPLINE" => {
-                let built = build_spline(e);
+                let built = budget.spline(e, depth > 0)?;
                 if built.is_none() {
                     *skipped.entry("SPLINE".to_string()).or_default() += 1;
                 }
@@ -176,7 +217,7 @@ fn convert(
                                 * Affine::rotate(e.num(50).unwrap_or(0.0).to_radians())
                                 * Affine::scale_non_uniform(sx, sy)
                                 * Affine::translate((-base.0, -base.1));
-                            convert(inner, xf * place, depth + 1, blocks, out, skipped, budget);
+                            convert(inner, xf * place, depth + 1, blocks, out, skipped, budget)?;
                         }
                     }
                     _ => *skipped.entry("INSERT".to_string()).or_default() += 1,
@@ -206,10 +247,13 @@ fn convert(
             }
         };
         if let Some(mut path) = built {
+            budget.elements =
+                budget.elements.checked_sub(path.elements().len()).ok_or(DxfError::TooComplex("it would make too many path segments"))?;
             path.apply_affine(xf);
             out.push(DxfPath { layer, path });
         }
     }
+    Ok(())
 }
 
 struct Entity {
@@ -323,14 +367,15 @@ const MAX_SPLINE_POINTS: usize = 100_000;
 const MAX_SPLINE_WORK: usize = 50_000_000;
 
 /// A B-spline (NURBS when weights are given) evaluated with de Boor's algorithm; with no control
-/// points the fit points are joined by straight lines instead.
-fn build_spline(e: &Entity) -> Option<BezPath> {
+/// points the fit points are joined by straight lines instead. The evaluation is charged to `work`,
+/// the import's remaining spline budget; an error when it is spent.
+fn build_spline(e: &Entity, work: &mut usize) -> Result<Option<BezPath>, DxfError> {
     let closed = e.int(70).unwrap_or(0) & 1 == 1;
     let xs: Vec<f64> = e.nums(10).collect();
     let ys: Vec<f64> = e.nums(20).collect();
     let n = xs.len().min(ys.len());
     if n > MAX_SPLINE_POINTS {
-        return None;
+        return Ok(None);
     }
     let degree = usize::try_from(e.int(71).unwrap_or(3)).ok().filter(|d| (1..=10).contains(d)).unwrap_or(3);
     let knots: Vec<f64> = e.nums(40).collect();
@@ -340,9 +385,11 @@ fn build_spline(e: &Entity) -> Option<BezPath> {
         if hi - lo > 1e-12 {
             let steps = ((n - degree) * SPLINE_SAMPLES).clamp(8, MAX_SPLINE_POINTS);
             // Evaluation cost grows with points x samples x 2^degree; very heavy curves use their polygon.
-            if n.saturating_mul(steps).saturating_mul(1 << degree) > MAX_SPLINE_WORK {
-                return build_polygon(&xs, &ys, closed);
+            let cost = n.saturating_mul(steps).saturating_mul(1 << degree);
+            if cost > MAX_SPLINE_WORK {
+                return Ok(build_polygon(&xs, &ys, closed));
             }
+            *work = work.checked_sub(cost).ok_or(DxfError::TooComplex("its curves would take too long to compute"))?;
             let w = |i: usize| weights.get(i).copied().filter(|v| *v > 0.0).unwrap_or(1.0);
             let mut path = BezPath::new();
             for k in 0..=steps {
@@ -358,7 +405,7 @@ fn build_spline(e: &Entity) -> Option<BezPath> {
                     }
                 }
                 if sw.abs() < 1e-12 {
-                    return None;
+                    return Ok(None);
                 }
                 let pt = (sx / sw, sy / sw);
                 if k == 0 { path.move_to(pt) } else { path.line_to(pt) }
@@ -366,12 +413,12 @@ fn build_spline(e: &Entity) -> Option<BezPath> {
             if closed {
                 path.close_path();
             }
-            return Some(path);
+            return Ok(Some(path));
         }
     }
     // Fit points (codes 11/21), or the control polygon when the knots are unusable.
     let (fx, fy): (Vec<f64>, Vec<f64>) = if e.nums(11).count() >= 2 { (e.nums(11).collect(), e.nums(21).collect()) } else { (xs, ys) };
-    build_polygon(&fx, &fy, closed)
+    Ok(build_polygon(&fx, &fy, closed))
 }
 
 fn build_polygon(xs: &[f64], ys: &[f64], closed: bool) -> Option<BezPath> {
@@ -642,6 +689,61 @@ mod tests {
             // An ordinary big arc still draws.
             let imp = import_dxf(dxf("0\nARC\n10\n0\n20\n0\n40\n5000\n50\n0\n51\n90\n", 4).as_bytes()).unwrap();
             assert!(imp.paths[0].path.elements().len() > 2);
+        }
+
+        /// A clamped uniform cubic spline with `n` control points along a zigzag.
+        fn spline(n: usize) -> String {
+            let mut out = String::from("0\nSPLINE\n71\n3\n");
+            let spans = n - 3;
+            for k in 0..n + 4 {
+                out += &format!("40\n{}\n", k.saturating_sub(3).min(spans));
+            }
+            for i in 0..n {
+                out += &format!("10\n{i}\n20\n{}\n", i % 2);
+            }
+            out
+        }
+
+        fn with_blocks(blocks: &str, entities: &str) -> String {
+            format!("0\nSECTION\n2\nBLOCKS\n{blocks}0\nENDSEC\n0\nSECTION\n2\nENTITIES\n{entities}0\nENDSEC\n0\nEOF\n")
+        }
+
+        #[test]
+        fn many_inserts_of_a_heavy_spline_block_fail_quickly_instead_of_hanging() {
+            // Regression: each INSERT evaluated the block's spline again (up to 50 million basis evaluations each), so 100k
+            // inserts in a 1.5 MB file ran for hours; the copies would also have made over a billion segments.
+            let block = format!("0\nBLOCK\n2\nB\n10\n0\n20\n0\n{}0\nENDBLK\n", spline(510));
+            let src = with_blocks(&block, &"0\nINSERT\n2\nB\n".repeat(100_000));
+            let started = std::time::Instant::now();
+            let result = import_dxf(src.as_bytes());
+            assert!(matches!(result, Err(DxfError::TooComplex(_))), "{:?}", result.map(|i| i.paths.len()));
+            assert!(started.elapsed() < std::time::Duration::from_secs(30), "took {:?}", started.elapsed());
+        }
+
+        #[test]
+        fn a_spline_block_is_evaluated_once_and_every_insert_is_an_exact_placed_copy() {
+            // Evaluating this curve 2000 times would cost ten times the import's spline budget; once, it fits.
+            let block = format!("0\nBLOCK\n2\nB\n10\n0\n20\n0\n{}0\nENDBLK\n", spline(165));
+            let inserts: String = (0..2000).map(|k| format!("0\nINSERT\n2\nB\n10\n{}\n20\n0\n", k * 200)).collect();
+            let imp = import_dxf(with_blocks(&block, &inserts).as_bytes()).unwrap();
+            assert_eq!(imp.paths.len(), 2000);
+            let alone = import_dxf(dxf(&spline(165), 4).as_bytes()).unwrap();
+            let first = imp.paths[0].path.elements();
+            assert_eq!(first, alone.paths[0].path.elements(), "a placed copy is the curve itself");
+            for (k, p) in imp.paths.iter().enumerate() {
+                let moved: Vec<_> = first.iter().map(|el| Affine::translate((k as f64 * 200.0, 0.0)) * *el).collect();
+                assert_eq!(p.path.elements(), moved.as_slice(), "insert {k}");
+            }
+        }
+
+        #[test]
+        fn a_file_of_many_heavy_splines_fails_with_a_clear_error() {
+            let src = dxf(&spline(510).repeat(25), 4);
+            let started = std::time::Instant::now();
+            let result = import_dxf(src.as_bytes());
+            assert!(matches!(result, Err(DxfError::TooComplex(_))), "{:?}", result.map(|i| i.paths.len()));
+            assert!(started.elapsed() < std::time::Duration::from_secs(60), "took {:?}", started.elapsed());
+            assert!(import_dxf(dxf(&spline(510).repeat(5), 4).as_bytes()).is_ok(), "a few heavy curves still import");
         }
 
         #[test]

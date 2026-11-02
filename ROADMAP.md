@@ -992,3 +992,5 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   `a_file_of_many_heavy_splines_fails_with_a_clear_error` and `a_spline_block_is_evaluated_once_and_every_insert_is_an_exact_placed_copy`
   (fails without the once-per-block evaluation); the existing DXF tests are unchanged. Not checked: real-world DXF files with many splines
   near the new budgets.
+- **2026-11-02 — Nightly maintenance.** Full suite green (937 tests, three clean re-runs, no flaky test). Added a test pinning
+  `sample_grid`'s white-outside-the-image behaviour. A hostile-image test found a panic (zero-size image), filed as an issue and since fixed (the zero-width picture entry above).

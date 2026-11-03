@@ -1066,6 +1066,25 @@ mod tests {
         assert!(shared.borrow().secrets[SECRET_KEY].contains("\"token\":null"));
     }
 
+    /// An account whose email isn't confirmed: the service's 403 says where the link went, the window shows those words (not
+    /// "sign in") and the session stays; a 403 without a message still asks for a sign-in.
+    #[test]
+    fn an_unconfirmed_email_shows_the_services_words_and_keeps_the_session() {
+        let (mut app, shared) = app();
+        sign_in(&mut app, &shared);
+        let words = "Confirm your email first: we sent a link to me@example.com (send it again from your Foundry Account window).";
+        app.ai.question = "hi".into();
+        app.start_ask();
+        answer(&mut app, &shared, 403, &json!({"type": "error", "error": {"type": "permission_error", "message": words}}).to_string());
+        assert_eq!(app.ai.note, Some((words.to_string(), true)));
+        assert!(app.ai.token.is_some() && app.ai.account.is_some(), "still signed in");
+        app.ai.question = "hi".into();
+        app.start_ask();
+        answer(&mut app, &shared, 403, "{}");
+        assert!(matches!(&app.ai.note, Some((m, true)) if m.starts_with("Sign in")), "{:?}", app.ai.note);
+        assert!(app.ai.token.is_none(), "the session ended");
+    }
+
     #[test]
     fn asking_sends_the_document_as_context_and_keeps_the_conversation() {
         let (mut app, shared) = app();

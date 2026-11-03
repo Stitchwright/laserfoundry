@@ -82,7 +82,12 @@ pub fn messages(server: &str, token: &str, body: &Value) -> Result<HttpRequest, 
 /// The error an answer from the service with HTTP status `status` and body `body` means.
 pub fn status_error(status: u16, body: &str) -> AiError {
     match status {
-        401 | 403 => AiError::SignIn,
+        // the email isn't confirmed: the service says where the link went
+        403 => match service_message(body) {
+            Some(message) => AiError::Unconfirmed(message),
+            None => AiError::SignIn,
+        },
+        401 => AiError::SignIn,
         402 => AiError::NoCredits,
         409 => AiError::Taken,
         429 | 529 => AiError::Busy,
@@ -90,6 +95,13 @@ pub fn status_error(status: u16, body: &str) -> AiError {
         s if s >= 500 => AiError::Service(s),
         s => AiError::Request(s, api_message(body)),
     }
+}
+
+/// The message in the service's error body (`{"type": "error", "error": {"message": …}}`), when it has one that isn't blank.
+fn service_message(body: &str) -> Option<String> {
+    let v = serde_json::from_str::<Value>(body).ok()?;
+    let m = v.pointer("/error/message").and_then(Value::as_str)?.trim();
+    (!m.is_empty()).then(|| m.to_string())
 }
 
 /// An answer from the service: its JSON, or what went wrong.

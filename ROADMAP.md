@@ -994,3 +994,5 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   near the new budgets.
 - **2026-11-02 — Nightly maintenance.** Full suite green (937 tests, three clean re-runs, no flaky test). Added a test pinning
   `sample_grid`'s white-outside-the-image behaviour. A hostile-image test found a panic (zero-size image), filed as an issue and since fixed (the zero-width picture entry above).
+- **2026-11-03 — Nightly maintenance.** Full suite green, three clean re-runs, no flaky test. Added G-code tests (tests only): `frame` refusals
+  (bad speed, non-finite or out-of-bed bounds, broken machine), dry-run and power capping, empty job, zero passes.

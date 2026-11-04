@@ -996,6 +996,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   near the new budgets.
 - **2026-11-02 — Nightly maintenance.** Full suite green (937 tests, three clean re-runs, no flaky test). Added a test pinning
   `sample_grid`'s white-outside-the-image behaviour. A hostile-image test found a panic (zero-size image), filed as an issue and since fixed (the zero-width picture entry above).
+- **2026-11-03 — Nightly maintenance.** Full suite green, three clean re-runs, no flaky test. Added G-code tests (tests only): `frame` refusals
+  (bad speed, non-finite or out-of-bed bounds, broken machine), dry-run and power capping, empty job, zero passes.
 - **2026-11-03 — AI: an unconfirmed email is said in the service's words.** The account service now refuses spending for an account whose
   email isn't confirmed with a 403 that says where the confirmation link went (StitchFoundry PR #44). Every 403 from it was read as "sign in",
   so a signed-in person was told to sign in and their session was forgotten. A 403 whose body carries a message is now

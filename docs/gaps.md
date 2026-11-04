@@ -1,7 +1,7 @@
 # Gaps
 
 Every known shortfall, ranked. This is the work list; pick from the top. Scores and evidence are in
-[`target-app-parity.md`](target-app-parity.md).
+[`feature-checklist.md`](feature-checklist.md).
 
 | #  | Gap                                                                                  | Why it matters                                                      |
 |----|--------------------------------------------------------------------------------------|---------------------------------------------------------------------|

@@ -1001,3 +1001,6 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   message, and a 401, still ask for a sign-in. **Checked:** `cloud_tests::an_unconfirmed_email_shows_the_services_message` and
   `an_unconfirmed_email_shows_the_services_words_and_keeps_the_session` (the window's note), both failing with the fix reverted. **Not
   checked:** against the live service.
+- **2026-11-04 — nightly maintenance.** Health check green (full gate, 3 test re-runs, no flaky tests). Added 7 SVG-import tests
+  (empty file, path naming, stroke/fill/gradient colours, curves and arcs, deep nesting, hostile sizes and paths, malformed embedded
+  picture); tests only, no behaviour change. **Not checked:** a valid embedded picture (the test PNG is deliberately incomplete).

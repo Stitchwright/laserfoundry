@@ -555,6 +555,36 @@ G0 X0 Y0
         }
     }
 
+    mod empty_job_tests {
+        use super::*;
+        use laserfoundry_toolpath::{Op, OpKind};
+
+        #[test]
+        fn an_empty_job_is_just_preamble_and_shutdown() {
+            let g = generate(&Job { ops: vec![] }, &Machine::default(), Placement::Absolute).unwrap();
+            assert!(g.contains("G21") && g.contains("M5"), "{g}");
+            assert!(!g.contains("G1"), "{g}");
+        }
+
+        #[test]
+        fn zero_passes_still_run_once_and_a_huge_power_is_capped() {
+            let m = Machine::default();
+            let op = Op {
+                layer: 0,
+                kind: OpKind::Line,
+                speed: 1000.0,
+                passes: 0,
+                air_assist: false,
+                z: 0.0,
+                z_per_pass: 0.0,
+                moves: vec![Move::Travel(Point::new(1.0, 1.0)), Move::Cut { to: Point::new(5.0, 5.0), power: 1e9 }],
+            };
+            let g = generate(&Job { ops: vec![op] }, &m, Placement::Absolute).unwrap();
+            assert_eq!(g.matches("pass 1").count(), 1, "{g}");
+            assert!(g.contains(&format!("S{}", m.max_s)), "{g}");
+        }
+    }
+
     mod safety_tests {
         use super::*;
 
@@ -677,6 +707,35 @@ G1 X20 S"
             .unwrap();
             assert!(g.contains("S10"), "{g}");
             assert_eq!(g.matches("G1").count(), 4);
+        }
+
+        #[test]
+        fn frame_refuses_unusable_speeds_machines_and_bounds() {
+            let m = Machine::default();
+            let ok = Rect::new(10.0, 10.0, 30.0, 20.0);
+            for bad in [f64::NAN, f64::INFINITY, 0.0, -5.0] {
+                assert_eq!(frame(ok, &m, Placement::Absolute, bad, 1.0), Err(GcodeError::BadMachine("frame speed")), "{bad}");
+            }
+            assert_eq!(frame(Rect::new(f64::NAN, 0.0, 5.0, 5.0), &m, Placement::Absolute, 1000.0, 1.0), Err(GcodeError::NonFinite));
+            assert_eq!(frame(Rect::new(0.0, 0.0, f64::INFINITY, 5.0), &m, Placement::Absolute, 1000.0, 1.0), Err(GcodeError::NonFinite));
+            let outside = Rect::new(0.0, 0.0, m.bed_width + 50.0, 5.0);
+            assert!(matches!(frame(outside, &m, Placement::Absolute, 1000.0, 1.0), Err(GcodeError::OutOfBed { .. })));
+            let broken = Machine { bed_width: 0.0, ..Machine::default() };
+            assert_eq!(frame(ok, &broken, Placement::Absolute, 1000.0, 1.0), Err(GcodeError::BadMachine("bed width")));
+            assert_eq!(frame(ok, &m, Placement::Absolute, 1000.0, f64::NAN), Err(GcodeError::NonFinite));
+        }
+
+        #[test]
+        fn a_dry_run_frame_never_fires_and_out_of_range_power_is_capped_at_max_s() {
+            let m = Machine { origin: Origin::TopLeft, ..Machine::default() };
+            let b = Rect::new(10.0, 10.0, 30.0, 20.0);
+            let dry = frame(b, &m, Placement::Absolute, 1000.0, 0.0).unwrap();
+            assert!(!dry.lines().any(|l| l.starts_with("G1") && l.contains("S") && !l.contains("S0")), "{dry}");
+            let hot = frame(b, &m, Placement::Absolute, 1000.0, 1e9).unwrap();
+            let max = format!("S{}", m.max_s);
+            assert!(hot.contains(&max), "{hot}");
+            assert!(hot.lines().filter(|l| l.starts_with("G1")).all(|l| !l.contains(&format!("S{}", u64::from(m.max_s) + 1))), "{hot}");
+            assert!(dry.trim_end().ends_with("G0 X0 Y0") && dry.contains("\nM5\n"), "{dry}");
         }
     }
 }

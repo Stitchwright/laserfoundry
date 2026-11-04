@@ -233,4 +233,123 @@ mod tests {
     fn huge_input_is_refused_up_front() {
         assert!(matches!(import_svg(&vec![b' '; MAX_SVG_BYTES + 1]), Err(SvgError::TooLarge)));
     }
+
+    #[test]
+    fn an_svg_with_no_shapes_imports_as_empty() {
+        let svg = import_svg(br#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="20"/>"#).unwrap();
+        assert!(svg.paths.is_empty() && svg.images.is_empty());
+        assert!((svg.width_mm - 10.0 * MM_PER_PX).abs() < 1e-9);
+        assert!((svg.height_mm - 20.0 * MM_PER_PX).abs() < 1e-9);
+    }
+
+    #[test]
+    fn ids_name_paths_and_unnamed_ones_are_numbered() {
+        let svg = import_svg(
+            br#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">
+                <rect id="frame" width="5" height="5"/><rect width="2" height="2"/></svg>"#,
+        )
+        .unwrap();
+        assert_eq!(svg.paths.len(), 2);
+        assert_eq!(svg.paths[0].name, "frame");
+        assert_eq!(svg.paths[1].name, "path 2");
+    }
+
+    #[test]
+    fn stroke_colour_wins_over_fill_and_non_colour_paints_give_none() {
+        let svg = import_svg(
+            br##"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">
+                <defs><linearGradient id="g"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient></defs>
+                <rect width="4" height="4" fill="#00ff00" stroke="#0000ff"/>
+                <rect width="4" height="4" fill="url(#g)"/>
+                <rect width="4" height="4" fill="none" stroke="none"/></svg>"##,
+        )
+        .unwrap();
+        assert_eq!(svg.paths[0].color.as_deref(), Some("#0000ff"));
+        assert!(svg.paths[0].filled);
+        assert_eq!(svg.paths[1].color, None);
+        // A shape with neither fill nor stroke draws nothing, so it is dropped or carries no colour; it must not be "filled".
+        assert!(svg.paths.get(2).is_none_or(|p| !p.filled && p.color.is_none()));
+    }
+
+    #[test]
+    fn curves_and_arcs_come_through_as_geometry() {
+        let svg = import_svg(
+            br##"<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">
+                <path d="M 0 0 C 10 0 20 10 20 20 Q 30 30 40 20 A 10 10 0 0 1 60 20 Z" fill="none" stroke="#000"/></svg>"##,
+        )
+        .unwrap();
+        assert_eq!(svg.paths.len(), 1);
+        let b = bounds_of_polylines(&flatten(&svg.paths[0].path, 0.01)).unwrap();
+        assert!(b.width() > 50.0 * MM_PER_PX && b.width() < 61.0 * MM_PER_PX);
+        assert!(b.x0.is_finite() && b.y1.is_finite());
+    }
+
+    #[test]
+    fn deeply_nested_groups_do_not_overflow_the_stack() {
+        for depth in [100usize, 2_000, 20_000] {
+            let svg = format!(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\">{}<rect width=\"1\" height=\"1\"/>{}</svg>",
+                "<g>".repeat(depth),
+                "</g>".repeat(depth)
+            );
+            // Either result is fine; reaching this line means no crash.
+            let _ = import_svg(svg.as_bytes());
+        }
+    }
+
+    #[test]
+    fn hostile_attribute_values_are_errors_or_finite_output() {
+        let cases: [&str; 6] = [
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="1e999" height="1e999"><rect width="1" height="1"/></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"><rect width="1" height="1"/></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="-5" height="-5"><rect width="1" height="1"/></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="NaN" height="inf"><rect width="1" height="1"/></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><path d="M 1e308 1e308 L -1e308 1e308 Z"/></svg>"#,
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><use href="#a"/><g id="a"><use href="#a"/></g></svg>"##,
+        ];
+        for case in cases {
+            if let Ok(svg) = import_svg(case.as_bytes()) {
+                assert!(svg.width_mm.is_finite() && svg.height_mm.is_finite(), "non-finite size for {case}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_malformed_embedded_picture_never_panics_and_valid_ones_are_sane() {
+        // A deliberately incomplete PNG (no valid IDAT/CRC), written out byte by byte.
+        const PNG: &[u8] = &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+            0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x60, 0x60,
+            0x60, 0x60, 0x00, 0x00, 0x00, 0x05, 0x00, 0x01, 0x5e, 0xf3, 0x2a, 0x3a, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e,
+        ];
+        let b64 = base64_encode(PNG);
+        let svg = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"96\" height=\"96\">\
+             <image id=\"pic\" x=\"10\" y=\"10\" width=\"48\" height=\"48\" xlink:href=\"data:image/png;base64,{b64}\"/></svg>"
+        );
+        // The truncated PNG may be rejected by the decoder; the contract under test is "no panic, and sane output when accepted".
+        if let Ok(import) = import_svg(svg.as_bytes()) {
+            for img in &import.images {
+                assert!(img.width_mm.is_finite() && img.height_mm.is_finite());
+                assert!(!img.bytes.is_empty());
+            }
+        }
+    }
+
+    fn base64_encode(data: &[u8]) -> String {
+        const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        for chunk in data.chunks(3) {
+            let n = chunk.iter().enumerate().fold(0u32, |acc, (i, b)| acc | (u32::from(*b) << (16 - 8 * i)));
+            for i in 0..4 {
+                if i <= chunk.len() {
+                    let idx = ((n >> (18 - 6 * i)) & 63) as usize;
+                    out.push(ALPHABET.get(idx).copied().map_or('A', char::from));
+                } else {
+                    out.push('=');
+                }
+            }
+        }
+        out
+    }
 }

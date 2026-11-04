@@ -1001,3 +1001,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   message, and a 401, still ask for a sign-in. **Checked:** `cloud_tests::an_unconfirmed_email_shows_the_services_message` and
   `an_unconfirmed_email_shows_the_services_words_and_keeps_the_session` (the window's note), both failing with the fix reverted. **Not
   checked:** against the live service.
+- **2026-11-04 — Audit green again: async-executor 1.14.0 to 1.14.1 (#44).** crates.io yanked `async-executor` 1.14.0 (it arrives through
+  `accesskit_unix` and `zbus`, the Linux screen-reader support), so `cargo audit --deny yanked` failed on main. `Cargo.lock` now pins 1.14.1
+  (same dependencies, checksum from the crates.io index); nothing else in the lock file changed and no ignore was added. Checked by CI and the
+  Audit workflow on the pull request; the three known "unmaintained" warnings stay allowed (docs/security-audit.md). Not checked locally:
+  no build here.

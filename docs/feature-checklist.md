@@ -1,8 +1,8 @@
-# Parity with the target application
+# Feature checklist
 
-> **Last updated:** 2026-10-14 · **Target:** LightBurn-class laser software (GRBL first)
-> **Method:** self-assessed, deliberately low, all numbers *estimated* (nothing measured against the
-> target; the clean-room rule forbids running it). Behaviour reference so far: general laser and GRBL
+> **Last updated:** 2026-10-14 · **Scope:** a full laser layout and cutting workflow (GRBL first)
+> **Method:** self-assessed, deliberately low, all numbers *estimated* (nothing measured against other
+> laser software; the clean-room rule forbids running it). Behaviour reference so far: general laser and GRBL
 > conventions plus the GRBL project's public documentation. Before closing a gap, cite the public
 > documentation or specification the behaviour comes from.
 

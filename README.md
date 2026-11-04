@@ -1,7 +1,7 @@
 # LaserFoundry
 
-**An open-source, clean-room laser engraver/cutter application in pure Rust, aiming at a
-LightBurn-class workflow.** Lay out artwork, give each colour layer its own speed, power, passes and
+**Laser layout and cutting app: per-layer speed, power and passes, live preview, GRBL streaming,
+built-in simulator.** Open source, clean-room, pure Rust. Lay out artwork, give each colour layer its own speed, power, passes and
 fill settings, preview the toolpath, and stream GRBL G-code to your machine, or to the built-in
 simulator when nothing is plugged in.
 
@@ -10,9 +10,9 @@ simulator when nothing is plugged in.
 > **Features and screenshots:** https://stitchwright.github.io/laserfoundry/features/ (source in `apps/laserfoundry-web/site/`).
 >
 > **Status: early.** The core pipeline works end to end and is well tested, but this is a small
-> fraction of what LightBurn does. See [`ROADMAP.md`](ROADMAP.md) and
-> [`docs/target-app-parity.md`](docs/target-app-parity.md) for an honest list of what exists and what
-> doesn't. LaserFoundry is independent of and unaffiliated with LightBurn Software.
+> fraction of a full laser workflow. See [`ROADMAP.md`](ROADMAP.md) and
+> [`docs/feature-checklist.md`](docs/feature-checklist.md) for an honest list of what exists and what
+> doesn't. LaserFoundry is an independent project, not affiliated with any other laser software vendor.
 
 ## What works today
 

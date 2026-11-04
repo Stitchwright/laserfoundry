@@ -11,7 +11,7 @@
 | M4        | Workflow: groups, autosave/recovery, material test grids, agent control (MCP)              |        |
 
 See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
-[`docs/target-app-parity.md`](docs/target-app-parity.md) for the self-assessment.
+[`docs/feature-checklist.md`](docs/feature-checklist.md) for the self-assessment.
 
 ## Progress log
 
@@ -964,7 +964,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   Publish to MakerFoundry, the pass-counting move cap, the two Help links, and dependency bumps (usvg 0.49, harfrust 0.15, skrifa 0.49,
   roxmltree 0.21.2, and the Windows signing action 1.2.0 to 2.0.0). Not done and not checked: the signing action's major bump has never run
   (the sign jobs run only on a `v*` tag), the SVG and text libraries have no real-world use at these versions, and there has been no cutter or
-  fresh-Windows test.
+  fresh-Windows test. *Updated 2026-11-04 (#45):* the notes now also cover what was merged after this bump and before the tag: the
+  GRBL job-start change (#31, simulator-tested only, called out as a machine-control change), the no-pixel picture crash fix (#32), the
+  DXF spline budget (#33), the `sample_grid` test (#34), the unconfirmed-email message (#39) and the async-executor 1.14.1 lock update (#44).
 
 - **2026-11-01 — GRBL job lines wait until earlier commands are answered.** GRBL answers lines in order, and the job's byte window starts
   from an empty receive buffer, but a job could start streaming while a typed command (Home's `$H`, say) still owed its `ok`; that `ok` was
@@ -996,3 +998,19 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   `sample_grid`'s white-outside-the-image behaviour. A hostile-image test found a panic (zero-size image), filed as an issue and since fixed (the zero-width picture entry above).
 - **2026-11-03 — Nightly maintenance.** Full suite green, three clean re-runs, no flaky test. Added G-code tests (tests only): `frame` refusals
   (bad speed, non-finite or out-of-bed bounds, broken machine), dry-run and power capping, empty job, zero passes.
+- **2026-11-03 — AI: an unconfirmed email is said in the service's words.** The account service now refuses spending for an account whose
+  email isn't confirmed with a 403 that says where the confirmation link went (StitchFoundry PR #44). Every 403 from it was read as "sign in",
+  so a signed-in person was told to sign in and their session was forgotten. A 403 whose body carries a message is now
+  `AiError::Unconfirmed`, shown as the service wrote it (through `tr_message`, English as the fallback) with the session kept; a 403 without a
+  message, and a 401, still ask for a sign-in. **Checked:** `cloud_tests::an_unconfirmed_email_shows_the_services_message` and
+  `an_unconfirmed_email_shows_the_services_words_and_keeps_the_session` (the window's note), both failing with the fix reverted. **Not
+  checked:** against the live service.
+- **2026-11-04 — Audit green again: async-executor 1.14.0 to 1.14.1 (#44).** crates.io yanked `async-executor` 1.14.0 (it arrives through
+  `accesskit_unix` and `zbus`, the Linux screen-reader support), so `cargo audit --deny yanked` failed on main. `Cargo.lock` now pins 1.14.1
+  (same dependencies, checksum from the crates.io index); nothing else in the lock file changed and no ignore was added. Checked by CI and the
+  Audit workflow on the pull request; the three known "unmaintained" warnings stay allowed (docs/security-audit.md). Not checked locally:
+  no build here.
+- **2026-11-04 — Clean-room wording (#40).** The README, NOTICE and agent instructions now describe what LaserFoundry does instead of
+  naming another vendor's laser software; `docs/target-app-parity.md` is now `docs/feature-checklist.md` (same table, no vendor name) and
+  every link to it was updated except `docs/releases/v0.2.1.md`, left to its open release-notes pull request (#47). Wording and docs only:
+  no code or behaviour changed. Checked by CI on the pull request; not checked locally (no build here).

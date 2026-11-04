@@ -120,6 +120,10 @@ pub enum AiError {
     /// The session ended, or there is none.
     #[error("Sign in to your account first (Help › Account…).")]
     SignIn,
+    /// The account's email isn't confirmed yet (403), in the service's own words, which say where the link went and how to have
+    /// it sent again (shown as they are).
+    #[error("{0}")]
+    Unconfirmed(String),
     /// The account hasn't the credits.
     #[error("Not enough credits: buy more in the account window.")]
     NoCredits,

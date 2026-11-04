@@ -4,8 +4,7 @@ Licensed under the MIT License or the Apache License, Version 2.0, at your optio
 (LICENSE-MIT, LICENSE-APACHE).
 
 LaserFoundry is an independent project. It is not affiliated with, endorsed by or derived from
-LightBurn Software, and "LightBurn" is a trademark of its owner, used here only to describe the
-kind of application this is.
+any other laser software or its vendor.
 
 Third-party material: this repository contains no bundled assets (icons are drawn in code; see
 ATTRIBUTION.md). Rust dependencies are fetched from crates.io under their own licences. egui's

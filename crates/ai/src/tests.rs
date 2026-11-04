@@ -297,6 +297,23 @@ mod cloud_tests {
         );
     }
 
+    /// An account whose email isn't confirmed is refused spending with a 403 that says where the link went: the person sees
+    /// those words, not "sign in"; a 403 without a message, and a 401, still ask for a sign-in.
+    #[test]
+    fn an_unconfirmed_email_shows_the_services_message() {
+        let words = "Confirm your email first: we sent a link to d@e.f (send it again from your Foundry Account window).";
+        let body = json!({"type": "error", "error": {"type": "permission_error", "message": words}}).to_string();
+        let e = cloud::parse(403, &body).unwrap_err();
+        assert_eq!(e, AiError::Unconfirmed(words.into()));
+        assert_eq!(e.to_string(), words);
+        assert_eq!(art::parse_reply(403, &body, true), Err(AiError::Unconfirmed(words.into())), "an AI request paid with credits too");
+        for no_message in ["{}", "", "<html>Forbidden</html>", r#"{"error":{"message":"  "}}"#, r#"{"error":{"message":5}}"#] {
+            assert_eq!(cloud::parse(403, no_message), Err(AiError::SignIn), "{no_message:?}");
+        }
+        assert_eq!(cloud::parse(401, &body), Err(AiError::SignIn));
+        assert!(AiError::SignIn.to_string().starts_with("Sign in"));
+    }
+
     #[test]
     fn a_session_and_an_account_are_read_defensively() {
         let a = json!({"token": "sfs_xyz", "account": {"email": "a@b.c", "credits": 100}});

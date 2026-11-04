@@ -1,7 +1,7 @@
 # LaserFoundry: copy for the landing page
 
 Material for the StitchFoundry team to build the LaserFoundry page from. Everything below is true of the
-software today; the claims are kept to what is built and tested (see `target-app-parity.md` for the honest
+software today; the claims are kept to what is built and tested (see `feature-checklist.md` for the honest
 status). Two rules for the page:
 
 - **Do not name or compare with other vendors' laser software** on the page (trademark risk, and our clean-room

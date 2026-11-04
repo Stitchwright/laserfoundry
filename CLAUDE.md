@@ -1,7 +1,7 @@
 # LaserFoundry — instructions for agents
 
 LaserFoundry is a clean-room, open-source, pure-Rust laser engraver/cutter application targeting
-LightBurn-class workflow parity: lay out vector and raster artwork, assign cut settings per layer,
+a full laser workflow: lay out vector and raster artwork, assign cut settings per layer,
 preview the toolpath, and send GRBL G-code to the machine. It runs natively (eframe/egui) and is
 built so the same engine can drive a headless CLI and, later, the web.
 
@@ -41,10 +41,10 @@ from a sibling repo, write it here.
 - **Quality gate** before every commit: `cargo xtask ci` (fmt, clippy `-D warnings`, tests, layers, cleanroom, brands, assets, messages, wasm). It also runs on every push (`.github/workflows/ci.yml`).
 
 ## Progress docs
-[`ROADMAP.md`](ROADMAP.md) (stage and progress log), [`docs/target-app-parity.md`](docs/target-app-parity.md) (the assessment) and
+[`ROADMAP.md`](ROADMAP.md) (stage and progress log), [`docs/feature-checklist.md`](docs/feature-checklist.md) (the assessment) and
 [`docs/gaps.md`](docs/gaps.md) (the ranked work list) follow the crafting apps' progress-docs standard. When a task lands, in the same commit:
 - add a dated entry to the ROADMAP log (what changed, how it was checked, what is not done);
-- update the area row in `docs/target-app-parity.md` and the gap entry in `docs/gaps.md` if it closed or shrank;
+- update the area row in `docs/feature-checklist.md` and the gap entry in `docs/gaps.md` if it closed or shrank;
 - keep the README's status in step with the ROADMAP.
 
 Grade by behaviour, not by whether a menu item exists; scores are self-assessed, so err low, and say whether a number was measured or estimated. `cargo xtask stats` counts tests and lines per crate for the numbers.

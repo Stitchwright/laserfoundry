@@ -11,7 +11,7 @@
 | M4        | Workflow: groups, autosave/recovery, material test grids, agent control (MCP)              |        |
 
 See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
-[`docs/target-app-parity.md`](docs/target-app-parity.md) for the self-assessment.
+[`docs/feature-checklist.md`](docs/feature-checklist.md) for the self-assessment.
 
 ## Progress log
 
@@ -1008,3 +1008,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   (same dependencies, checksum from the crates.io index); nothing else in the lock file changed and no ignore was added. Checked by CI and the
   Audit workflow on the pull request; the three known "unmaintained" warnings stay allowed (docs/security-audit.md). Not checked locally:
   no build here.
+- **2026-11-04 — Clean-room wording (#40).** The README, NOTICE and agent instructions now describe what LaserFoundry does instead of
+  naming another vendor's laser software; `docs/target-app-parity.md` is now `docs/feature-checklist.md` (same table, no vendor name) and
+  every link to it was updated except `docs/releases/v0.2.1.md`, left to its open release-notes pull request (#47). Wording and docs only:
+  no code or behaviour changed. Checked by CI on the pull request; not checked locally (no build here).

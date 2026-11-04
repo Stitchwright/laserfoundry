@@ -1012,3 +1012,6 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   naming another vendor's laser software; `docs/target-app-parity.md` is now `docs/feature-checklist.md` (same table, no vendor name) and
   every link to it was updated except `docs/releases/v0.2.1.md`, left to its open release-notes pull request (#47). Wording and docs only:
   no code or behaviour changed. Checked by CI on the pull request; not checked locally (no build here).
+- **2026-11-04 — nightly maintenance.** Health check green (full gate, 3 test re-runs, no flaky tests). Added 7 SVG-import tests
+  (empty file, path naming, stroke/fill/gradient colours, curves and arcs, deep nesting, hostile sizes and paths, malformed embedded
+  picture); tests only, no behaviour change. **Not checked:** a valid embedded picture (the test PNG is deliberately incomplete).

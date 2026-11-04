@@ -964,7 +964,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   Publish to MakerFoundry, the pass-counting move cap, the two Help links, and dependency bumps (usvg 0.49, harfrust 0.15, skrifa 0.49,
   roxmltree 0.21.2, and the Windows signing action 1.2.0 to 2.0.0). Not done and not checked: the signing action's major bump has never run
   (the sign jobs run only on a `v*` tag), the SVG and text libraries have no real-world use at these versions, and there has been no cutter or
-  fresh-Windows test.
+  fresh-Windows test. *Updated 2026-11-04 (#45):* the notes now also cover what was merged after this bump and before the tag: the
+  GRBL job-start change (#31, simulator-tested only, called out as a machine-control change), the no-pixel picture crash fix (#32), the
+  DXF spline budget (#33), the `sample_grid` test (#34), the unconfirmed-email message (#39) and the async-executor 1.14.1 lock update (#44).
 
 - **2026-11-01 — GRBL job lines wait until earlier commands are answered.** GRBL answers lines in order, and the job's byte window starts
   from an empty receive buffer, but a job could start streaming while a typed command (Home's `$H`, say) still owed its `ok`; that `ok` was

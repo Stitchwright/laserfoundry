@@ -235,4 +235,50 @@ mod tests {
         assert!(resume_from("", 1).is_err());
         assert!(resume_from("G1 X1 Y1 S5 F10", 1).is_ok());
     }
+
+    mod hostile_input_tests {
+        use super::*;
+
+        #[test]
+        fn programs_over_the_line_cap_are_refused() {
+            let big = "G1 X1\n".repeat(MAX_LINES + 1);
+            assert_eq!(resume_from(&big, 1), Err(ResumeError::TooLong));
+        }
+
+        #[test]
+        fn non_finite_or_overflowing_numbers_never_reach_the_resumed_program() {
+            for bad in ["G0 X1e999 Y1\nG1 X2\n", "G0 Xnan Y1\nG1 X2\n", "G0 Xinf Y1\nG1 X2\n", "G1 X1 S1e999 F1\nG1 X2\n"] {
+                if let Ok(r) = resume_from(bad, 2) {
+                    assert!(!r.contains("inf") && !r.contains("NaN") && !r.contains("nan"), "{bad:?} -> {r}");
+                }
+            }
+        }
+
+        #[test]
+        fn semicolon_comments_are_ignored_and_parenthesised_ones_are_refused() {
+            // The generator only writes `;` comments, so a `(...)` line is not one of ours.
+            let p = "G21\nG90\nM4 S0\n; G0 X999 Y999\nG0 X5 Y5\nG1 X9 S100 F500\n";
+            let r = resume_from(p, 6).unwrap();
+            assert!(r.contains("G0 X5 Y5\n") && !r.contains("999"), "{r}");
+            let q = "G21\nG90\n(G0 X888 Y888)\nG0 X5 Y5\nG1 X9 S100 F500\n";
+            assert_eq!(resume_from(q, 5), Err(ResumeError::Unsupported(3)));
+        }
+
+        #[test]
+        fn crlf_line_endings_and_a_missing_final_newline_are_handled() {
+            let p = "G21\r\nG90\r\nM4 S0\r\nG0 X5 Y5\r\nG1 X9 S100 F500\r\nG1 Y9";
+            let r = resume_from(p, 6).unwrap();
+            assert!(r.contains("G0 X9 Y5") && r.contains("G1 Y9"), "{r}");
+        }
+
+        #[test]
+        fn very_long_lines_and_garbage_bytes_do_not_panic() {
+            let long = format!("G1 X1 {}\nG1 X2\n", "Q".repeat(200_000));
+            let _ = resume_from(&long, 2);
+            let junk = "\u{0}\u{feff}G1 X\u{1F600}\n\t\t\nG1 X2 Y\n";
+            for line in 0..6 {
+                let _ = resume_from(junk, line);
+            }
+        }
+    }
 }

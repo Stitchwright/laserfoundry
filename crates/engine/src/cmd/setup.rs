@@ -1,4 +1,4 @@
-use laserfoundry_doc::{Dither, LayerId, LayerMode, Origin};
+use laserfoundry_doc::{Dither, LayerId, LayerMode, Origin, Rotary};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -217,10 +217,10 @@ fn machine_set(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     }
     m.rotary.enabled = p.rotary_enabled.unwrap_or(m.rotary.enabled);
     if let Some(v) = p.rotary_reference_diameter {
-        m.rotary.reference_diameter = in_range("rotary_reference_diameter", v, 1.0, 10_000.0)?;
+        m.rotary.reference_diameter = in_range("rotary_reference_diameter", v, Rotary::MIN_DIAMETER_MM, Rotary::MAX_DIAMETER_MM)?;
     }
     if let Some(v) = p.rotary_object_diameter {
-        m.rotary.object_diameter = in_range("rotary_object_diameter", v, 1.0, 10_000.0)?;
+        m.rotary.object_diameter = in_range("rotary_object_diameter", v, Rotary::MIN_DIAMETER_MM, Rotary::MAX_DIAMETER_MM)?;
     }
     Ok(json!({ "bed": [m.bed_width, m.bed_height] }))
 }

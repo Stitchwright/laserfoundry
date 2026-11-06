@@ -852,6 +852,11 @@ impl Default for Rotary {
 }
 
 impl Rotary {
+    /// Smallest diameter (mm) a roller, chuck or workpiece may have.
+    pub const MIN_DIAMETER_MM: f64 = 1.0;
+    /// Largest diameter (mm) a roller, chuck or workpiece may have. With the minimum this bounds the Y scale to 10,000×.
+    pub const MAX_DIAMETER_MM: f64 = 10_000.0;
+
     /// The factor applied to Y distances, or 1 when the attachment is off or the numbers are unusable.
     pub fn y_scale(&self) -> f64 {
         let ok = |d: f64| d.is_finite() && d > 0.0;

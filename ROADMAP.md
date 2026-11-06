@@ -1022,3 +1022,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
 - **2026-11-06 — issue #52, fonts repo moved.** Pointed the font download (`fontlib` tree and raw URLs), the CLI help text and the Pages
   checkout at `StitchFoundry/stitchfoundry-fonts`; pinned commit unchanged. Checked with `cargo xtask ci` (all steps green except wasm:
   target not installed in this sandbox, CI covers it). **Not checked:** a live download from the new address.
+- **2026-11-06 — G-code refuses rotary diameters that would overflow Y (#56).** A project file could carry rotary diameters that
+  `machine.set` refuses (for example 1e300 and 1e-300); their ratio overflowed to infinity and the program said `G0 X10 Yinf`
+  before cutting. `generate`/`frame` now refuse diameters outside 1 to 10,000 mm (the same range `machine.set` uses, now shared as
+  `Rotary::MIN_DIAMETER_MM`/`MAX_DIAMETER_MM`), and every coordinate is checked finite after scaling. Regression test fails without
+  the fix. **Not checked:** the full gate was not run in this job; the pull request's CI is the check.

@@ -9,7 +9,7 @@ pub use resume::{ResumeError, resume_from};
 
 use std::fmt::Write;
 
-use laserfoundry_doc::{Dialect, Machine, Origin};
+use laserfoundry_doc::{Dialect, Machine, Origin, Rotary};
 use laserfoundry_geom::{Point, Rect};
 use laserfoundry_toolpath::{Job, Move};
 use thiserror::Error;
@@ -111,7 +111,10 @@ fn check_machine(m: &Machine) -> Result<(), GcodeError> {
         }
     }
     let r = m.rotary;
-    if r.enabled && !(r.reference_diameter.is_finite() && r.reference_diameter > 0.0 && r.object_diameter.is_finite() && r.object_diameter > 0.0) {
+    // The same range `machine.set` accepts: a project file is not held to it, and an extreme ratio would
+    // scale Y past any real coordinate (or to infinity).
+    let usable = |d: f64| d.is_finite() && (Rotary::MIN_DIAMETER_MM..=Rotary::MAX_DIAMETER_MM).contains(&d);
+    if r.enabled && !(usable(r.reference_diameter) && usable(r.object_diameter)) {
         return Err(GcodeError::BadMachine("rotary diameters"));
     }
     if m.max_s == 0 {
@@ -270,7 +273,7 @@ impl<'a> Writer<'a> {
                 Origin::TopLeft => dy,
                 Origin::BottomLeft => -dy,
             };
-            return Ok((round3(dx), round3(y * m.rotary.y_scale())));
+            return finite((round3(dx), round3(y * m.rotary.y_scale())));
         }
         if p.x < -BED_EPSILON || p.y < -BED_EPSILON || p.x > m.bed_width + BED_EPSILON || p.y > m.bed_height + BED_EPSILON {
             return Err(GcodeError::OutOfBed { x: p.x, y: p.y, w: m.bed_width, h: m.bed_height });
@@ -279,7 +282,7 @@ impl<'a> Writer<'a> {
             Origin::TopLeft => p.y,
             Origin::BottomLeft => m.bed_height - p.y,
         };
-        Ok((round3(p.x.clamp(0.0, m.bed_width)), round3(y.clamp(0.0, m.bed_height) * m.rotary.y_scale())))
+        finite((round3(p.x.clamp(0.0, m.bed_width)), round3(y.clamp(0.0, m.bed_height) * m.rotary.y_scale())))
     }
 
     fn line(&mut self, s: &str) {
@@ -293,6 +296,11 @@ impl<'a> Writer<'a> {
         self.out.push_str(&clean);
         self.out.push('\n');
     }
+}
+
+/// The last check before a coordinate is written: scaling must never turn it into `inf` or `NaN`.
+fn finite((x, y): (f64, f64)) -> Result<(f64, f64), GcodeError> {
+    if x.is_finite() && y.is_finite() { Ok((x, y)) } else { Err(GcodeError::NonFinite) }
 }
 
 fn round3(v: f64) -> f64 {
@@ -404,6 +412,17 @@ mod tests {
             doc.machine.rotary = laserfoundry_doc::Rotary { enabled: true, reference_diameter: 50.0, object_diameter: 0.0 };
             doc.add_shape(Shape::path("a", 0, rect_path(10.0, 10.0, 20.0, 10.0)));
             assert_eq!(generate(&plan(&doc).unwrap(), &doc.machine, Placement::Absolute), Err(GcodeError::BadMachine("rotary diameters")));
+        }
+
+        #[test]
+        fn a_diameter_ratio_that_overflows_is_refused_not_written() {
+            for (reference, object) in [(1e300, 1e-300), (f64::MAX, 0.5)] {
+                let mut doc = Document::default();
+                doc.machine.rotary = laserfoundry_doc::Rotary { enabled: true, reference_diameter: reference, object_diameter: object };
+                doc.add_shape(Shape::path("a", 0, rect_path(10.0, 10.0, 20.0, 10.0)));
+                let result = generate(&plan(&doc).unwrap(), &doc.machine, Placement::Absolute);
+                assert!(result.is_err(), "{reference}/{object} wrote {result:?}");
+            }
         }
     }
 

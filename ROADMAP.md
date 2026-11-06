@@ -1019,3 +1019,6 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   picture); tests only, no behaviour change. **Not checked:** a valid embedded picture (the test PNG is deliberately incomplete).
 - **2026-11-05 — nightly maintenance.** Health check green (full gate, 3 test re-runs, no flaky tests; wasm target installed locally).
   Added 5 hostile-input tests for G-code resume (line cap, non-finite numbers, comments, CRLF, garbage bytes); tests only, no behaviour change.
+- **2026-11-06 — issue #52, fonts repo moved.** Pointed the font download (`fontlib` tree and raw URLs), the CLI help text and the Pages
+  checkout at `StitchFoundry/stitchfoundry-fonts`; pinned commit unchanged. Checked with `cargo xtask ci` (all steps green except wasm:
+  target not installed in this sandbox, CI covers it). **Not checked:** a live download from the new address.

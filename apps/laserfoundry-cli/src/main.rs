@@ -33,7 +33,7 @@ const USAGE_LINES: &[&str] = &[
     "                       --connect works in the window of a running `laserfoundry --agent-link` instead",
     "  run <script.json>    run a JSON array of {\"id\", \"params\"} commands and print the last result",
     "  fonts download [--all] [--to DIR]",
-    "                       download the font library (Stitchwright/stitchfoundry-fonts) to the data folder or DIR;",
+    "                       download the font library (StitchFoundry/stitchfoundry-fonts) to the data folder or DIR;",
     "                       --all adds the large Ink/Stitch collection",
     "  fonts path           print the folder the font library is kept in",
     "  translation-template print every text this tool shows as a catalog to translate",

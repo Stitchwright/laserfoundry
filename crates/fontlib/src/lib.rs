@@ -1,4 +1,4 @@
-//! Downloads the font library: the `Stitchwright/stitchfoundry-fonts` repository. The file list comes
+//! Downloads the font library: the `StitchFoundry/stitchfoundry-fonts` repository. The file list comes
 //! from GitHub's tree API and each file from its raw address, so only what was asked for is fetched
 //! (the preview pictures are skipped, they are most of the repository's weight).
 //!
@@ -74,8 +74,8 @@ pub struct Source {
 impl Default for Source {
     fn default() -> Self {
         Source {
-            tree_url: "https://api.github.com/repos/Stitchwright/stitchfoundry-fonts/git/trees/main?recursive=1".into(),
-            raw_base: "https://raw.githubusercontent.com/Stitchwright/stitchfoundry-fonts/main".into(),
+            tree_url: "https://api.github.com/repos/StitchFoundry/stitchfoundry-fonts/git/trees/main?recursive=1".into(),
+            raw_base: "https://raw.githubusercontent.com/StitchFoundry/stitchfoundry-fonts/main".into(),
         }
     }
 }

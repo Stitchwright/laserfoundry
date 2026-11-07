@@ -54,6 +54,8 @@ pub struct SvgImport {
     pub height_mm: f64,
     pub paths: Vec<ImportedPath>,
     pub images: Vec<ImportedImage>,
+    /// `<text>` elements that produced no outlines (no usable font, as in the browser build), so the caller can say so.
+    pub text_undrawn: usize,
 }
 
 /// Cap on imported pictures and on the bytes they may add up to.
@@ -81,6 +83,7 @@ pub fn import_svg(data: &[u8]) -> Result<SvgImport, SvgError> {
         height_mm: f64::from(size.height()) * MM_PER_PX,
         paths: found.paths,
         images: found.images,
+        text_undrawn: found.text_undrawn,
     })
 }
 
@@ -111,6 +114,7 @@ struct Found {
     paths: Vec<ImportedPath>,
     images: Vec<ImportedImage>,
     image_bytes: usize,
+    text_undrawn: usize,
 }
 
 fn collect(group: &usvg::Group, found: &mut Found) {
@@ -122,7 +126,12 @@ fn collect(group: &usvg::Group, found: &mut Found) {
         match node {
             usvg::Node::Group(g) => collect(g, found),
             // Text arrives already converted to outlines (an empty group without fonts).
-            usvg::Node::Text(t) => collect(t.flattened(), found),
+            usvg::Node::Text(t) => {
+                if t.flattened().children().is_empty() {
+                    found.text_undrawn += 1;
+                }
+                collect(t.flattened(), found);
+            }
             usvg::Node::Image(img) => {
                 let bytes = match img.kind() {
                     usvg::ImageKind::PNG(d) | usvg::ImageKind::JPEG(d) | usvg::ImageKind::GIF(d) | usvg::ImageKind::WEBP(d) => d.as_slice(),
@@ -206,6 +215,17 @@ mod tests {
         // A normal amount of text is fine.
         let short = "<svg xmlns=\"http://www.w3.org/2000/svg\"><text x=\"1\" y=\"10\">Hello</text></svg>";
         assert!(import_svg(short.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn text_without_a_usable_font_is_counted_not_dropped_silently() {
+        // Regression (#68): the browser build has no fonts, and text vanished with no word about it. Whatever fonts the machine
+        // has, the text is either drawn as paths or counted as undrawn.
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"96\" height=\"96\">\
+                   <text x=\"1\" y=\"20\" font-family=\"No Such Family Anywhere 7f3a\" font-size=\"10\">Hi</text></svg>";
+        let import = import_svg(svg.as_bytes()).unwrap();
+        assert!(import.text_undrawn == 1 && import.paths.is_empty() || import.text_undrawn == 0 && !import.paths.is_empty());
+        assert_eq!(import_svg(RECT_SVG.as_bytes()).unwrap().text_undrawn, 0);
     }
 
     #[test]

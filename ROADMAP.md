@@ -1037,3 +1037,9 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   a bed smaller than the default). **Not done:** laser presets, Find my laser, the bed outline check, several machines (the machine is
   still kept in the project, so a new project starts from the defaults), panel docking. **Not checked:** the full gate was not run in
   this job (the pull request's CI is the check), nothing was run on real hardware, and the wizard was not looked at on screen.
+- **2026-11-07 — SVG text that cannot be drawn is reported (part of #68).** `import_svg` now counts `<text>` elements that produced no
+  outlines (`SvgImport::text_undrawn`) and `file.import_svg` returns it as `text_undrawn`, so the browser build no longer drops text
+  without a trace. Unit test in `crates/svg`. **Not done:** the web build still has no fonts for usvg (the font library holds glyph
+  fonts, not TrueType files, and no open font file is bundled; that needs an openly licensed font plus an ATTRIBUTION.md row), the
+  family mapping (Arial, serif, monospace), and showing the count in the UI. **Not checked:** nothing was built or run in this job (the
+  pull request's CI is the check).

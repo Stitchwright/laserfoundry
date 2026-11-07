@@ -223,7 +223,7 @@ fn import_svg(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         ids.push(s.doc.add_shape(shape));
     }
     s.selection = ids.clone();
-    Ok(json!({ "ids": ids, "width_mm": svg.width_mm, "height_mm": svg.height_mm, "skipped_images": skipped_images }))
+    Ok(json!({ "ids": ids, "width_mm": svg.width_mm, "height_mm": svg.height_mm, "skipped_images": skipped_images, "text_undrawn": svg.text_undrawn }))
 }
 
 /// Chains the open shapes among `ids` (per layer) into longer paths, replacing them in `ids`.

@@ -9,7 +9,7 @@ version = "0.2.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.95"
-repository = "https://github.com/Stitchwright/laserfoundry"
+repository = "https://github.com/StitchFoundry/laserfoundry"
 
 [workspace.dependencies]
 # internal

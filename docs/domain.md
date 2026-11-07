@@ -1,6 +1,6 @@
 # The `laserfoundry.app` domain
 
-The hosted browser build is at `https://stitchwright.github.io/laserfoundry/` (GitHub Pages, built by
+The hosted browser build is at `https://stitchfoundry.github.io/laserfoundry/` (GitHub Pages, built by
 `.github/workflows/pages.yml`). This is how to serve it from `https://laserfoundry.app/` as well. Nothing in the
 program depends on the address: the page uses relative paths, so it works at either.
 
@@ -28,7 +28,7 @@ certificate, and proxying can stall that. The proxy can be turned on later if wa
 | AAAA  | @    | 2606:50c0:8001::153      |
 | AAAA  | @    | 2606:50c0:8002::153      |
 | AAAA  | @    | 2606:50c0:8003::153      |
-| CNAME | www  | stitchwright.github.io   |
+| CNAME | www  | stitchfoundry.github.io   |
 
 (These are GitHub Pages' published addresses; check GitHub's "Managing a custom domain for your GitHub Pages
 site" page before adding them, in case they have changed.)
@@ -46,8 +46,8 @@ minutes, up to an hour), then tick **Enforce HTTPS**. `www.laserfoundry.app` the
 ## 5. Then, in the repository (ask the agent to do this once the above works)
 
 - Point the README, the docs and the repository's website field at `https://laserfoundry.app/`.
-- The old `stitchwright.github.io/lightfoundry` address belongs to the repository's former name and may stop working; use
-  `https://stitchwright.github.io/laserfoundry/` until the custom domain is set up.
+- The old `stitchfoundry.github.io/lightfoundry` address belongs to the repository's former name and may stop working; use
+  `https://stitchfoundry.github.io/laserfoundry/` until the custom domain is set up.
 - The apps use the shared Foundry service (`https://cloud.stitchfoundry.app`). If it gets a name such as
   `api.laserfoundry.app`, set the `LF_CLOUD_URL` repository variable to it (see `ai.md`): the browser build's content security policy is generated from that variable.
 

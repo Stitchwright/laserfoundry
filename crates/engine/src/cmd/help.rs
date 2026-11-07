@@ -6,7 +6,7 @@ use super::CommandSpec;
 use crate::{EngineError, Session};
 
 /// This app's source repository.
-pub const GITHUB_URL: &str = "https://github.com/Stitchwright/laserfoundry";
+pub const GITHUB_URL: &str = "https://github.com/StitchFoundry/laserfoundry";
 /// Where people can chip in to support the project's development (a Buy Me a Coffee page).
 pub const SUPPORT_URL: &str = "https://buymeacoffee.com/bwattendorf";
 /// The Foundry family's YouTube channel (MakerFoundry).

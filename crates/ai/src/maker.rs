@@ -1,6 +1,6 @@
 //! MakerFoundry: sending a design to it, and opening one from it.
 //!
-//! Public specification: MakerFoundry's `docs/api.md` (https://github.com/SiteSentrix/makerfoundry/blob/main/docs/api.md),
+//! Public specification: MakerFoundry's `docs/api.md` (https://github.com/StitchFoundry/makerfoundry/blob/main/docs/api.md),
 //! written for this app.
 //!
 //! * **Publish** ([`publish`], [`read_published`]): `POST {server}/api/v1/designs` with the person's Foundry Account session

@@ -1037,3 +1037,8 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   a bed smaller than the default). **Not done:** laser presets, Find my laser, the bed outline check, several machines (the machine is
   still kept in the project, so a new project starts from the defaults), panel docking. **Not checked:** the full gate was not run in
   this job (the pull request's CI is the check), nothing was run on real hardware, and the wizard was not looked at on screen.
+- **2026-11-07 — issue #55, org move to StitchFoundry.** Pointed the Pages links (README, features page `og:image`, MakerFoundry and domain
+  docs, marketing, release notes), the GitHub links (`help.rs` `GITHUB_URL`, `Cargo.toml`, README, features page, release notes) and the
+  MakerFoundry spec link at the `StitchFoundry` org. App ids (`com.stitchwright.*`) and past ROADMAP entries are unchanged. **Not done:**
+  Bruce-only items (DNS `www` CNAME, `ANTHROPIC_API_KEY` secret, published release text). **Not checked:** the new links were not fetched
+  from this sandbox; the full gate result is in the pull request's CI.

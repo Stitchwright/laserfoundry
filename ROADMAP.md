@@ -1037,3 +1037,7 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   a bed smaller than the default). **Not done:** laser presets, Find my laser, the bed outline check, several machines (the machine is
   still kept in the project, so a new project starts from the defaults), panel docking. **Not checked:** the full gate was not run in
   this job (the pull request's CI is the check), nothing was run on real hardware, and the wizard was not looked at on screen.
+- **2026-11-07 — Frame refuses feeds above `MAX_FEED` (#64).** `job.frame` checked only that its speed was finite and positive, so a
+  script or agent asking for `speed: 1e300` got a `G1 … F1000…` line with a 301-digit number; it now refuses speeds above 1,000,000 mm/min,
+  as `job.generate` already did. Regression test fails without the fix. Nightly sweep: full `cargo xtask ci` green (after `rustup target add
+  wasm32-unknown-unknown`, #43); `cargo audit` reports no vulnerabilities (3 unmaintained warnings from the zbus family).

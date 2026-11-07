@@ -59,6 +59,10 @@ impl Platform for DesktopPlatform {
         Some(data_dir()?.join("LaserFoundry").join("recent.json"))
     }
 
+    fn setup_file(&self) -> Option<PathBuf> {
+        Some(data_dir()?.join("LaserFoundry").join("machine-setup.json"))
+    }
+
     fn shortcuts_file(&self) -> Option<PathBuf> {
         Some(data_dir()?.join("LaserFoundry").join("shortcuts.json"))
     }

@@ -3433,3 +3433,224 @@ mod theme_tests {
         }
     }
 }
+
+mod setup_tests {
+    use std::path::PathBuf;
+    use std::time::{Duration, Instant};
+
+    use laserfoundry_device::{MachineState, SimulatedGrbl};
+    use laserfoundry_doc::Origin;
+
+    use super::*;
+    use crate::machine_setup as ms;
+
+    /// A host that keeps the wizard's note in `file`.
+    struct SetupPlatform {
+        file: PathBuf,
+    }
+
+    impl Platform for SetupPlatform {
+        fn pick_open(&self, _: &str, _: &[&str]) -> Option<PathBuf> {
+            None
+        }
+
+        fn pick_save(&self, _: &str, _: &str, _: &[&str]) -> Option<PathBuf> {
+            None
+        }
+
+        fn setup_file(&self) -> Option<PathBuf> {
+            Some(self.file.clone())
+        }
+
+        fn serial_ports(&self) -> Vec<String> {
+            Vec::new()
+        }
+
+        fn open_serial(&self, _: &str) -> Result<Box<dyn laserfoundry_device::Transport + Send>, String> {
+            Err("none".into())
+        }
+    }
+
+    mod launch {
+        use super::*;
+
+        #[test]
+        fn the_wizard_opens_by_itself_until_it_was_finished_or_skipped() {
+            let dir = temp_dir("setup-launch");
+            let file = dir.join("machine-setup.json");
+            let mut h = harness_on(&file);
+            assert!(h.app.wizard.open, "no note yet: the wizard opens at launch");
+            h.frame(vec![]);
+            h.frame(vec![]);
+            assert!(h.app.wizard.open, "drawing it does not close it");
+
+            ms::finish(&mut h.app);
+            assert!(!h.app.wizard.open && file.exists(), "skipping leaves a note");
+            assert!(!harness_on(&file).app.wizard.open, "and it does not open by itself again");
+
+            ms::open(&mut h.app);
+            assert!(h.app.wizard.open && h.app.wizard.step == ms::Step::Connect, "but it opens on demand, from the first step");
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+
+        #[test]
+        fn a_host_without_a_note_file_never_opens_it_by_itself() {
+            assert!(!Harness::new().app.wizard.open);
+        }
+
+        #[test]
+        fn saving_names_the_machine_closes_the_wizard_and_leaves_the_note() {
+            let dir = temp_dir("setup-save");
+            let file = dir.join("machine-setup.json");
+            let mut h = harness_on(&file);
+            h.app.wizard.name = "   ".into();
+            assert!(!ms::save(&mut h.app), "a blank name is refused");
+            assert!(h.app.wizard.open && !file.exists());
+
+            h.app.wizard.name = "Shop laser".into();
+            assert!(ms::save(&mut h.app));
+            assert_eq!(h.app.session.doc.machine.name, "Shop laser");
+            assert!(!h.app.wizard.open && file.exists());
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    mod against_the_simulator {
+        use super::*;
+
+        #[test]
+        fn a_controller_with_laser_mode_off_is_flagged_and_can_be_fixed_on_request() {
+            let mut h = simulated(&[(32, "0")]);
+            assert_eq!(setting(&h, 32), Some(0.0));
+            assert_eq!(ms::read_controller(&h.app.snap.as_ref().unwrap().settings).laser_mode, Some(false));
+
+            h.app.link_do(|l| l.write_setting(32, 1.0));
+            pump(&mut h, "laser mode on", |h| setting(h, 32) == Some(1.0));
+            assert_eq!(ms::read_controller(&h.app.snap.as_ref().unwrap().settings).laser_mode, Some(true));
+        }
+
+        #[test]
+        fn a_bed_smaller_than_the_default_is_taken_from_the_controller() {
+            let mut h = simulated(&[(130, "150.000"), (131, "90.000"), (30, "255"), (22, "1")]);
+            let c = ms::read_controller(&h.app.snap.as_ref().unwrap().settings);
+            assert_eq!(c.bed, Some((150.0, 90.0)));
+            assert_eq!((c.max_s, c.homing), (Some(255), Some(true)));
+
+            ms::apply_controller(&mut h.app, &c);
+            let m = &h.app.session.doc.machine;
+            assert_eq!((m.bed_width, m.bed_height, m.max_s), (150.0, 90.0, 255));
+        }
+
+        #[test]
+        fn nonsense_from_the_controller_changes_nothing() {
+            let mut h = simulated(&[(130, "0"), (131, "nan"), (30, "-5"), (22, "x"), (32, "y")]);
+            let c = ms::read_controller(&h.app.snap.as_ref().unwrap().settings);
+            assert_eq!(c, ms::Controller::default());
+            let before = h.app.session.doc.machine.clone();
+            ms::apply_controller(&mut h.app, &c);
+            assert_eq!(h.app.session.doc.machine, before);
+        }
+
+        #[test]
+        fn the_direction_answers_set_the_origin_and_a_reversed_x_axis_can_be_flipped() {
+            let mut h = simulated(&[(3, "2")]);
+            ms::answer_up(&mut h.app, false);
+            assert_eq!(h.app.session.doc.machine.origin, Origin::TopLeft, "+Y toward the person: the origin is at the back");
+            ms::answer_up(&mut h.app, true);
+            assert_eq!(h.app.session.doc.machine.origin, Origin::BottomLeft);
+
+            // The test jogs move the simulated head, with the laser off.
+            h.app.link_do(|l| l.jog(0.0, 5.0, 1500.0));
+            pump(&mut h, "the jog", |h| head(h) == Some((0.0, 5.0)));
+
+            ms::answer_right(&mut h.app, false);
+            assert_eq!(h.app.wizard.x_right, Some(false));
+            let flipped = ms::flip_x_direction(&h.app.snap.as_ref().unwrap().settings);
+            assert_eq!(flipped, Some(3.0), "the X bit is toggled and the Y bit is left alone");
+            h.app.link_do(|l| l.write_setting(3, 3.0));
+            pump(&mut h, "$3 written", |h| setting(h, 3) == Some(3.0));
+        }
+
+        #[test]
+        fn the_machine_block_and_the_wizard_draw_while_connected() {
+            let mut h = simulated(&[]);
+            ms::open(&mut h.app);
+            for step in [ms::Step::Connect, ms::Step::Read, ms::Step::Direction, ms::Step::Save] {
+                h.app.wizard.step = step;
+                h.frame(vec![]);
+                h.frame(vec![]);
+            }
+            assert!(h.app.wizard.open);
+        }
+    }
+
+    mod helpers {
+        use super::*;
+
+        #[test]
+        fn the_flip_needs_a_usable_mask() {
+            let mask = |v: &str| ms::flip_x_direction(&[(3, v.to_string())].into_iter().collect());
+            assert_eq!(mask("0"), Some(1.0));
+            assert_eq!(mask("1"), Some(0.0));
+            assert_eq!(mask("6"), Some(7.0));
+            assert_eq!(mask("-1"), None);
+            assert_eq!(mask("1000"), None);
+            assert_eq!(mask("abc"), None);
+            assert_eq!(ms::flip_x_direction(&std::collections::BTreeMap::new()), None);
+        }
+
+        #[test]
+        fn the_status_line_says_one_plain_word() {
+            let label = ms::status_label;
+            assert_eq!(label(false, true, None, false), "Disconnected");
+            assert_eq!(label(true, true, None, false), "Simulator: Connecting…");
+            assert_eq!(label(true, false, Some(MachineState::Idle), false), "Ready");
+            assert_eq!(label(true, true, Some(MachineState::Idle), false), "Simulator: Ready");
+            assert_eq!(label(true, false, Some(MachineState::Alarm), true), "Alarm");
+            assert_eq!(label(true, false, Some(MachineState::Run), false), "Busy");
+            assert_eq!(label(true, false, Some(MachineState::Idle), true), "Busy");
+        }
+    }
+
+    fn harness_on(file: &std::path::Path) -> Harness {
+        let mut h = Harness {
+            ctx: egui::Context::default(),
+            app: LaserFoundryApp::new(Session::new(), Box::new(SetupPlatform { file: file.to_path_buf() })),
+            time: 0.0,
+            modifiers: Modifiers::NONE,
+            sent_modifiers: Modifiers::NONE,
+        };
+        h.frame(vec![]);
+        h
+    }
+
+    /// An app connected to a simulated controller whose settings start with `settings` changed.
+    fn simulated(settings: &[(u32, &str)]) -> Harness {
+        let mut h = Harness::new();
+        let mut sim = SimulatedGrbl::new();
+        sim.set_latency(Duration::from_millis(3));
+        for (id, value) in settings {
+            sim.set_setting(*id, value);
+        }
+        h.app.start_link(Ok(Box::new(sim)));
+        pump(&mut h, "the controller's settings", |h| h.app.snap.as_ref().is_some_and(|s| !s.settings.is_empty()));
+        h
+    }
+
+    fn head(h: &Harness) -> Option<(f64, f64)> {
+        h.app.snap.as_ref().and_then(|s| s.status.as_ref()).and_then(|st| st.position).map(|(x, y, _)| (x, y))
+    }
+
+    fn setting(h: &Harness, id: u32) -> Option<f64> {
+        h.app.snap.as_ref().and_then(|s| s.settings.get(&id)).and_then(|v| v.trim().parse().ok())
+    }
+
+    fn pump(h: &mut Harness, what: &str, mut done: impl FnMut(&Harness) -> bool) {
+        let start = Instant::now();
+        while !done(h) {
+            h.frame(vec![]);
+            assert!(start.elapsed() < Duration::from_secs(10), "timed out waiting for {what}; status {:?}", h.app.status);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+}

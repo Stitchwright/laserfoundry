@@ -15,6 +15,7 @@ mod ai_ui;
 mod browser_recent;
 mod job_position;
 mod machine_report;
+mod machine_setup;
 mod maker_ui;
 mod menus;
 mod nodes_ui;
@@ -183,6 +184,8 @@ pub struct LaserFoundryApp {
     shortcuts: shortcuts::Shortcuts,
     shortcuts_open: bool,
     history_open: bool,
+    /// The machine setup wizard.
+    wizard: machine_setup::Wizard,
     select_size_open: bool,
     fonts_open: bool,
     font_manager: font_ui::FontManager,
@@ -382,6 +385,7 @@ impl LaserFoundryApp {
             shortcuts,
             shortcuts_open: false,
             history_open: false,
+            wizard: machine_setup::Wizard::default(),
             select_size_open: false,
             fonts_open: false,
             font_manager: font_ui::FontManager::default(),
@@ -425,6 +429,9 @@ impl LaserFoundryApp {
         };
         app.load_saved_translation();
         app.load_ai();
+        if machine_setup::should_open_on_launch(app.platform.as_ref()) {
+            machine_setup::open(&mut app);
+        }
         app
     }
 
@@ -885,6 +892,7 @@ impl LaserFoundryApp {
     fn dialogs(&mut self, ctx: &egui::Context) {
         shortcuts::window(self, ctx);
         history_ui::window(self, ctx);
+        machine_setup::window(self, ctx);
         select_size_ui::window(self, ctx);
         font_ui::window(self, ctx);
         if self.pending_recovery.is_some() {

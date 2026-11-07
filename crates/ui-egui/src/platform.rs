@@ -123,6 +123,11 @@ pub trait Platform {
         None
     }
 
+    /// Where a note that the machine setup wizard was finished or skipped is kept. Without one the wizard never opens by itself.
+    fn setup_file(&self) -> Option<PathBuf> {
+        None
+    }
+
     /// Small text the host keeps between visits for hosts with no files of their own (the browser's
     /// local storage). `None` when nothing is stored or storage is unavailable.
     fn storage_get(&self, _key: &str) -> Option<String> {

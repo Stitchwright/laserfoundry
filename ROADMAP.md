@@ -1027,3 +1027,13 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   before cutting. `generate`/`frame` now refuse diameters outside 1 to 10,000 mm (the same range `machine.set` uses, now shared as
   `Rotary::MIN_DIAMETER_MM`/`MAX_DIAMETER_MM`), and every coordinate is checked finite after scaling. Regression test fails without
   the fix. **Not checked:** the full gate was not run in this job; the pull request's CI is the check.
+- **2026-11-07 — Machine block and setup wizard, part 1 (#61).** The right panel now starts with a **Machine** block: status
+  (Disconnected / Ready / Busy / Alarm, or `Simulator: …`), name, bed size, origin, the connection controls, a **Machine settings…**
+  button and the Device section (open by default). The three other top-level headers go through `tr`. **Laser → Machine setup…**
+  opens a skippable wizard: connect (simulator or serial port), read `$$` (bed from `$130`/`$131`, S max from `$30`, homing `$22`,
+  laser mode `$32` with a button to turn it on), a laser-off direction test (Up sets the origin corner, Right flags a reversed X axis
+  and offers to flip `$3`), then name and save. It opens by itself once on a host that keeps a note file (the desktop app:
+  `machine-setup.json`), and not again after it was skipped or saved. Tests run against the simulator (laser mode off, a reversed axis,
+  a bed smaller than the default). **Not done:** laser presets, Find my laser, the bed outline check, several machines (the machine is
+  still kept in the project, so a new project starts from the defaults), panel docking. **Not checked:** the full gate was not run in
+  this job (the pull request's CI is the check), nothing was run on real hardware, and the wizard was not looked at on screen.

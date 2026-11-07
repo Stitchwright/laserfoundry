@@ -63,8 +63,9 @@ pub fn toolbar(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
 
 pub fn inspector(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-        egui::CollapsingHeader::new("Cuts / Layers").default_open(true).show(ui, |ui| layers(app, ui));
-        egui::CollapsingHeader::new("Selection").default_open(true).show(ui, |ui| {
+        machine_block(app, ui);
+        egui::CollapsingHeader::new(tr("Cuts / Layers")).id_salt("layers").default_open(true).show(ui, |ui| layers(app, ui));
+        egui::CollapsingHeader::new(tr("Selection")).id_salt("selection").default_open(true).show(ui, |ui| {
             properties(app, ui);
             node_section(app, ui);
             text_properties(app, ui);
@@ -74,7 +75,26 @@ pub fn inspector(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
             nest_section(app, ui);
             override_section(app, ui);
         });
-        egui::CollapsingHeader::new("Laser").default_open(true).show(ui, |ui| laser(app, ui));
+        egui::CollapsingHeader::new(tr("Laser")).id_salt("laser").default_open(true).show(ui, |ui| laser(app, ui));
+    });
+}
+
+/// The machine at a glance (status, name, bed, origin), its connection and its settings, at the top of the panel.
+fn machine_block(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
+    egui::CollapsingHeader::new(tr("Machine")).id_salt("machine").default_open(true).show(ui, |ui| {
+        let m = app.session.doc.machine.clone();
+        let state = app.snap.as_ref().and_then(|s| s.status.as_ref()).map(|s| s.state);
+        let status = crate::machine_setup::status_label(app.link.is_some(), app.target == Target::Simulator, state, app.job_active());
+        ui.label(egui::RichText::new(status).strong());
+        let name = if m.name.trim().is_empty() { tr("Unnamed machine") } else { m.name.clone() };
+        ui.label(name);
+        let origin = if m.origin == Origin::BottomLeft { tr("bottom-left") } else { tr("top-left") };
+        ui.label(trf!("Bed {w} × {h} mm, origin {origin}", w = m.bed_width, h = m.bed_height, origin = origin));
+        connection(app, ui);
+        if ui.button(tr("Machine settings…")).on_hover_text(tr("Set up the machine step by step")).clicked() {
+            crate::machine_setup::open(app);
+        }
+        device(app, ui);
     });
 }
 
@@ -319,9 +339,10 @@ fn properties(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     }
 }
 
-fn laser(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
+/// Bed, origin, dialect and rotary: open by default, inside the Machine block.
+fn device(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let m = app.session.doc.machine.clone();
-    ui.collapsing(tr("Device"), |ui| {
+    egui::CollapsingHeader::new(tr("Device")).id_salt("device").default_open(true).show(ui, |ui| {
         egui::Grid::new("device").num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
             ui.label(tr("Bed width"));
             if let Some(v) = number(ui, m.bed_width, 1.0..=100_000.0, " mm") {
@@ -398,7 +419,9 @@ fn laser(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
             app.run("machine.set", json!({ "dynamic_power": dynamic }));
         }
     });
+}
 
+fn laser(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     let mut only = app.session.job_selection_only;
     if ui.checkbox(&mut only, tr("Cut selected shapes only")).on_hover_text(tr("Generate, estimate, frame and preview just the selection")).changed()
     {
@@ -409,7 +432,6 @@ fn laser(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     cut_order(app, ui);
     test_grid_section(app, ui);
     ui.separator();
-    connection(app, ui);
     job_controls(app, ui);
     if app.link.is_some() {
         jog_pad(app, ui);

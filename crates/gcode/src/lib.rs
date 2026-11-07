@@ -86,7 +86,8 @@ pub fn generate(job: &Job, machine: &Machine, placement: Placement) -> Result<St
 /// A program that traces `bounds` at low power (`power` percent, 0 for a dry run), `loops` times.
 pub fn frame(bounds: Rect, machine: &Machine, placement: Placement, speed: f64, power: f64) -> Result<String, GcodeError> {
     check_machine(machine)?;
-    if !(speed.is_finite() && speed > 0.0) {
+    // The same feed range `generate` accepts: a script or agent can ask for any number.
+    if !(speed.is_finite() && speed > 0.0 && speed <= MAX_FEED) {
         return Err(GcodeError::BadMachine("frame speed"));
     }
     let mut w = Writer::new(machine, placement)?;
@@ -732,7 +733,7 @@ G1 X20 S"
         fn frame_refuses_unusable_speeds_machines_and_bounds() {
             let m = Machine::default();
             let ok = Rect::new(10.0, 10.0, 30.0, 20.0);
-            for bad in [f64::NAN, f64::INFINITY, 0.0, -5.0] {
+            for bad in [f64::NAN, f64::INFINITY, 0.0, -5.0, MAX_FEED * 1.5, 1e300] {
                 assert_eq!(frame(ok, &m, Placement::Absolute, bad, 1.0), Err(GcodeError::BadMachine("frame speed")), "{bad}");
             }
             assert_eq!(frame(Rect::new(f64::NAN, 0.0, 5.0, 5.0), &m, Placement::Absolute, 1000.0, 1.0), Err(GcodeError::NonFinite));

@@ -1,7 +1,7 @@
 # MakerFoundry
 
 [MakerFoundry](https://makerfoundry.app) is the Foundry family's marketplace for designs. LaserFoundry works with it in two ways.
-MakerFoundry's side of the contract is in its [`docs/api.md`](https://github.com/SiteSentrix/makerfoundry/blob/main/docs/api.md);
+MakerFoundry's side of the contract is in its [`docs/api.md`](https://github.com/StitchFoundry/makerfoundry/blob/main/docs/api.md);
 the code here is `crates/ai/src/maker.rs` (requests, answers and the address checks, no network code),
 `crates/ui-egui/src/maker_ui.rs` (the window and the hand-offs to the host) and `apps/laserfoundry-web` (the browser's fetch).
 
@@ -20,7 +20,7 @@ where the title, licence and price are set. Nothing is public until the person p
 - Works in the desktop app and the browser version (the page's content security policy and the host's allow-list name MakerFoundry).
 
 ## Open in LaserFoundry (a link on a MakerFoundry page)
-MakerFoundry's **Open in LaserFoundry** button links to `https://stitchwright.github.io/laserfoundry/?open=<the design file's address>`.
+MakerFoundry's **Open in LaserFoundry** button links to `https://stitchfoundry.github.io/laserfoundry/?open=<the design file's address>`.
 The browser version reads it once at start, and:
 
 1. checks the address strictly (`maker::open_link`): `https`, exactly `makerfoundry.app` or `www.makerfoundry.app`, no user name or port,
@@ -48,4 +48,4 @@ Windows and macOS.
 
 ## For MakerFoundry's chat
 Once this is released and the hosted page serves it, MakerFoundry can switch the button on: set `LASERFOUNDRY_OPENS_LINKS` to `true`
-in `apps/makerfoundry/src/api.rs`, and keep `MF_API_ORIGINS` listing `https://stitchwright.github.io`.
+in `apps/makerfoundry/src/api.rs`, and keep `MF_API_ORIGINS` listing `https://stitchfoundry.github.io`.

@@ -14,8 +14,8 @@ status). Two rules for the page:
 | Item            | Value                                                          |
 |-----------------|----------------------------------------------------------------|
 | Name            | LaserFoundry                                                   |
-| App (browser)   | https://stitchwright.github.io/laserfoundry/ (later https://laserfoundry.app/) |
-| Source          | https://github.com/Stitchwright/laserfoundry                   |
+| App (browser)   | https://stitchfoundry.github.io/laserfoundry/ (later https://laserfoundry.app/) |
+| Source          | https://github.com/StitchFoundry/laserfoundry                   |
 | Licence         | MIT or Apache-2.0, free, no account needed for the core app    |
 | Platforms       | Browser (Chrome, Edge and other Chromium browsers can talk to the laser over Web Serial), Windows, macOS, Linux desktop |
 | Part of         | The Foundry family of maker tools (one Foundry Account for the AI features) |

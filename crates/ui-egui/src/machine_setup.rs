@@ -361,10 +361,14 @@ fn save_step(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
 fn nav(app: &mut LaserFoundryApp, ui: &mut egui::Ui, back: Option<Step>, next: Option<(Step, bool)>) {
     ui.add_space(8.0);
     ui.horizontal(|ui| {
-        if let Some(step) = back && ui.button(tr("Back")).clicked() {
+        if let Some(step) = back
+            && ui.button(tr("Back")).clicked()
+        {
             app.wizard.step = step;
         }
-        if let Some((step, enabled)) = next && ui.add_enabled(enabled, egui::Button::new(tr("Next"))).clicked() {
+        if let Some((step, enabled)) = next
+            && ui.add_enabled(enabled, egui::Button::new(tr("Next"))).clicked()
+        {
             app.wizard.step = step;
         }
         if ui.button(tr("Skip setup")).clicked() {

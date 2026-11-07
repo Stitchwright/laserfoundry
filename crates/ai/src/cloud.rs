@@ -16,6 +16,9 @@ pub const MESSAGES: &str = "/v1/messages";
 /// The shared Foundry account service, used when no other address is set at build time.
 pub const DEFAULT_SERVER: &str = "https://cloud.stitchfoundry.app";
 
+/// The staging account service, for release tests (the web app's `?services=staging`). Compiled in, never read from input.
+pub const STAGING_SERVER: &str = "https://cloud-staging-staging.up.railway.app";
+
 /// The service this build talks to: `LF_CLOUD_URL` when the program was built, else the shared Foundry service.
 pub const fn built_in_server() -> &'static str {
     match option_env!("LF_CLOUD_URL") {

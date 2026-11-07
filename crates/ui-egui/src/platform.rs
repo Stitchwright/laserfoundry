@@ -150,6 +150,12 @@ pub trait Platform {
         None
     }
 
+    /// Whether this session uses the staging account service and MakerFoundry (the web app's `?services=staging`, for release
+    /// tests). The addresses are compiled in (`cloud::STAGING_SERVER`, `maker::STAGING_SERVER`); no host supplies one.
+    fn staging(&self) -> bool {
+        false
+    }
+
     /// The address a page was opened to show a design from (the web app's `?open=` value, decoded once), taken once at
     /// start. The host also drops it from the page's address, so a reload does not fetch it again. Desktop hosts have none.
     fn startup_link(&self) -> Option<String> {

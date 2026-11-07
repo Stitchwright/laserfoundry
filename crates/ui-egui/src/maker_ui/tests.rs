@@ -290,8 +290,88 @@ mod publish_tests {
     }
 }
 
+mod staging_tests {
+    use super::*;
+
+    const STAGING_FILE: &str = "https://makerfoundry-test-test.up.railway.app/api/v1/designs/9/file/rose.svg";
+
+    #[test]
+    fn a_staging_session_uses_the_staging_addresses_and_shows_the_banner() {
+        let (mut app, shared) = staging_app(None);
+        assert_eq!(app.ai.server, "https://cloud-staging-staging.up.railway.app");
+        assert!(frame_labels(&mut app).iter().any(|l| l == "STAGING services (test data)"));
+        app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
+        app.maker.name_edited = Some("Test design".into());
+        app.start_publish();
+        let sent = shared.borrow().sent.last().cloned().unwrap();
+        assert_eq!(sent.url, "https://makerfoundry-test-test.up.railway.app/api/v1/designs");
+        answer(&mut app, &shared, 201, r#"{"id": 1, "url": "https://makerfoundry-test-test.up.railway.app/designs/1"}"#);
+        assert_eq!(app.pending_url.as_deref(), Some("https://makerfoundry-test-test.up.railway.app/designs/1"));
+        // the publish window's Name field has an accessible name
+        app.open_ai(Window::Publish);
+        assert!(frame_labels(&mut app).iter().any(|l| l == "Name"));
+    }
+
+    #[test]
+    fn staging_opens_only_staging_designs_and_production_only_production_ones() {
+        let (mut app, shared) = staging_app(Some(STAGING_FILE));
+        poll(&mut app);
+        assert_eq!(shared.borrow().fetches, vec![(STAGING_FILE.to_string(), maker::MAX_OPEN_BYTES)]);
+        let (mut app, shared) = staging_app(Some("https://makerfoundry.app/api/v1/designs/1/file/a.svg"));
+        poll(&mut app);
+        assert!(shared.borrow().fetches.is_empty(), "staging never opens a real design");
+        assert!(status(&app).1);
+        let (mut app, shared) = app_opened_with(STAGING_FILE);
+        poll(&mut app);
+        assert!(shared.borrow().fetches.is_empty(), "the staging host is accepted only in staging");
+        for look_alike in [
+            "https://makerfoundry-test-test.up.railway.app.evil.com/api/v1/designs/1/file/a.svg",
+            "https://makerfoundry-test-test.up.railway.app@evil.com/api/v1/designs/1/file/a.svg",
+            "http://makerfoundry-test-test.up.railway.app/api/v1/designs/1/file/a.svg",
+        ] {
+            let (mut app, shared) = staging_app(Some(look_alike));
+            poll(&mut app);
+            assert!(shared.borrow().fetches.is_empty(), "{look_alike}");
+        }
+    }
+
+    #[test]
+    fn production_stays_the_default_with_no_banner_and_the_real_account_is_not_used_in_staging() {
+        let (mut app, shared) = signed_in_app();
+        assert_eq!(app.ai.server, "https://c.example");
+        assert!(!frame_labels(&mut app).iter().any(|l| l.contains("STAGING")));
+        app.run("shape.rectangle", json!({"x": 0, "y": 0, "width": 5, "height": 5})).unwrap();
+        app.maker.name_edited = Some("Test design".into());
+        app.start_publish();
+        assert_eq!(shared.borrow().sent.last().unwrap().url, "https://makerfoundry.app/api/v1/designs");
+        // a staging tab does not see the real account's token
+        let mut kept = Shared { can_fetch: true, staging: true, ..Shared::default() };
+        kept.secrets.insert("laserfoundry.ai".into(), json!({"token": "sfs_real", "server": "https://c.example"}).to_string());
+        let (staging, _) = build(kept);
+        assert_eq!(staging.ai.token, None);
+        assert_eq!(staging.ai.server, "https://cloud-staging-staging.up.railway.app");
+    }
+
+    fn staging_app(link: Option<&str>) -> (LaserFoundryApp, Rc<RefCell<Shared>>) {
+        let mut shared = Shared { link: link.map(Into::into), can_fetch: true, staging: true, ..Shared::default() };
+        shared.secrets.insert("laserfoundry.ai.staging".into(), json!({"consented": true, "token": "sfs_test"}).to_string());
+        build(shared)
+    }
+
+    /// Every label the screen-reader tree carries after one frame.
+    fn frame_labels(app: &mut LaserFoundryApp) -> Vec<String> {
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        let screen = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1280.0, 800.0));
+        let out = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), ..Default::default() }, |ui| app.ui(ui));
+        let update = out.platform_output.accesskit_update.expect("a tree update");
+        update.nodes.iter().filter_map(|(_, n)| n.label().map(str::to_string)).collect()
+    }
+}
+
 #[derive(Default)]
 struct Shared {
+    staging: bool,
     link: Option<String>,
     /// Every fetch the app started: the address and the size cap.
     fetches: Vec<(String, usize)>,
@@ -324,6 +404,10 @@ impl Platform for Fake {
 
     fn http_available(&self) -> bool {
         true
+    }
+
+    fn staging(&self) -> bool {
+        self.0.borrow().staging
     }
 
     fn startup_link(&self) -> Option<String> {

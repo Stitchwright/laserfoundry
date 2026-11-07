@@ -14,6 +14,7 @@ use crate::i18n::{self, tr, trf};
 
 /// Where the account and key are kept (see [`Platform::secret_set`](crate::Platform::secret_set)).
 const SECRET_KEY: &str = "laserfoundry.ai";
+const STAGING_SECRET_KEY: &str = "laserfoundry.ai.staging";
 
 /// Which window is open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -154,9 +155,13 @@ impl LaserFoundryApp {
         if std::mem::replace(&mut self.ai.loaded, true) {
             return;
         }
-        let kept: Option<Value> = self.platform.secret_get(SECRET_KEY).and_then(|t| serde_json::from_str(&t).ok());
+        let kept: Option<Value> = self.platform.secret_get(self.secret_key()).and_then(|t| serde_json::from_str(&t).ok());
         let text = |k: &str| kept.as_ref().and_then(|v| v.get(k)).and_then(Value::as_str).map(str::to_string);
-        self.ai.server = text("server").unwrap_or_else(|| cloud::built_in_server().to_string());
+        self.ai.server = if self.platform.staging() {
+            cloud::STAGING_SERVER.to_string()
+        } else {
+            text("server").unwrap_or_else(|| cloud::built_in_server().to_string())
+        };
         self.ai.email = text("email").unwrap_or_default();
         self.ai.key = text("key").unwrap_or_default();
         self.ai.use_key = kept.as_ref().and_then(|v| v.get("use_key")).and_then(Value::as_bool).unwrap_or(false);
@@ -183,7 +188,13 @@ impl LaserFoundryApp {
             .map(|(_, name)| name)
             .collect();
         let value = json!({ "server": self.ai.server, "email": self.ai.email, "key": self.ai.key, "use_key": self.ai.use_key, "token": self.ai.token, "consented": self.ai.consented, "off": off });
-        self.platform.secret_set(SECRET_KEY, &value.to_string());
+        self.platform.secret_set(self.secret_key(), &value.to_string());
+    }
+
+    /// Where the account is kept: a staging session has its own, so a real account's token is never sent to the staging
+    /// service and a test account never replaces the real one.
+    fn secret_key(&self) -> &'static str {
+        if self.platform.staging() { STAGING_SECRET_KEY } else { SECRET_KEY }
     }
 
     pub(crate) fn ai_error(&mut self, e: &AiError) {

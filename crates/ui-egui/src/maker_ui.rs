@@ -50,6 +50,11 @@ impl LaserFoundryApp {
         self.platform.http_available()
     }
 
+    /// The MakerFoundry this session talks to: the real one, or the staging one in a staging session.
+    pub(crate) fn maker_server(&self) -> &'static str {
+        if self.platform.staging() { maker::STAGING_SERVER } else { maker::DEFAULT_SERVER }
+    }
+
     /// Looks at the link the page was opened with, once, and follows a design fetch to its end. Call every frame.
     pub(crate) fn poll_maker(&mut self, ctx: &egui::Context) {
         if !std::mem::replace(&mut self.maker.link_read, true)
@@ -61,7 +66,7 @@ impl LaserFoundryApp {
     }
 
     fn open_from_link(&mut self, value: &str) {
-        match maker::open_link(value) {
+        match maker::open_link_in(value, self.platform.staging()) {
             Err(e) => self.open_failed(&e),
             // the address fetched is the checked one, never the text that came in
             Ok(link) if self.platform.start_fetch(&link.url, maker::MAX_OPEN_BYTES) => {
@@ -127,10 +132,11 @@ impl LaserFoundryApp {
     pub(crate) fn publish_window(&mut self, ui: &mut egui::Ui) {
         ui.label(tr("Send this drawing to MakerFoundry as a draft. You choose the title, licence and price on MakerFoundry, and nothing is public until you publish it there."));
         ui.horizontal(|ui| {
-            ui.label(tr("Name"));
+            let label = ui.label(tr("Name"));
             let mut name = self.publish_name();
             let field = egui::TextEdit::singleline(&mut name).char_limit(MAX_NAME).desired_width(280.0).hint_text(tr("Name your design"));
-            if ui.add(field).changed() {
+            // the label gives the field its accessible name ("Name"), which the browser tests look it up by
+            if ui.add(field).labelled_by(label.id).changed() {
                 self.maker.name_edited = Some(name);
             }
         });
@@ -139,7 +145,7 @@ impl LaserFoundryApp {
             Some(file) => ui.weak(trf!(
                 "It is sent as {name} (an SVG with your layers' colours) to {server}. The name becomes the draft's title; you can change it on MakerFoundry.",
                 name = file,
-                server = maker::DEFAULT_SERVER
+                server = self.maker_server()
             )),
             None => ui.weak(tr("Give the design a name first: it becomes the draft's title on MakerFoundry.")),
         };
@@ -178,12 +184,12 @@ impl LaserFoundryApp {
         let Some(svg) = exported["svg"].as_str() else { return };
         let file = laserfoundry_doc::base64::encode(svg.as_bytes());
         let app = format!("LaserFoundry {}", env!("CARGO_PKG_VERSION"));
-        let request = maker::publish(maker::DEFAULT_SERVER, &token, &name, &file, &app);
+        let request = maker::publish(self.maker_server(), &token, &name, &file, &app);
         self.send_ai(Pending::Publish, request);
     }
 
     pub(crate) fn publish_answered(&mut self, status: u16, body: &str) {
-        match maker::read_published(maker::DEFAULT_SERVER, status, body) {
+        match maker::read_published(self.maker_server(), status, body) {
             Ok(draft) => {
                 // the person's browser opens the draft's page (checked to be on MakerFoundry)
                 self.pending_url = Some(draft.url);

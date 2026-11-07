@@ -48,6 +48,7 @@ mod web {
                                 font_job: Rc::new(RefCell::new(FontJob::default())),
                                 leave_warning,
                                 http_job: Rc::new(RefCell::new(HttpJob::default())),
+                                staging: use_staging(),
                                 link: RefCell::new(take_open_link()),
                                 fetch_job: Rc::new(RefCell::new(FetchJob::default())),
                             }),
@@ -87,6 +88,8 @@ mod web {
         leave_warning: Rc<Cell<bool>>,
         /// The AI or account request in flight (or its answer, not yet taken).
         http_job: Rc<RefCell<HttpJob>>,
+        /// Whether this tab uses the staging services (`?services=staging`, remembered for the tab's session).
+        staging: bool,
         /// The design address the page was opened with (`?open=`), until the app has taken it.
         link: RefCell<Option<String>>,
         /// The design being fetched from a link (or its answer, not yet taken).
@@ -128,7 +131,11 @@ mod web {
         }
 
         fn http_available(&self) -> bool {
-            BUILT_IN_SERVICE.is_some_and(|s| crate::service::origin(s).is_some())
+            self.staging || BUILT_IN_SERVICE.is_some_and(|s| crate::service::origin(s).is_some())
+        }
+
+        fn staging(&self) -> bool {
+            self.staging
         }
 
         fn start_http(&self, request: laserfoundry_ai::HttpRequest) -> bool {
@@ -141,8 +148,9 @@ mod web {
                 job.result = None;
             }
             let job = Rc::clone(&self.http_job);
+            let staging = self.staging;
             spawn_local(async move {
-                let result = if crate::service::post_allowed(&request.url, BUILT_IN_SERVICE) {
+                let result = if crate::service::post_allowed(&request.url, BUILT_IN_SERVICE, staging) {
                     post(&request).await
                 } else {
                     Err("this page can only talk to the service it was built for and to MakerFoundry".to_string())
@@ -173,8 +181,9 @@ mod web {
             }
             let job = Rc::clone(&self.fetch_job);
             let url = url.to_string();
+            let staging = self.staging;
             spawn_local(async move {
-                let result = if crate::service::fetch_allowed(&url) {
+                let result = if crate::service::fetch_allowed(&url, staging) {
                     get(&url, max_bytes).await
                 } else {
                     Err("this page only fetches designs from MakerFoundry".to_string())
@@ -489,6 +498,23 @@ mod web {
     struct FetchJob {
         running: bool,
         result: Option<Result<Fetched, String>>,
+    }
+
+    /// Where a tab remembers, for its session only, that it uses the staging services.
+    const SERVICES_KEY: &str = "laserfoundry.services";
+
+    /// Whether this tab uses the staging services: the page was opened with `?services=staging`, or this tab did earlier.
+    /// Only the exact value `staging` counts, and it picks between two compiled-in sets of addresses.
+    fn use_staging() -> bool {
+        let Some(window) = web_sys::window() else { return false };
+        let search = window.location().search().unwrap_or_default();
+        let session = window.session_storage().ok().flatten();
+        let remembered = session.as_ref().and_then(|s| s.get_item(SERVICES_KEY).ok().flatten());
+        let staging = crate::service::staging_requested(&search, remembered.as_deref());
+        if staging && let Some(session) = session {
+            let _ = session.set_item(SERVICES_KEY, crate::service::REMEMBER);
+        }
+        staging
     }
 
     /// Reads the design address the page was opened with (`?open=`) and takes it out of the page's address, so reloading the

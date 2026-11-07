@@ -457,6 +457,11 @@ impl LaserFoundryApp {
         if !self.has_modal() {
             self.handle_shortcuts(ui.ctx());
         }
+        if self.platform.staging() {
+            egui::Panel::top("staging").show(ui, |ui| {
+                ui.colored_label(self.tokens.error, tr("STAGING services (test data)"));
+            });
+        }
         menus::menu_bar(self, ui);
         if self.tablet_active() {
             tablet::action_bar(self, ui);

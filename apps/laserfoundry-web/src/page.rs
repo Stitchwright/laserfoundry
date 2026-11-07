@@ -30,7 +30,13 @@ mod tests {
         assert!(script.contains("start(\"laserfoundry\")") && PAGE.contains("<canvas id=\"laserfoundry\">"), "the canvas and the start call agree");
         let policy = between(PAGE, "http-equiv=\"Content-Security-Policy\" content=\"", "\"").unwrap();
         let connect = policy.split(';').map(str::trim).find(|d| d.starts_with("connect-src")).expect("a connect-src");
-        for origin in ["__CLOUD_ORIGIN__", "https://makerfoundry.app", "https://www.makerfoundry.app"] {
+        for origin in [
+            "__CLOUD_ORIGIN__",
+            "https://makerfoundry.app",
+            "https://www.makerfoundry.app",
+            laserfoundry_ai::cloud::STAGING_SERVER,
+            laserfoundry_ai::maker::STAGING_SERVER,
+        ] {
             assert!(connect.split(' ').any(|o| o == origin), "connect-src lacks {origin}: {connect}");
         }
         assert!(policy.contains("'wasm-unsafe-eval'") && !policy.contains("'unsafe-eval'") && !policy.contains("script-src 'self' 'unsafe-inline'"));

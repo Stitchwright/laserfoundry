@@ -20,6 +20,10 @@ use super::{AiError, HttpRequest, api_message, cloud};
 pub const DEFAULT_SERVER: &str = "https://makerfoundry.app";
 /// The only hosts a design may be opened from.
 pub const OPEN_HOSTS: [&str; 2] = ["makerfoundry.app", "www.makerfoundry.app"];
+/// The staging MakerFoundry, for release tests (the web app's `?services=staging`). Compiled in, never read from input.
+pub const STAGING_SERVER: &str = "https://makerfoundry-test-test.up.railway.app";
+/// The staging MakerFoundry's host: the only one a design may be opened from while in staging.
+pub const STAGING_HOST: &str = "makerfoundry-test-test.up.railway.app";
 /// The most MakerFoundry takes for a laser file (the site's own limit).
 pub const MAX_PUBLISH_BYTES: usize = 8 * 1024 * 1024;
 /// The most read from a link.
@@ -93,6 +97,12 @@ pub fn read_published(server: &str, status: u16, body: &str) -> Result<Published
 /// The address from a `?open=` value (already decoded once, as the browser reads it), if it is a design file on one of
 /// MakerFoundry's hosts and nothing else.
 pub fn open_link(value: &str) -> Result<OpenLink, AiError> {
+    open_link_in(value, false)
+}
+
+/// [`open_link`] for the services in use: in staging only the staging MakerFoundry's host is accepted (so test runs never
+/// touch real designs), otherwise only the real ones.
+pub fn open_link_in(value: &str, staging: bool) -> Result<OpenLink, AiError> {
     let value = value.trim();
     if value.is_empty() || value.len() > MAX_LINK || !value.is_ascii() || value.chars().any(|c| c.is_control() || c.is_whitespace() || c == '\\') {
         return Err(AiError::BadLink);
@@ -102,7 +112,8 @@ pub fn open_link(value: &str) -> Result<OpenLink, AiError> {
     let (host, tail) = rest.split_at(split);
     // no user name, port or IPv6 form, and the host has to be one of ours (host names have no case)
     let host = host.to_ascii_lowercase();
-    if !OPEN_HOSTS.contains(&host.as_str()) {
+    let ours = if staging { host == STAGING_HOST } else { OPEN_HOSTS.contains(&host.as_str()) };
+    if !ours {
         return Err(AiError::BadLink);
     }
     let path_end = tail.find(['?', '#']).unwrap_or(tail.len());

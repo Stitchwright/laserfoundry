@@ -1037,3 +1037,11 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   a bed smaller than the default). **Not done:** laser presets, Find my laser, the bed outline check, several machines (the machine is
   still kept in the project, so a new project starts from the defaults), panel docking. **Not checked:** the full gate was not run in
   this job (the pull request's CI is the check), nothing was run on real hardware, and the wizard was not looked at on screen.
+- **2026-11-07 — Web app: `?services=staging` switch (#69).** Opening the web app with exactly `?services=staging` makes that tab use the
+  staging account service and staging MakerFoundry (both compiled in, https only; remembered in the tab's session storage), with a
+  "STAGING services (test data)" banner. Any other value changes nothing, the page's address never supplies an address, and `?open=`
+  accepts the staging MakerFoundry host only in staging (and then only that host). A staging tab keeps its account under its own key, so a
+  real token never goes to staging. The page's content security policy names the two staging hosts; the publish window's Name field is
+  labelled by its "Name" label (the Send button is named by its text). Tests: address switching, look-alike and unknown values, banner,
+  production default. **Not done:** a dedicated file input for Import (a file dropped on the canvas works as before). **Not checked:** the
+  full gate was not run in this job (the pull request's CI is the check), and nothing was tried in a real browser against staging.

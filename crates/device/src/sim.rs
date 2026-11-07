@@ -61,6 +61,11 @@ impl SimulatedGrbl {
         &self.settings
     }
 
+    /// Sets a setting before connecting, to model a controller configured differently from the defaults.
+    pub fn set_setting(&mut self, id: u32, value: &str) {
+        self.settings.insert(id, value.to_string());
+    }
+
     /// Lines the "controller" has accepted, in order.
     pub fn received(&self) -> &[String] {
         &self.received

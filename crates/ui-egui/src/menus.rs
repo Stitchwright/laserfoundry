@@ -422,6 +422,11 @@ pub(crate) fn arrange_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
 }
 
 fn laser_menu(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
+    if ui.button(tr("Machine setup…")).on_hover_text(tr("Connect, read the controller, test directions, name the machine")).clicked() {
+        crate::machine_setup::open(app);
+        ui.close();
+    }
+    ui.separator();
     if ui.button(tr("Generate G-code")).clicked() {
         if app.run("job.gcode", Value::Null).is_some() {
             app.say(tr("G-code generated"));

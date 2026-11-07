@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
-use laserfoundry_device::MachineState;
+use laserfoundry_device::{Link, MachineState};
 use laserfoundry_doc::Origin;
 use serde_json::{Map, Value, json};
 
@@ -21,6 +21,10 @@ const TEST_JOG_FEED: f64 = 1500.0;
 const MAX_SETTING: f64 = 100_000.0;
 /// Longest machine name kept (the `machine.set` command cuts it here too).
 const MAX_NAME_CHARS: usize = 80;
+/// How much the bed check takes off each side when the head could not reach a corner, in mm.
+const SHRINK_MM: f64 = 10.0;
+/// The smallest bed side the check will shrink to, in mm.
+const MIN_BED_MM: f64 = 10.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum Step {
@@ -28,6 +32,7 @@ pub(crate) enum Step {
     Connect,
     Read,
     Direction,
+    Bed,
     Save,
 }
 
@@ -39,6 +44,8 @@ pub(crate) struct Wizard {
     pub y_away: Option<bool>,
     /// The answer to "did the head move to the right?" for a +X move.
     pub x_right: Option<bool>,
+    /// The answer to "did the head reach every corner without touching the frame?"
+    pub bed_ok: Option<bool>,
     pub name: String,
 }
 
@@ -86,6 +93,12 @@ pub(crate) fn origin_for(y_away: bool) -> Origin {
 pub(crate) fn flip_x_direction(settings: &BTreeMap<u32, String>) -> Option<f64> {
     let current = settings.get(&3)?.trim().parse::<f64>().ok().filter(|v| v.is_finite() && (0.0..=255.0).contains(v))?;
     Some(f64::from((current as u32) ^ 1))
+}
+
+/// The bed after the check took [`SHRINK_MM`] off each side's length; `None` when that would leave less than [`MIN_BED_MM`] or the size is not finite.
+pub(crate) fn shrunk_bed(width: f64, height: f64) -> Option<(f64, f64)> {
+    let (w, h) = (width - SHRINK_MM, height - SHRINK_MM);
+    (width.is_finite() && height.is_finite() && w >= MIN_BED_MM && h >= MIN_BED_MM).then_some((w, h))
 }
 
 /// One word for the machine's state, as shown at the top of the Machine block.
@@ -143,6 +156,30 @@ pub(crate) fn answer_right(app: &mut LaserFoundryApp, moved_right: bool) {
     app.wizard.x_right = Some(moved_right);
 }
 
+/// Sends the bed outline (laser off, S0) to the controller. Returns whether it was started.
+pub(crate) fn trace_bed(app: &mut LaserFoundryApp) -> bool {
+    app.wizard.bed_ok = None;
+    let Some(v) = app.run("machine.bed_outline", json!({})) else { return false };
+    let Some(g) = v["gcode"].as_str() else { return false };
+    app.start_job(g.to_string());
+    true
+}
+
+/// Takes [`SHRINK_MM`] off the bed's width and height after a corner could not be reached. Returns whether the bed changed.
+pub(crate) fn shrink_bed(app: &mut LaserFoundryApp) -> bool {
+    let m = &app.session.doc.machine;
+    let Some((w, h)) = shrunk_bed(m.bed_width, m.bed_height) else {
+        app.status = Some((tr("The bed is already as small as the check goes: set its size by hand"), true));
+        return false;
+    };
+    let changed = app.run("machine.set", json!({ "bed_width": w, "bed_height": h })).is_some();
+    if changed {
+        app.view = None;
+        app.wizard.bed_ok = None;
+    }
+    changed
+}
+
 /// Copies the bed size and S max the controller reported into the machine.
 pub(crate) fn apply_controller(app: &mut LaserFoundryApp, c: &Controller) {
     let mut params = Map::new();
@@ -198,6 +235,7 @@ fn body(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
         Step::Connect => connect_step(app, ui),
         Step::Read => read_step(app, ui),
         Step::Direction => direction_step(app, ui),
+        Step::Bed => bed_step(app, ui),
         Step::Save => save_step(app, ui),
     }
 }
@@ -330,11 +368,47 @@ fn direction_step(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
             ui.weak(tr("Read the controller's settings first (step 2) to change this here."));
         }
     }
-    nav(app, ui, Some(Step::Read), Some((Step::Save, true)));
+    nav(app, ui, Some(Step::Read), Some((Step::Bed, true)));
+}
+
+fn bed_step(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
+    ui.heading(tr("4. Bed check (laser off)"));
+    ui.label(tr("The head traces the whole bed outline with the laser off (S0). Home or zero the head at the bed's origin corner first, and keep clear of the frame."));
+    let connected = app.link.is_some();
+    let active = app.job_active();
+    if !connected {
+        ui.weak(tr("Not connected: you can skip this check."));
+    }
+    let (w, h) = (app.session.doc.machine.bed_width, app.session.doc.machine.bed_height);
+    ui.weak(trf!("Bed {w} × {h} mm", w = w, h = h));
+    ui.horizontal(|ui| {
+        if ui.add_enabled(connected && !active, egui::Button::new(tr("Trace the bed outline"))).clicked() {
+            trace_bed(app);
+        }
+        if ui.add_enabled(connected, egui::Button::new(tr("Stop"))).on_hover_text(tr("Soft reset: stops motion and turns the laser off")).clicked() {
+            app.link_do(Link::stop);
+        }
+    });
+    ui.label(tr("Did the head reach every corner without touching the frame?"));
+    ui.horizontal(|ui| {
+        if ui.selectable_label(app.wizard.bed_ok == Some(true), tr("Yes")).clicked() {
+            app.wizard.bed_ok = Some(true);
+        }
+        if ui.selectable_label(app.wizard.bed_ok == Some(false), tr("No")).clicked() {
+            app.wizard.bed_ok = Some(false);
+        }
+    });
+    if app.wizard.bed_ok == Some(false) {
+        ui.colored_label(app.tokens.error, tr("Make the bed smaller so jobs stay clear of the frame, then trace it again."));
+        if ui.button(trf!("Shrink the bed by {mm} mm each way", mm = SHRINK_MM)).clicked() {
+            shrink_bed(app);
+        }
+    }
+    nav(app, ui, Some(Step::Direction), Some((Step::Save, true)));
 }
 
 fn save_step(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
-    ui.heading(tr("4. Name and save"));
+    ui.heading(tr("5. Name and save"));
     let m = &app.session.doc.machine;
     let origin = if m.origin == Origin::BottomLeft { tr("bottom-left") } else { tr("top-left") };
     ui.label(trf!("Bed {w} × {h} mm, origin {origin}", w = m.bed_width, h = m.bed_height, origin = origin));
@@ -346,7 +420,7 @@ fn save_step(app: &mut LaserFoundryApp, ui: &mut egui::Ui) {
     ui.add_space(8.0);
     ui.horizontal(|ui| {
         if ui.button(tr("Back")).clicked() {
-            app.wizard.step = Step::Direction;
+            app.wizard.step = Step::Bed;
         }
         if ui.button(tr("Save machine")).clicked() {
             save(app);

@@ -64,6 +64,15 @@ pub(super) const COMMANDS: &[CommandSpec] = &[
         run: frame,
     },
     CommandSpec {
+        id: "machine.bed_outline",
+        label: "Trace Bed Outline",
+        menu: "Laser",
+        shortcut: None,
+        params_doc: "{speed? (mm/min, default 1500)}  — returns a program that traces the whole bed at S0 (laser off) so you can check it reaches every corner; refuses a bed the machine cannot describe",
+        mutates: false,
+        run: bed_outline,
+    },
+    CommandSpec {
         id: "job.simulate",
         label: "Simulate on Virtual Machine",
         menu: "Laser",
@@ -213,6 +222,24 @@ fn frame(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let p: FrameParams = parse(params)?;
     let bounds = laserfoundry_toolpath::job_bounds(&s.job_doc()).ok_or_else(|| EngineError::NotFound("there is nothing to frame".into()))?;
     let program = laserfoundry_gcode::frame(bounds, &s.doc.machine, placement(s)?, p.speed, p.power)?;
+    Ok(json!({ "gcode": program, "bounds": [bounds.x0, bounds.y0, bounds.x1, bounds.y1] }))
+}
+
+#[derive(Deserialize)]
+struct BedOutlineParams {
+    #[serde(default = "outline_speed")]
+    speed: f64,
+}
+
+fn outline_speed() -> f64 {
+    1500.0
+}
+
+fn bed_outline(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let p: BedOutlineParams = parse(params)?;
+    let m = &s.doc.machine;
+    let bounds = laserfoundry_geom::Rect::new(0.0, 0.0, m.bed_width, m.bed_height);
+    let program = laserfoundry_gcode::frame(bounds, m, Placement::Absolute, p.speed, 0.0)?;
     Ok(json!({ "gcode": program, "bounds": [bounds.x0, bounds.y0, bounds.x1, bounds.y1] }))
 }
 

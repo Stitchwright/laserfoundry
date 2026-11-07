@@ -1037,3 +1037,10 @@ See [`docs/gaps.md`](docs/gaps.md) for the ranked work list and
   a bed smaller than the default). **Not done:** laser presets, Find my laser, the bed outline check, several machines (the machine is
   still kept in the project, so a new project starts from the defaults), panel docking. **Not checked:** the full gate was not run in
   this job (the pull request's CI is the check), nothing was run on real hardware, and the wizard was not looked at on screen.
+- **2026-11-07 — Setup wizard: bed-outline check (#61).** New command `machine.bed_outline` returns a program that traces the whole
+  bed at S0 (laser off, 1500 mm/min by default; it refuses a bed or speed the G-code writer rejects). The wizard has a new step 4,
+  **Bed check**: trace the outline, answer "did the head reach every corner without touching the frame?", and on "No" shrink the bed
+  by 10 mm each way (never below 10 mm). Tests: the command's output and refusals (engine), and the wizard step against the
+  simulator (trace, shrink, a bed already tiny). **Not done:** first-mark test grid, Find my laser, presets. **Not checked:** the
+  full gate was not run in this job (the pull request's CI is the check), nothing was run on real hardware, and the step was not
+  looked at on screen.

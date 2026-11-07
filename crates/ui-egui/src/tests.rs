@@ -3572,10 +3572,31 @@ mod setup_tests {
         }
 
         #[test]
+        fn the_bed_check_traces_the_bed_and_a_bed_that_does_not_fit_can_be_shrunk() {
+            let mut h = simulated(&[(130, "150.000"), (131, "90.000")]);
+            let c = ms::read_controller(&h.app.snap.as_ref().unwrap().settings);
+            ms::apply_controller(&mut h.app, &c);
+
+            assert!(ms::trace_bed(&mut h.app), "the outline program is built and sent");
+            assert!(h.app.status.as_ref().is_none_or(|(_, is_error)| !is_error), "{:?}", h.app.status);
+            h.app.link_do(Link::stop);
+
+            assert!(ms::shrink_bed(&mut h.app));
+            let m = &h.app.session.doc.machine;
+            assert_eq!((m.bed_width, m.bed_height), (140.0, 80.0));
+            assert_eq!(h.app.wizard.bed_ok, None);
+
+            // A bed that is already tiny is left alone.
+            h.app.run("machine.set", json!({"bed_width": 15, "bed_height": 15}));
+            assert!(!ms::shrink_bed(&mut h.app));
+            assert_eq!(h.app.session.doc.machine.bed_width, 15.0);
+        }
+
+        #[test]
         fn the_machine_block_and_the_wizard_draw_while_connected() {
             let mut h = simulated(&[]);
             ms::open(&mut h.app);
-            for step in [ms::Step::Connect, ms::Step::Read, ms::Step::Direction, ms::Step::Save] {
+            for step in [ms::Step::Connect, ms::Step::Read, ms::Step::Direction, ms::Step::Bed, ms::Step::Save] {
                 h.app.wizard.step = step;
                 h.frame(vec![]);
                 h.frame(vec![]);
@@ -3597,6 +3618,15 @@ mod setup_tests {
             assert_eq!(mask("1000"), None);
             assert_eq!(mask("abc"), None);
             assert_eq!(ms::flip_x_direction(&std::collections::BTreeMap::new()), None);
+        }
+
+        #[test]
+        fn the_shrunk_bed_stays_usable() {
+            assert_eq!(ms::shrunk_bed(150.0, 90.0), Some((140.0, 80.0)));
+            assert_eq!(ms::shrunk_bed(20.0, 90.0), Some((10.0, 80.0)));
+            assert_eq!(ms::shrunk_bed(19.0, 90.0), None);
+            assert_eq!(ms::shrunk_bed(f64::NAN, 90.0), None);
+            assert_eq!(ms::shrunk_bed(f64::INFINITY, 90.0), None);
         }
 
         #[test]

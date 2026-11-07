@@ -2298,6 +2298,19 @@ mod job_tests {
     }
 
     #[test]
+    fn the_bed_outline_traces_the_whole_bed_with_the_laser_off() {
+        let mut s = Session::new();
+        s.execute("machine.set", &json!({"bed_width": 150, "bed_height": 90})).unwrap();
+        let v = s.execute("machine.bed_outline", &json!({})).unwrap();
+        assert_eq!(v["bounds"], json!([0.0, 0.0, 150.0, 90.0]));
+        let g = v["gcode"].as_str().unwrap();
+        assert!(g.contains("X150") && g.contains("Y90"), "{g}");
+        assert!(g.lines().filter(|l| l.starts_with("G1")).all(|l| l.contains("S0") || !l.contains('S')), "{g}");
+        assert!(s.execute("machine.bed_outline", &json!({"speed": 0})).is_err());
+        assert!(s.execute("machine.bed_outline", &json!({"speed": "fast"})).is_err());
+    }
+
+    #[test]
     fn out_of_bed_designs_are_refused() {
         let mut s = square_session();
         s.execute("edit.move", &json!({"dx": 1000, "dy": 0})).unwrap();
